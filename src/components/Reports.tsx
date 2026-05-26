@@ -46,7 +46,7 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation }:
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [favorites, setFavorites] = useState<string[]>([
-    "pl", "bs", "cf", "tb", "ar_summary", "ap_aging_summary", "gst", "budget_vs_actual"
+    "pl", "bs", "cf", "tb", "gstr1", "ar_summary", "ap_aging_summary", "gst", "budget_vs_actual"
   ]);
   const [selectedReport, setSelectedReport] = useState<ReportItem | null>(null);
 
@@ -136,7 +136,8 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation }:
     { id: "billable_expense_details", name: "Billable Expense Details", category: "Purchases and Expenses", categoryId: "purchases_expenses", createdBy: "System Generated", lastVisited: "-" },
     { id: "operating_expenses_trends", name: "Operating Expenses Trends Analysis", category: "Purchases and Expenses", categoryId: "purchases_expenses", createdBy: "System Generated", lastVisited: "-" },
 
-    // --- Taxes (11) ---
+    // --- Taxes (12) ---
+    { id: "gstr1", name: "GSTR-1 Outward Supplies Return Summary", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "26 May 2026 01:08 PM" },
     { id: "gst", name: "Tax Summary", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "05 May 2026 03:51 PM" },
     { id: "gstr9", name: "Annual Summary (GSTR-9)", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "24 Feb 2026 03:54 PM" },
     { id: "tds_summary", name: "TDS Summary", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "-" },
@@ -302,6 +303,120 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation }:
   const inwardITCLiability = inputGst;
   const outwardTaxLiability = gstPayable;
   const netGstPayable = Math.max(0, outwardTaxLiability - inwardITCLiability);
+
+  // Dynamic GSTR-1 Outward Supplies Details
+  const gstr1Data = useMemo(() => {
+    const taxInvoices = db.invoices.filter(i => !i.isProforma);
+    
+    let b2bCount = 0;
+    let b2bTaxable = 0;
+    let b2bGst = 0;
+    let b2bIgst = 0;
+    let b2bCgst = 0;
+    let b2bSgst = 0;
+    
+    let b2cLargeCount = 0;
+    let b2cLargeTaxable = 0;
+    let b2cLargeGst = 0;
+    let b2cLargeCgst = 0;
+    let b2cLargeSgst = 0;
+    let b2cLargeIgst = 0;
+    
+    let b2cSmallCount = 0;
+    let b2cSmallTaxable = 0;
+    let b2cSmallGst = 0;
+    let b2cSmallCgst = 0;
+    let b2cSmallSgst = 0;
+    let b2cSmallIgst = 0;
+    
+    const b2bInvoicesList: Invoice[] = [];
+    const b2cLargeList: Invoice[] = [];
+    const b2cSmallList: Invoice[] = [];
+    const hsnSummaryMap: Record<string, { hsn: string; name: string; qty: number; value: number; taxable: number; igst: number; cgst: number; sgst: number; totalGst: number }> = {};
+    
+    taxInvoices.forEach(inv => {
+      const cust = db.customers.find(c => c.id === inv.customerId || c.name === inv.customerName);
+      const isRegistered = cust && cust.gstin && cust.gstin.trim().length >= 10;
+      const isInterstate = cust ? (cust.state.toLowerCase() !== db.company.state.toLowerCase()) : false;
+      const taxable = inv.subtotal;
+      const gst = inv.totalGst;
+      
+      // HSN summary grouping
+      inv.items.forEach(itm => {
+        const hsn = itm.hsnSac || "998311";
+        if (!hsnSummaryMap[hsn]) {
+          hsnSummaryMap[hsn] = {
+            hsn,
+            name: itm.name,
+            qty: 0,
+            value: 0,
+            taxable: 0,
+            igst: 0,
+            cgst: 0,
+            sgst: 0,
+            totalGst: 0
+          };
+        }
+        hsnSummaryMap[hsn].qty += itm.qty;
+        hsnSummaryMap[hsn].taxable += (itm.rate * itm.qty);
+        hsnSummaryMap[hsn].value += itm.amount + (itm.igst || 0) + (itm.cgst || 0) + (itm.sgst || 0);
+        hsnSummaryMap[hsn].igst += itm.igst || 0;
+        hsnSummaryMap[hsn].cgst += itm.cgst || 0;
+        hsnSummaryMap[hsn].sgst += itm.sgst || 0;
+        hsnSummaryMap[hsn].totalGst += (itm.igst || 0) + (itm.cgst || 0) + (itm.sgst || 0);
+      });
+      
+      if (isRegistered) {
+        b2bCount++;
+        b2bTaxable += taxable;
+        b2bGst += gst;
+        b2bIgst += inv.totalIgst || 0;
+        b2bCgst += inv.totalCgst || 0;
+        b2bSgst += inv.totalSgst || 0;
+        b2bInvoicesList.push(inv);
+      } else {
+        // Unregistered consumer
+        if (isInterstate && inv.total > 250000) {
+          b2cLargeCount++;
+          b2cLargeTaxable += taxable;
+          b2cLargeGst += gst;
+          b2cLargeIgst += inv.totalIgst || 0;
+          b2cLargeCgst += inv.totalCgst || 0;
+          b2cLargeSgst += inv.totalSgst || 0;
+          b2cLargeList.push(inv);
+        } else {
+          b2cSmallCount++;
+          b2cSmallTaxable += taxable;
+          b2cSmallGst += gst;
+          b2cSmallIgst += inv.totalIgst || 0;
+          b2cSmallCgst += inv.totalCgst || 0;
+          b2cSmallSgst += inv.totalSgst || 0;
+          b2cSmallList.push(inv);
+        }
+      }
+    });
+
+    const hsnSummaryList = Object.values(hsnSummaryMap);
+    
+    return {
+      b2bCount,
+      b2bTaxable,
+      b2bGst,
+      b2bIgst,
+      b2bCgst,
+      b2bSgst,
+      b2bInvoicesList,
+      b2cLargeCount,
+      b2cLargeTaxable,
+      b2cLargeGst,
+      b2cLargeList,
+      b2cSmallCount,
+      b2cSmallTaxable,
+      b2cSmallGst,
+      b2cSmallList,
+      hsnSummaryList
+    };
+  }, [db.invoices, db.customers, db.company]);
 
   // Trigger AI Report Companion
   const handleTriggerAIAnalyst = (reportName: string, payload: any) => {
@@ -916,6 +1031,218 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation }:
                         ))}
                       </tbody>
                     </table>
+                  </div>
+                </div>
+              )}
+
+              {/* SECTION G-1: GSTR-1 REPORT PANEL */}
+              {selectedReport.id === "gstr1" && (
+                <div id="stat-gstr1" className="space-y-6 animate-fade-in font-sans">
+                  <div className="text-center space-y-1 mb-6 border-b border-dashed border-[#E5E1D8] pb-4">
+                    <span className="text-[10px] font-mono font-bold tracking-widest text-emerald-805 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-250">GSTR India Schedulers</span>
+                    <h3 className="text-base font-black uppercase tracking-wider mt-1.5 text-slate-900">GSTR-1 Outward Supplies Return</h3>
+                    <p className="text-[11px] text-[#8C867A]">Monthly statement of outwards sales invoices, consumer supplies, and HSN consolidations.</p>
+                  </div>
+
+                  {/* SUMMARY CARDS GRID */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="bg-white border border-[#E5E1D8] p-4 rounded-xl shadow-2xs">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">B2B Registered Sales</span>
+                      <div className="flex items-baseline justify-between mt-1">
+                        <span className="text-xs font-semibold text-slate-500">{gstr1Data.b2bCount} Invoices</span>
+                        <span className="font-mono text-base font-bold text-slate-900">₹{gstr1Data.b2bTaxable.toLocaleString('en-IN')}</span>
+                      </div>
+                      <div className="text-[10px] font-mono text-emerald-700 mt-2 flex justify-between">
+                        <span>CGST+SGST/IGST:</span>
+                        <span>₹{gstr1Data.b2bGst.toLocaleString('en-IN')}</span>
+                      </div>
+                    </div>
+
+                    <div className="bg-white border border-[#E5E1D8] p-4 rounded-xl shadow-2xs">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">B2C Large Unreg</span>
+                      <div className="flex items-baseline justify-between mt-1">
+                        <span className="text-xs font-semibold text-slate-500">{gstr1Data.b2cLargeCount} Invoices</span>
+                        <span className="font-mono text-base font-bold text-slate-900">₹{gstr1Data.b2cLargeTaxable.toLocaleString('en-IN')}</span>
+                      </div>
+                      <div className="text-[10px] font-mono text-emerald-705 mt-2 flex justify-between">
+                        <span>IGST Levied:</span>
+                        <span>₹{gstr1Data.b2cLargeGst.toLocaleString('en-IN')}</span>
+                      </div>
+                    </div>
+
+                    <div className="bg-white border border-[#E5E1D8] p-4 rounded-xl shadow-2xs">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">B2C Retail / Small</span>
+                      <div className="flex items-baseline justify-between mt-1">
+                        <span className="text-xs font-semibold text-slate-500">{gstr1Data.b2cSmallCount} Invoices</span>
+                        <span className="font-mono text-base font-bold text-slate-900">₹{gstr1Data.b2cSmallTaxable.toLocaleString('en-IN')}</span>
+                      </div>
+                      <div className="text-[10px] font-mono text-emerald-705 mt-2 flex justify-between">
+                        <span>GST Levied:</span>
+                        <span>₹{gstr1Data.b2cSmallGst.toLocaleString('en-IN')}</span>
+                      </div>
+                    </div>
+
+                    <div className="bg-[#1C202F] text-white p-4 rounded-xl shadow-2xs">
+                      <span className="text-[10px] font-bold text-slate-450 uppercase tracking-widest block mb-1">Total Tax Liability</span>
+                      <div className="text-lg font-mono font-black text-[#00D779] mt-1.5">
+                        ₹{(gstr1Data.b2bGst + gstr1Data.b2cLargeGst + gstr1Data.b2cSmallGst).toLocaleString('en-IN')}
+                      </div>
+                      <div className="text-[9.5px] text-slate-300 mt-2 flex justify-between font-medium">
+                        <span>Gross Outward Supply:</span>
+                        <span className="font-mono">₹{(gstr1Data.b2bTaxable + gstr1Data.b2cLargeTaxable + gstr1Data.b2cSmallTaxable).toLocaleString('en-IN')}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* FULL DETAIL TABS GROUP */}
+                  <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+                    <p className="p-4 bg-slate-50 border-b border-slate-100 font-bold text-xs text-slate-800 flex items-center justify-between">
+                      <span>B2B Registered Tax Invoices (Table 4A, 4C)</span>
+                      <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-[9.5px] font-mono">Form GSTR-1 Real-time</span>
+                    </p>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs divide-y divide-slate-100">
+                        <thead>
+                          <tr className="bg-slate-50/50 text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                            <th className="py-2.5 px-4 font-mono font-bold leading-none">Inv Number</th>
+                            <th className="py-2.5 px-4">Customer Name</th>
+                            <th className="py-2.5 px-4">Rec GSTIN</th>
+                            <th className="py-2.5 px-4 text-right">Taxable Value (₹)</th>
+                            <th className="py-2.5 px-4 text-center">IGST (%)</th>
+                            <th className="py-2.5 px-4 text-right">CGST (₹)</th>
+                            <th className="py-2.5 px-4 text-right">SGST (₹)</th>
+                            <th className="py-2.5 px-4 text-right">IGST (₹)</th>
+                            <th className="py-2.5 px-4 text-right font-bold text-slate-800">Gross Total (₹)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-[11px]">
+                          {gstr1Data.b2bInvoicesList.length === 0 ? (
+                            <tr>
+                              <td colSpan={9} className="p-8 text-center text-slate-400">
+                                No B2B registered sales invoices created in this period. Enter a customer GSTIN to populate.
+                              </td>
+                            </tr>
+                          ) : (
+                            gstr1Data.b2bInvoicesList.map(inv => {
+                              const cust = db.customers.find(c => c.id === inv.customerId);
+                              return (
+                                <tr key={inv.id} className="hover:bg-slate-50 font-medium">
+                                  <td className="py-2.5 px-4 font-mono font-bold text-slate-900">{inv.invoiceNumber}</td>
+                                  <td className="py-2.5 px-4 max-w-[150px] truncate">{inv.customerName}</td>
+                                  <td className="py-2.5 px-4 font-mono font-bold text-slate-500">{cust?.gstin || "N/A"}</td>
+                                  <td className="py-2.5 px-4 text-right font-mono">₹{inv.subtotal.toLocaleString('en-IN')}</td>
+                                  <td className="py-2.5 px-4 text-center font-mono text-[10px]">
+                                    {inv.totalIgst ? "18%" : "0%"}
+                                  </td>
+                                  <td className="py-2.5 px-4 text-right font-mono text-slate-500">₹{(inv.totalCgst || 0).toLocaleString('en-IN')}</td>
+                                  <td className="py-2.5 px-4 text-right font-mono text-slate-500">₹{(inv.totalSgst || 0).toLocaleString('en-IN')}</td>
+                                  <td className="py-2.5 px-4 text-right font-mono text-slate-500">₹{(inv.totalIgst || 0).toLocaleString('en-IN')}</td>
+                                  <td className="py-2.5 px-4 text-right font-mono font-bold text-slate-800">₹{inv.total.toLocaleString('en-IN')}</td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* B2C SMALL RETAIL TRANSACTIONS */}
+                  <div className="bg-white border border-slate-205 rounded-xl overflow-hidden shadow-xs">
+                    <p className="p-4 bg-slate-50 border-b border-slate-100 font-bold text-xs text-slate-800 flex items-center justify-between">
+                      <span>B2C Small Consumer Supplies (Table 7)</span>
+                      <span className="px-2 py-0.5 bg-amber-50 text-amber-700 rounded text-[9.5px] font-mono">Standard Retail Sales</span>
+                    </p>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs divide-y divide-slate-100">
+                        <thead>
+                          <tr className="bg-slate-50/50 text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                            <th className="py-2.5 px-4 font-mono font-bold leading-none">Inv Number</th>
+                            <th className="py-2.5 px-4">Customer Name</th>
+                            <th className="py-2.5 px-4 text-right">Taxable Value (₹)</th>
+                            <th className="py-2.5 px-4 text-right">CGST Generated</th>
+                            <th className="py-2.5 px-4 text-right">SGST Generated</th>
+                            <th className="py-2.5 px-4 text-right">IGST Generated</th>
+                            <th className="py-2.5 px-4 text-right font-bold text-slate-800">Total Charged (₹)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-[11px]">
+                          {gstr1Data.b2cSmallList.length === 0 ? (
+                            <tr>
+                              <td colSpan={7} className="p-8 text-center text-slate-400">
+                                No B2C Retail sales invoices recorded in this financial period.
+                              </td>
+                            </tr>
+                          ) : (
+                            gstr1Data.b2cSmallList.map(inv => (
+                              <tr key={inv.id} className="hover:bg-slate-50 font-medium">
+                                <td className="py-2.5 px-4 font-mono font-bold text-slate-900">{inv.invoiceNumber}</td>
+                                <td className="py-2.5 px-4 text-slate-600">{inv.customerName} (Unregistered)</td>
+                                <td className="py-2.5 px-4 text-right font-mono">₹{inv.subtotal.toLocaleString('en-IN')}</td>
+                                <td className="py-2.5 px-4 text-right font-mono text-slate-450">₹{(inv.totalCgst || 0).toLocaleString('en-IN')}</td>
+                                <td className="py-2.5 px-4 text-right font-mono text-slate-450">₹{(inv.totalSgst || 0).toLocaleString('en-IN')}</td>
+                                <td className="py-2.5 px-4 text-right font-mono text-slate-450">₹{(inv.totalIgst || 0).toLocaleString('en-IN')}</td>
+                                <td className="py-2.5 px-4 text-right font-mono font-bold text-slate-800">₹{inv.total.toLocaleString('en-IN')}</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* HSN-WISE CONSOLIDATED SUMMARY */}
+                  <div className="bg-white border border-slate-205 rounded-xl overflow-hidden shadow-xs">
+                    <p className="p-4 bg-slate-50 border-b border-slate-100 font-bold text-xs text-slate-800 flex items-center justify-between">
+                      <span>HSN-wise Outward Supplies Summary (Table 12)</span>
+                      <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded text-[9.5px] font-mono font-bold">Mandatory HSN/SAC</span>
+                    </p>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs divide-y divide-slate-100">
+                        <thead>
+                          <tr className="bg-slate-50/50 text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                            <th className="py-2.5 px-4">HSN/SAC Code</th>
+                            <th className="py-2.5 px-4">Item Name / Description</th>
+                            <th className="py-2.5 px-4 text-center">UQC Type</th>
+                            <th className="py-2.5 px-4 text-right">Total Qty Sold</th>
+                            <th className="py-2.5 px-4 text-right">Gross Supply Value (₹)</th>
+                            <th className="py-2.5 px-4 text-right">Taxable Supply Value (₹)</th>
+                            <th className="py-2.5 px-4 text-right font-bold text-[#2C2C24]">Total Tax Levied (₹)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-[11px]">
+                          {gstr1Data.hsnSummaryList.length === 0 ? (
+                            <tr>
+                              <td colSpan={7} className="p-8 text-center text-slate-400">
+                                No items found with structured HSN/SAC records in outward invoices.
+                              </td>
+                            </tr>
+                          ) : (
+                            gstr1Data.hsnSummaryList.map(hsnItm => (
+                              <tr key={hsnItm.hsn} className="hover:bg-slate-50 font-medium">
+                                <td className="py-2.5 px-4 font-mono font-bold text-slate-900">{hsnItm.hsn}</td>
+                                <td className="py-2.5 px-4">{hsnItm.name}</td>
+                                <td className="py-2.5 px-4 text-center text-slate-400 font-mono">UQC-NOS</td>
+                                <td className="py-2.5 px-4 text-right font-mono text-slate-700">{hsnItm.qty || 0}</td>
+                                <td className="py-2.5 px-4 text-right font-mono text-slate-600">₹{hsnItm.value.toLocaleString('en-IN')}</td>
+                                <td className="py-2.5 px-4 text-right font-mono text-slate-600">₹{hsnItm.taxable.toLocaleString('en-IN')}</td>
+                                <td className="py-2.5 px-4 text-right font-mono font-bold text-emerald-800">₹{hsnItm.totalGst.toLocaleString('en-IN')}</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div className="bg-[#FFFBF2] border border-[#FFDDAA] p-4 rounded-xl flex items-start gap-3.5 text-[11.5px] leading-relaxed text-slate-700">
+                    <span className="text-base text-amber-600 font-bold block pt-0.5">⚠️</span>
+                    <div className="space-y-1">
+                      <p className="font-bold text-amber-900 uppercase tracking-widest text-[9px]">GSTR-1 India GST Compliance Validation Checklist:</p>
+                      <p>
+                        All HSN/SAC codes of outward supply services are automapped based on items catalog taxonomy. Click the <strong>Ask compliance AI Agent</strong> on topmost panels if adjustments to B2B inter-state parameters are required prior to final sandbox mock filing.
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}
