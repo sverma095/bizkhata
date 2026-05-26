@@ -135,6 +135,7 @@ export default function App() {
 
   // Quick action panel
   const [showQuickAddMenu, setShowQuickAddMenu] = useState(false);
+  const [showCreds, setShowCreds] = useState(false);
 
   const fetchSupabaseStatus = async () => {
     try {
@@ -786,17 +787,33 @@ export default function App() {
             <p className="text-xs text-slate-400">Zoho-style Corporate Ledger & Multi-user Workspace Gate</p>
           </div>
 
-          {/* Admin Credentials Alert Plate */}
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 text-xs text-amber-300 space-y-1.5 flex flex-col font-sans">
-            <span className="font-bold text-amber-400 uppercase tracking-wider text-[9.5px]">🔑 Standard Administrative Access (Copy to Login):</span>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 font-mono text-[10.5px] mt-1 text-amber-200">
-              <div>Email: <span className="text-white font-bold select-all bg-amber-500/15 px-1 rounded">svtiger543939@gmail.com</span></div>
-              <div>Password: <span className="text-white font-bold select-all bg-amber-500/15 px-1 rounded">Admin@123</span></div>
-              <div className="sm:col-span-2">Registered Mobile: <span className="text-white font-bold select-all bg-amber-500/15 px-1 tracking-wide rounded">8707401846</span></div>
-            </div>
-            <p className="text-[10px] text-slate-400 mt-1.5 leading-normal">
-              *To simulate a multi-tenant corporate owner subscription purchase, select the <strong>"Register Organization"</strong> panel tab below.
-            </p>
+          {/* Admin Credentials Alert Plate - Hidden behind elegant expandable panel */}
+          <div className="bg-[#1A1E2E] border border-slate-800 rounded-xl overflow-hidden shadow-sm">
+            <button
+              type="button"
+              onClick={() => setShowCreds(!showCreds)}
+              className="w-full text-left p-3.5 flex items-center justify-between text-xs font-semibold text-slate-300 hover:text-white transition"
+            >
+              <span className="flex items-center gap-2">
+                <span>🔑</span> Show System Demo Admin Credentials
+              </span>
+              <span className="text-[11px] font-bold text-emerald-500">
+                {showCreds ? "Hide" : "Show"}
+              </span>
+            </button>
+            {showCreds && (
+              <div className="border-t border-slate-800 p-4 bg-amber-500/5 text-xs text-amber-300 space-y-1.5 flex flex-col font-sans animate-fade-in">
+                <span className="font-bold text-amber-400 uppercase tracking-wider text-[9.5px]">🔑 Standard Administrative Access (Copy to Login):</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 font-mono text-[10.5px] mt-1 text-amber-200">
+                  <div>Email: <span className="text-white font-bold select-all bg-amber-500/15 px-1 rounded">svtiger543939@gmail.com</span></div>
+                  <div>Password: <span className="text-white font-bold select-all bg-amber-500/15 px-1 rounded">Admin@123</span></div>
+                  <div className="sm:col-span-2">Registered Mobile: <span className="text-white font-bold select-all bg-[#00D779]/15 px-1 tracking-wide rounded">8707401846</span></div>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1.5 leading-normal">
+                  *To simulate a multi-tenant corporate owner subscription purchase, select the <strong>"Register Organization"</strong> panel tab below.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Authentication Panel Box */}
@@ -994,7 +1011,7 @@ export default function App() {
   }
 
   return (
-    <div id="bizkhata-main-container" className="h-screen flex flex-col overflow-hidden bg-slate-50 font-sans text-slate-700 select-all">
+    <div id="bizkhata-main-container" className="h-screen flex flex-col overflow-hidden bg-slate-50 font-sans text-slate-700">
       
       {/* ----------------- BIZKHATA TOP GLOBAL BAR ----------------- */}
       <header id="bizkhata-global-header" className="h-12 bg-[#1C202F] flex items-center justify-between px-4 text-white shrink-0 select-none z-30">
