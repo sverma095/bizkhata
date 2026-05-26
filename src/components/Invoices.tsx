@@ -49,6 +49,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
   // Collapsible cards toggle inside profile overview
   const [isAddressExpanded, setIsAddressExpanded] = useState(true);
   const [isDetailsExpanded, setIsDetailsExpanded] = useState(true);
+  const [showCustomerMore, setShowCustomerMore] = useState(false);
 
   // Customer comments state
   const [customerComments, setCustomerComments] = useState<{[custId: string]: {author: string, date: string, text: string}[]}>({
@@ -1047,13 +1048,74 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                     </div>
                   </div>
 
-                  {/* AUX MORE */}
-                  <button 
-                    onClick={() => alert(`Direct Access Management parameters configured for regular supply checking.`)}
-                    className="p-1.5 px-2 bg-white border border-slate-300 rounded hover:bg-slate-50 text-slate-600 text-xs font-medium cursor-pointer"
-                  >
-                    More ▾
-                  </button>
+                  {/* AUX MORE DROPDOWN */}
+                  <div className="relative">
+                    <button 
+                      onClick={() => setShowCustomerMore(!showCustomerMore)}
+                      className="p-1.5 px-3 bg-white border border-slate-300 rounded hover:bg-slate-50 text-slate-700 text-xs font-semibold cursor-pointer flex items-center gap-1 shadow-2xs select-none"
+                    >
+                      More ▾
+                    </button>
+                    {showCustomerMore && (
+                      <div className="absolute right-0 mt-1.5 w-60 bg-white border border-slate-200 rounded-xl shadow-xl py-1.5 z-40 text-slate-700 font-medium font-sans divide-y divide-slate-100 animate-fade-in text-[11px]">
+                        <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
+                          Direct Access & Supply Control
+                        </div>
+                        <div className="p-1 space-y-0.5">
+                          <button 
+                            onClick={() => {
+                              setShowCustomerMore(false);
+                              alert("Direct Access Management parameters configured for regular supply checking. Status: ACTIVE.");
+                            }}
+                            className="w-full text-left font-sans hover:bg-slate-50 px-2.5 py-1.5 transition flex items-center gap-2 rounded"
+                          >
+                            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                            Configure Direct Access
+                          </button>
+                          <button 
+                            onClick={() => {
+                              setShowCustomerMore(false);
+                              alert("Checking supply capacity status with GSTIN network... Connected.");
+                            }}
+                            className="w-full text-left font-sans hover:bg-slate-50 px-2.5 py-1.5 transition flex items-center gap-2 rounded"
+                          >
+                            <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                            Run Regular Supply Checking
+                          </button>
+                          <button 
+                            onClick={() => {
+                              setShowCustomerMore(false);
+                              alert("Portal invitation generated. Resending setup corporate parameters.");
+                            }}
+                            className="w-full text-left font-sans hover:bg-slate-50 px-2.5 py-1.5 transition flex items-center gap-2 rounded"
+                          >
+                            <span className="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
+                            Enable Zoho Client Portal
+                          </button>
+                        </div>
+                        <div className="p-1 space-y-0.5">
+                          <button 
+                            onClick={() => {
+                              setShowCustomerMore(false);
+                              alert("Taxes treatment configured: GST Registered Business (Regular Supplies Verified).");
+                            }}
+                            className="w-full text-left font-sans hover:bg-slate-50 px-2.5 py-1 text-slate-650 transition rounded-sm"
+                          >
+                            GST Treatment Settings...
+                          </button>
+                          <button 
+                            onClick={() => {
+                              setShowCustomerMore(false);
+                              alert("Customer file archived successfully in sandboxed records.");
+                            }}
+                            className="w-full text-left font-sans hover:bg-slate-50 px-2.5 py-1 text-red-600 transition rounded-sm"
+                          >
+                            Archive Customer Record
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
 
                   <button 
                     onClick={() => setSelectedCustomer(null)}
