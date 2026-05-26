@@ -1,2 +1,0 @@
-import { Sidebar } from "@/components/layout/sidebar";
-export default function Page(){return <div className="flex"><Sidebar/><main className="flex-1 p-6"><div className="mb-6"><h1 className="text-3xl font-bold capitalize">expenses</h1><p className="text-slate-500">Bizkhata MVP module</p></div><div className="card p-6"><p>This module is ready for database integration and CRUD screens.</p></div></main></div>}
