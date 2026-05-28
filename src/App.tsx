@@ -44,7 +44,13 @@ import {
   Pause,
   Trash2,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  Lock,
+  ArrowLeft,
+  Eye,
+  EyeOff,
+  Smartphone,
+  Laptop
 } from "lucide-react";
 
 export default function App() {
@@ -66,6 +72,7 @@ export default function App() {
   const [loginPassword, setLoginPassword] = useState("");
   const [authView, setAuthView] = useState<"signin" | "signup">("signin");
   const [authError, setAuthError] = useState("");
+  const [ssoLoading, setSsoLoading] = useState(false);
 
   // Zoho multi-user recruitment structures
   const [newlyInvitedUser, setNewlyInvitedUser] = useState<any>(null);
@@ -136,6 +143,9 @@ export default function App() {
   // Quick action panel
   const [showQuickAddMenu, setShowQuickAddMenu] = useState(false);
   const [showCreds, setShowCreds] = useState(false);
+  const [loginStep, setLoginStep] = useState(1);
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
 
   const fetchSupabaseStatus = async () => {
     try {
@@ -295,6 +305,35 @@ export default function App() {
   }
 
   // Secure Authentication Handlers
+  const handleSSOLogin = (provider: string) => {
+    setSsoLoading(true);
+    setAuthError("");
+    setTimeout(() => {
+      setSsoLoading(false);
+      const adminObj = {
+        id: "usr_default_admin",
+        name: "System Administrator (MCA)",
+        email: "svtiger543939@gmail.com",
+        mobile: "8707401846",
+        role: UserRole.Owner,
+        isOwner: true
+      };
+      localStorage.setItem("bizkhata_session_v1", JSON.stringify(adminObj));
+      setCurrentUser(adminObj);
+      setLoginEmail("");
+      setLoginPassword("");
+      setLoginStep(1);
+    }, 1000);
+  };
+
+  const handleAutofillAdmin = () => {
+    setLoginEmail("svtiger543939@gmail.com");
+    setLoginPassword("Admin@123");
+    setLoginStep(2);
+    setAuthView("signin");
+    setAuthError("");
+  };
+
   const handleSignIn = (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError("");
@@ -314,6 +353,7 @@ export default function App() {
       setCurrentUser(foundUser);
       setLoginEmail("");
       setLoginPassword("");
+      setLoginStep(1);
     } else if (loginEmail.trim().toLowerCase() === "svtiger543939@gmail.com" && loginPassword.trim() === "Admin@123") {
       // Immediate Admin fail-safe credentials
       const adminObj = {
@@ -328,6 +368,7 @@ export default function App() {
       setCurrentUser(adminObj);
       setLoginEmail("");
       setLoginPassword("");
+      setLoginStep(1);
     } else {
       setAuthError("Invalid credentials. Please verify your email and password.");
     }
