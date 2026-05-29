@@ -419,8 +419,58 @@ const getInitialState = (): DatabaseState => {
         isOwner: false
       }
     ],
-    userSeatsLimit: 5,
-    mailLogs: []
+    userSeatsLimit: 4,
+    mailLogs: [],
+    organizations: [
+      {
+        id: "org_1",
+        name: "Bizkhata Pvt Ltd",
+        legalName: "Bizkhata Solutions Private Limited",
+        pan: "AAAAA1111A",
+        gstin: "29AAAAA0000A1Z1",
+        purchasedSeats: 4,
+        packageType: "Standard",
+        pricingMonthly: 2499,
+        purchaseStatus: "Active",
+        registeredEmail: "svtiger543939@gmail.com"
+      },
+      {
+        id: "org_2",
+        name: "Tata Motors SME Hub",
+        legalName: "Tata Motors Enterprises Limited",
+        pan: "TATA12345A",
+        gstin: "27TATAM1234A1Z5",
+        purchasedSeats: 12,
+        packageType: "Professional",
+        pricingMonthly: 5999,
+        purchaseStatus: "Active",
+        registeredEmail: "finance@tatamotors.com"
+      },
+      {
+        id: "org_3",
+        name: "Relio Global Accounts",
+        legalName: "Relio Global Technologies Inc",
+        pan: "RELI11112B",
+        gstin: "29RELIO2222B1Z6",
+        purchasedSeats: 25,
+        packageType: "Enterprise",
+        pricingMonthly: 12499,
+        purchaseStatus: "Trial",
+        registeredEmail: "billing@relioaccounts.glob"
+      },
+      {
+        id: "org_4",
+        name: "Unregistered Small Shop",
+        legalName: "Sai Kiran Retails India",
+        pan: "KIRA98765C",
+        gstin: "",
+        purchasedSeats: 2,
+        packageType: "Standard",
+        pricingMonthly: 1499,
+        purchaseStatus: "Suspended",
+        registeredEmail: "sai@kiranretail.in"
+      }
+    ]
   };
 };
 
@@ -1230,6 +1280,208 @@ app.post("/api/bills/pay", async (req, res) => {
     user,
     action: "Pay Vendor Bill",
     details: `Settle payable ₹${amountPaid} for supplier bill ${bill.billNumber}`
+  });
+
+  await writeDB(db);
+  res.json({ success: true, db });
+});
+
+// Post Manual Journal entry
+app.post("/api/journals", async (req, res) => {
+  const db = await readDB();
+  const { date, reference, description, lines, user } = req.body;
+
+  if (!date || !reference || !lines || !Array.isArray(lines) || lines.length === 0) {
+    return res.status(400).json({ error: "Missing required journal fields. All journals require a date, unique reference, and double entry transaction lines." });
+  }
+
+  // Validate balanced double entry
+  let totalDebit = 0;
+  let totalCredit = 0;
+  lines.forEach((l: any) => {
+    totalDebit += Number(l.debit || 0);
+    totalCredit += Number(l.credit || 0);
+  });
+
+  if (Math.abs(totalDebit - totalCredit) > 0.01) {
+    return res.status(400).json({ error: `Double-entry violation balance mismatch: Debits (₹${totalDebit.toLocaleString()}) must exactly balance out Credits (₹${totalCredit.toLocaleString()}). Difference is ₹${Math.abs(totalDebit - totalCredit).toLocaleString()}` });
+  }
+
+  const newJournal = {
+    id: `j_manual_${uuid()}`,
+    date,
+    reference,
+    description: description || "",
+    lines: lines.map((l: any) => ({
+      id: uuid(),
+      accountCode: l.accountCode,
+      accountName: l.accountName,
+      debit: Number(l.debit || 0),
+      credit: Number(l.credit || 0)
+    }))
+  };
+
+  db.journals.push(newJournal);
+
+  db.auditLogs.unshift({
+    id: uuid(),
+    timestamp: new Date().toISOString(),
+    user: user || "System user",
+    action: "Manual Journal Entry",
+    details: `Posted balanced accounting entries for ${reference} (₹${totalDebit.toLocaleString()}) to general accounts.`
+  });
+
+  await writeDB(db);
+  res.json({ success: true, db });
+});
+
+// Secure API endpoint to delete sub-users from Corporate Team Directory
+app.post("/api/users/remove", async (req, res) => {
+  const db = await readDB();
+  const { id, author } = req.body;
+
+  if (!id) {
+    return res.status(400).json({ error: "Missing required parameter: id" });
+  }
+
+  if (!db.users) db.users = [];
+
+  const targetIdx = db.users.findIndex(u => u.id === id);
+  if (targetIdx === -1) {
+    return res.status(404).json({ error: "Specified user record was not found." });
+  }
+
+  const targetUser = db.users[targetIdx];
+
+  // Prevent self-deletion or default admin system accounts
+  if (targetUser.email === "svtiger543939@gmail.com" || targetUser.isOwner) {
+    return res.status(400).json({ error: "Access Denied: The system owner administrator account cannot be deleted." });
+  }
+
+  db.users.splice(targetIdx, 1);
+
+  db.auditLogs.unshift({
+    id: uuid(),
+    timestamp: new Date().toISOString(),
+    user: author || "Admin",
+    action: "User Seat Deletion",
+    details: `Revoked corporate authorization and deleted user credentials for ${targetUser.name} (${targetUser.email}).`
+  });
+
+  await writeDB(db);
+  res.json({ success: true, db });
+});
+
+// Owner SaaS Console APIs
+app.post("/api/owner/organization/add", async (req, res) => {
+  const db = await readDB();
+  const { name, legalName, pan, gstin, purchasedSeats, packageType, pricingMonthly, purchaseStatus, registeredEmail } = req.body;
+
+  if (!name || !legalName || !registeredEmail) {
+    return res.status(400).json({ error: "Missing required organization parameters (Name, Legal Name, and Registered Email are mandatory)." });
+  }
+
+  if (!db.organizations) db.organizations = [];
+
+  const newOrg = {
+    id: `org_${uuid()}`,
+    name,
+    legalName,
+    pan: pan || "PFXYZ1234F",
+    gstin: gstin || "",
+    purchasedSeats: Number(purchasedSeats || 4),
+    packageType: packageType || "Standard",
+    pricingMonthly: Number(pricingMonthly || 2499),
+    purchaseStatus: purchaseStatus || "Active",
+    registeredEmail: registeredEmail.toLowerCase()
+  };
+
+  db.organizations.push(newOrg);
+
+  db.auditLogs.unshift({
+    id: uuid(),
+    timestamp: new Date().toISOString(),
+    user: "Platform SaaS Owner",
+    action: "Register Organization Purchased",
+    details: `Enrolled new customer organization '${name}' licensed for ${purchasedSeats} corporate user seats.`
+  });
+
+  await writeDB(db);
+  res.json({ success: true, db });
+});
+
+app.post("/api/owner/organization/update", async (req, res) => {
+  const db = await readDB();
+  const { id, name, legalName, pan, gstin, purchasedSeats, packageType, pricingMonthly, purchaseStatus, registeredEmail } = req.body;
+
+  if (!id) {
+    return res.status(400).json({ error: "Missing required parameter: id" });
+  }
+
+  if (!db.organizations) db.organizations = [];
+
+  const orgIdx = db.organizations.findIndex(o => o.id === id);
+  if (orgIdx === -1) {
+    return res.status(404).json({ error: "Organization record not found." });
+  }
+
+  const existing = db.organizations[orgIdx];
+  const updatedOrg = {
+    ...existing,
+    name: name || existing.name,
+    legalName: legalName || existing.legalName,
+    pan: pan !== undefined ? pan : existing.pan,
+    gstin: gstin !== undefined ? gstin : existing.gstin,
+    purchasedSeats: purchasedSeats !== undefined ? Number(purchasedSeats) : existing.purchasedSeats,
+    packageType: packageType || existing.packageType,
+    pricingMonthly: pricingMonthly !== undefined ? Number(pricingMonthly) : existing.pricingMonthly,
+    purchaseStatus: purchaseStatus || existing.purchaseStatus,
+    registeredEmail: registeredEmail ? registeredEmail.toLowerCase() : existing.registeredEmail
+  };
+
+  db.organizations[orgIdx] = updatedOrg;
+
+  db.auditLogs.unshift({
+    id: uuid(),
+    timestamp: new Date().toISOString(),
+    user: "Platform SaaS Owner",
+    action: "Update Organization Profile",
+    details: `Updated subscription parameters for '${updatedOrg.name}' (License: ${updatedOrg.purchasedSeats} total seats).`
+  });
+
+  // If this matches our current organization name, let's sync up the seat limit!
+  if (updatedOrg.name.toLowerCase() === db.company.name.toLowerCase()) {
+    db.userSeatsLimit = updatedOrg.purchasedSeats;
+  }
+
+  await writeDB(db);
+  res.json({ success: true, db });
+});
+
+app.post("/api/owner/organization/delete", async (req, res) => {
+  const db = await readDB();
+  const { id } = req.body;
+
+  if (!id) {
+    return res.status(400).json({ error: "Missing organization identification: id" });
+  }
+
+  if (!db.organizations) db.organizations = [];
+
+  const orgIdx = db.organizations.findIndex(o => o.id === id);
+  if (orgIdx === -1) {
+    return res.status(404).json({ error: "Organization record not found." });
+  }
+
+  const deletedOrg = db.organizations[orgIdx];
+  db.organizations.splice(orgIdx, 1);
+
+  db.auditLogs.unshift({
+    id: uuid(),
+    timestamp: new Date().toISOString(),
+    user: "Platform SaaS Owner",
+    action: "Remove Organization Track",
+    details: `Suspended cloud tenant tracing for organization '${deletedOrg.name}' (${deletedOrg.registeredEmail}).`
   });
 
   await writeDB(db);

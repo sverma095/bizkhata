@@ -17,7 +17,8 @@ export enum UserRole {
   BillingUser = "Billing User",
   Approver = "Approver",
   Viewer = "Viewer",
-  Auditor = "Auditor"
+  Auditor = "Auditor",
+  User = "User"
 }
 
 export interface Customer {
@@ -237,6 +238,19 @@ export interface MailLog {
   timestamp: string;
 }
 
+export interface OrgPurchase {
+  id: string;
+  name: string;
+  legalName: string;
+  pan: string;
+  gstin: string;
+  purchasedSeats: number;
+  packageType: 'Standard' | 'Professional' | 'Enterprise' | 'SME Bundle';
+  pricingMonthly: number;
+  purchaseStatus: 'Active' | 'Suspended' | 'Trial' | 'Overdue';
+  registeredEmail: string;
+}
+
 export interface DatabaseState {
   company: CompanyInfo;
   role: UserRole;
@@ -254,4 +268,5 @@ export interface DatabaseState {
   users?: AppUser[];
   userSeatsLimit?: number;
   mailLogs?: MailLog[];
+  organizations?: OrgPurchase[];
 }

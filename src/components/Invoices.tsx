@@ -215,18 +215,32 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
   const handleFormItemChange = (index: number, field: string, value: any) => {
     const updated = [...formItems];
     if (field === "itemId") {
-      const selectedItem = db.items.find(i => i.id === value);
-      if (selectedItem) {
+      if (value === "custom") {
         updated[index] = {
           ...updated[index],
-          itemId: selectedItem.id,
-          name: selectedItem.name,
-          hsnSac: selectedItem.hsnSac,
-          rate: selectedItem.salesRate || 0,
-          gstRate: selectedItem.gstRate || 18
+          itemId: "custom",
+          name: "",
+          hsnSac: "HSN-9983",
+          rate: 0,
+          gstRate: 18
         };
       } else {
-        updated[index].itemId = "";
+        const selectedItem = db.items.find(i => i.id === value);
+        if (selectedItem) {
+          updated[index] = {
+            ...updated[index],
+            itemId: selectedItem.id,
+            name: selectedItem.name,
+            hsnSac: selectedItem.hsnSac,
+            rate: selectedItem.salesRate || 0,
+            gstRate: selectedItem.gstRate || 18
+          };
+        } else {
+          updated[index].itemId = "";
+          updated[index].name = "";
+          updated[index].hsnSac = "";
+          updated[index].rate = 0;
+        }
       }
     } else {
       (updated[index] as any)[field] = value;
@@ -341,7 +355,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
       totalSgst: inv.totalSgst,
       totalIgst: inv.totalIgst,
       total: inv.total,
-      status: "Approved",
+      status: "Draft",
       isProforma: false,
       paymentReceived: 0,
       invoiceNumber: newTaxInvoiceNumber
@@ -518,8 +532,8 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
               <label className="text-xs text-slate-400 font-bold">Billing Items Breakdown</label>
               <div className="space-y-2.5">
                 {formItems.map((item, idx) => (
-                  <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center bg-slate-950/40 p-3 rounded-lg border border-slate-850">
-                    <div className="md:col-span-5 space-y-1">
+                  <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-start bg-slate-950/40 p-3 rounded-lg border border-slate-850">
+                    <div className="md:col-span-5 space-y-1.5">
                       <select
                         required
                         value={item.itemId}
@@ -530,7 +544,31 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                         {db.items.map(it => (
                           <option key={it.id} value={it.id}>{it.name} (₹{it.salesRate})</option>
                         ))}
+                        <option value="custom">★ Custom Item (Manual Entry) ★</option>
                       </select>
+                      {item.itemId === "custom" && (
+                        <input
+                          type="text"
+                          required
+                          value={item.name}
+                          placeholder="Type item description / name manually..."
+                          onChange={(e) => handleFormItemChange(idx, "name", e.target.value)}
+                          className="w-full bg-slate-950 border-indigo-900 border rounded px-2 py-1 text-slate-200 text-xs placeholder-slate-500 focus:border-indigo-600 outline-none"
+                        />
+                      )}
+                      
+                      {/* Interactive Manual HSN or SAC code entry input as requested */}
+                      <div className="flex items-center gap-1.5 pt-0.5">
+                        <span className="text-[10px] text-slate-500 font-mono font-bold">HSN/SAC Code:</span>
+                        <input
+                          type="text"
+                          required
+                          value={item.hsnSac || ""}
+                          placeholder="e.g. 9983"
+                          onChange={(e) => handleFormItemChange(idx, "hsnSac", e.target.value)}
+                          className="bg-slate-950 border border-slate-800 rounded px-2 py-0.5 text-slate-300 text-[10px] font-mono focus:border-indigo-650 focus:ring-1 focus:ring-indigo-650 outline-none w-28"
+                        />
+                      </div>
                     </div>
                     <div className="md:col-span-2 space-y-1">
                       <input 
@@ -705,19 +743,31 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
 
                           {/* Interactive Step-by-Step Sale Invoice flow */}
                           {inv.status === "Draft" && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setPushingEInvoiceId(inv.id);
-                                setTimeout(() => {
-                                  onSaveInvoice({ ...inv, status: "E-Invoiced" });
-                                  setPushingEInvoiceId(null);
-                                }, 1800);
-                              }}
-                              className="p-1 px-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-[10px] text-white font-bold rounded transition cursor-pointer shadow-sm flex items-center gap-1 animate-pulse"
-                            >
-                              ⚡ Push E-Invoice
-                            </button>
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setPushingEInvoiceId(inv.id);
+                                  setTimeout(() => {
+                                    onSaveInvoice({ ...inv, status: "E-Invoiced" });
+                                    setPushingEInvoiceId(null);
+                                  }, 1800);
+                                }}
+                                className="p-1 px-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-[10px] text-white font-bold rounded transition cursor-pointer shadow-sm flex items-center gap-1 animate-pulse"
+                              >
+                                ⚡ Push E-Invoice
+                              </button>
+                              
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSendingInvoice(inv);
+                                }}
+                                className="p-1 px-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-[10px] text-white font-bold rounded transition cursor-pointer shadow-sm flex items-center gap-1"
+                              >
+                                📨 Send Direct
+                              </button>
+                            </>
                           )}
 
                           {inv.status === "E-Invoiced" && (
@@ -1090,7 +1140,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                             className="w-full text-left font-sans hover:bg-slate-50 px-2.5 py-1.5 transition flex items-center gap-2 rounded"
                           >
                             <span className="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
-                            Enable Zoho Client Portal
+                            Enable Bizkhata Client Portal
                           </button>
                         </div>
                         <div className="p-1 space-y-0.5">
@@ -1669,8 +1719,16 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
             /* C) CLIENT DIRECTORY MASTER TABLE PANEL */
             <div className="bg-white border border-[#E5E1D8] rounded-2xl overflow-hidden p-6 space-y-4 font-sans text-xs shadow-sm animate-fade-in relative z-10 text-slate-800">
               <div className="flex justify-between items-center border-b border-[#E5E1D8] pb-3">
-                <h3 className="text-sm font-bold text-[#2C2C24]">Client & Customer Directory Accounts</h3>
-                <span className="font-mono bg-blue-105 text-blue-800 font-bold px-2 py-0.5 rounded text-[10px]">{db.customers.length} Regular Mapped Accounts</span>
+                <div>
+                  <h3 className="text-sm font-bold text-[#2C2C24]">Client & Customer Directory Accounts</h3>
+                  <span className="font-mono bg-blue-105 text-blue-800 font-bold px-2 py-0.5 rounded text-[10px] inline-block mt-1">{db.customers.length} Regular Mapped Accounts</span>
+                </div>
+                <button 
+                  onClick={handleCreateCustomerClick}
+                  className="bg-[#006EE5] hover:bg-[#0060C7] text-white text-xs font-bold px-4 py-2.5 rounded-lg flex items-center gap-1.5 transition-all shadow-sm cursor-pointer border-0"
+                >
+                  <Plus className="w-4 h-4" /> Add Customer Master Record
+                </button>
               </div>
               
               <div className="overflow-x-auto">

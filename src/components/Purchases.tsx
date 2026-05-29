@@ -14,7 +14,8 @@ import {
   Layers,
   Calendar,
   X,
-  PlusCircle
+  PlusCircle,
+  Lock
 } from "lucide-react";
 
 interface PurchasesProps {
@@ -25,9 +26,10 @@ interface PurchasesProps {
   onPayBill: (billPay: any) => Promise<void>;
   onTriggerAI: (feature: string, payload?: any) => void;
   defaultTab?: "vendors" | "expenses" | "bills";
+  userRole?: string;
 }
 
-export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, onPayBill, onTriggerAI, defaultTab }: PurchasesProps) {
+export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, onPayBill, onTriggerAI, defaultTab, userRole }: PurchasesProps) {
   const [activeTab, setActiveTab] = useState<"vendors" | "expenses" | "bills">(defaultTab || "vendors");
 
   useEffect(() => {
@@ -219,7 +221,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
             }`}
           >
             <FileText className="w-3.5 h-3.5" />
-            Vendor Bills
+            Vendor Invoices
           </button>
         </div>
 
@@ -240,7 +242,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
               onClick={() => setShowExpenseForm(true)}
               className="flex items-center gap-2 bg-[#5A5A40] hover:bg-[#4E4E37] text-white font-semibold text-xs px-4 py-2 rounded-lg cursor-pointer shadow-sm animate-fade-in"
             >
-              <Plus className="w-3.5 h-3.5 text-white" /> Record Asset Outflow
+              <Plus className="w-3.5 h-3.5 text-white" /> Record New Expense
             </button>
           )}
           {activeTab === "bills" && !showBillForm && (
@@ -249,7 +251,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
               onClick={() => setShowBillForm(true)}
               className="flex items-center gap-2 bg-[#5A5A40] hover:bg-[#4E4E37] text-white font-medium text-xs px-4 py-2 rounded-lg cursor-pointer animate-fade-in shadow-sm"
             >
-              <Plus className="w-3.5 h-3.5" /> Log Creditor Invoice Claim
+              <Plus className="w-3.5 h-3.5" /> Record Vendor Invoice
             </button>
           )}
         </div>
@@ -337,7 +339,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
           <div className="flex justify-between items-center border-b border-slate-800 pb-3 mb-4">
             <h4 className="text-sm font-bold text-slate-200 flex items-center gap-2">
               <Receipt className="text-rose-450 w-4.5 h-4.5" />
-              Log Out of Pocket Business Expense Outflow
+              Record New Expense
             </h4>
             <div className="flex items-center gap-2">
               <button 
@@ -497,7 +499,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
           <div className="flex justify-between items-center border-b border-slate-800 pb-2.5 mb-4">
             <h4 className="text-sm font-bold text-slate-250 flex items-center gap-2">
               <FileText className="w-4 h-4 text-indigo-455" />
-              Log Vendor Supplier Bill Claim
+              Record Vendor Invoice
             </h4>
             <button onClick={() => setShowBillForm(false)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button>
           </div>
@@ -520,7 +522,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-slate-400">Vendor Bill / Settle Invoicing Number</label>
+                <label className="text-slate-400">Vendor Invoice Number</label>
                 <input 
                   type="text" required value={billNumber} placeholder="e.g. BILL-ACME-8902"
                   onChange={(e) => setBillNumber(e.target.value)}
@@ -583,7 +585,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
 
             <div className="flex justify-end gap-3 pt-3 border-t border-[#E5E1D8] font-medium font-bold">
               <button type="button" onClick={() => setShowBillForm(false)} className="border border-[#E5E1D8] px-4 py-2 rounded text-[#8C867A] hover:bg-[#F5F2ED] transition cursor-pointer">Cancel</button>
-              <button type="submit" className="bg-[#5A5A40] hover:bg-[#4E4E37] px-5 py-2 rounded text-white font-bold select-none cursor-pointer border border-[#5A5A40]">Settle Payable Bill</button>
+              <button type="submit" className="bg-[#5A5A40] hover:bg-[#4E4E37] px-5 py-2 rounded text-white font-bold select-none cursor-pointer border border-[#5A5A40]">Settle Payable Invoice</button>
             </div>
           </form>
         </div>
@@ -639,7 +641,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
 
           {activeTab === "expenses" && (
             <div className="space-y-4 animate-fade-in">
-              <h3 className="text-sm font-bold text-[#2C2C24] border-b border-[#E5E1D8] pb-3">Spendings Outflow Ledger history</h3>
+              <h3 className="text-sm font-bold text-[#2C2C24] border-b border-[#E5E1D8] pb-3">Expenses History</h3>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left font-sans text-xs">
@@ -703,16 +705,22 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                             </button>
                           )}
                           {e.status === "Pending Approval" && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                onAddExpense({ ...e, status: "Approved" });
-                                alert(`Expense approved by authority step! Debited with standard double-entry logs to ${db.accounts.find(a => a.code === e.category)?.name || e.category}`);
-                              }}
-                              className="p-1 px-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold rounded transition cursor-pointer shadow-sm"
-                            >
-                              Approve (Authority)
-                            </button>
+                            (userRole === "Admin" || userRole === "Auditor" || userRole === "Owner") ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  onAddExpense({ ...e, status: "Approved" });
+                                  alert(`Expense approved by authority step! Debited with standard double-entry logs to ${db.accounts.find(a => a.code === e.category)?.name || e.category}`);
+                                }}
+                                className="p-1 px-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold rounded transition cursor-pointer shadow-sm"
+                              >
+                                Approve (Authority)
+                              </button>
+                            ) : (
+                              <span className="text-[10px] text-amber-700 font-bold bg-amber-50 border border-amber-200 px-2 py-1 rounded flex items-center gap-1">
+                                <Lock className="w-3 h-3 text-amber-600" /> Pending review by Auditor/Admin
+                              </span>
+                            )
                           )}
                           {e.status === "Approved" && (
                             <span className="text-[10px] text-emerald-800 font-bold">
@@ -730,15 +738,15 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
 
           {activeTab === "bills" && (
             <div className="space-y-4 animate-fade-in">
-              <h3 className="text-sm font-bold text-[#2C2C24] border-b border-[#E5E1D8] pb-3">Creditors Invoices & Bills Tracking</h3>
+              <h3 className="text-sm font-bold text-[#2C2C24] border-b border-[#E5E1D8] pb-3">Vendor Invoices Ledger</h3>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left font-sans text-xs">
                   <thead>
                     <tr className="border-b border-[#E5E1D8] text-[10px] uppercase font-bold text-[#8C867A] tracking-wider">
-                      <th className="py-3 px-3">Bill Number</th>
+                      <th className="py-3 px-3">Invoice Number</th>
                       <th className="py-3 px-3">Vendor / supplier</th>
-                      <th className="py-3 px-3 font-sans">Bill Date</th>
+                      <th className="py-3 px-3 font-sans">Invoice Date</th>
                       <th className="py-3 px-3">Due Limit Date</th>
                       <th className="py-3 px-3 text-right">Taxable Subtotal</th>
                       <th className="py-3 px-3 text-right">Gstr Levies</th>

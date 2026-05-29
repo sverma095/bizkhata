@@ -50,7 +50,12 @@ import {
   Eye,
   EyeOff,
   Smartphone,
-  Laptop
+  Laptop,
+  Award,
+  MessageSquare,
+  Sliders,
+  ShieldCheck,
+  Globe
 } from "lucide-react";
 
 export default function App() {
@@ -73,6 +78,7 @@ export default function App() {
   const [authView, setAuthView] = useState<"signin" | "signup">("signin");
   const [authError, setAuthError] = useState("");
   const [ssoLoading, setSsoLoading] = useState(false);
+  const [showHelpDrawer, setShowHelpDrawer] = useState(false);
 
   // Zoho multi-user recruitment structures
   const [newlyInvitedUser, setNewlyInvitedUser] = useState<any>(null);
@@ -132,6 +138,30 @@ export default function App() {
     }
   ]);
 
+  // SaaS Platform Owner Console States
+  const [showOrgEditForm, setShowOrgEditForm] = useState(false);
+  const [editingOrgId, setEditingOrgId] = useState("");
+  const [editingOrgName, setEditingOrgName] = useState("");
+  const [editingOrgLegal, setEditingOrgLegal] = useState("");
+  const [editingOrgPan, setEditingOrgPan] = useState("");
+  const [editingOrgGstin, setEditingOrgGstin] = useState("");
+  const [editingOrgSeats, setEditingOrgSeats] = useState(4);
+  const [editingOrgPackage, setEditingOrgPackage] = useState<any>('Standard');
+  const [editingOrgPricing, setEditingOrgPricing] = useState(2499);
+  const [editingOrgStatus, setEditingOrgStatus] = useState<any>('Active');
+  const [editingOrgEmail, setEditingOrgEmail] = useState("");
+
+  const [showNewOrgForm, setShowNewOrgForm] = useState(false);
+  const [newOrgName, setNewOrgName] = useState("");
+  const [newOrgLegal, setNewOrgLegal] = useState("");
+  const [newOrgPan, setNewOrgPan] = useState("");
+  const [newOrgGstin, setNewOrgGstin] = useState("");
+  const [newOrgSeats, setNewOrgSeats] = useState(4);
+  const [newOrgPackage, setNewOrgPackage] = useState<any>('Standard');
+  const [newOrgPricing, setNewOrgPricing] = useState(2499);
+  const [newOrgStatus, setNewOrgStatus] = useState<any>('Active');
+  const [newOrgEmail, setNewOrgEmail] = useState("");
+
   // AI Dialog state Overlay
   const [aiReportExplanation, setAiReportExplanation] = useState("");
   const [loadingAI, setLoadingAI] = useState(false);
@@ -146,6 +176,15 @@ export default function App() {
   const [loginStep, setLoginStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
+
+  // Item Creation overlay popup state
+  const [showItemModal, setShowItemModal] = useState(false);
+  const [newItemName, setNewItemName] = useState("");
+  const [newItemHsnSac, setNewItemHsnSac] = useState("9983");
+  const [newItemSalesRate, setNewItemSalesRate] = useState<number>(1200);
+  const [newItemGstRate, setNewItemGstRate] = useState<number>(18);
+  const [newItemUnit, setNewItemUnit] = useState("Hours");
+  const [newItemIncomeAccount, setNewItemIncomeAccount] = useState("Service Income");
 
   const fetchSupabaseStatus = async () => {
     try {
@@ -418,7 +457,7 @@ export default function App() {
         {
           id: "mail_welcome",
           to: signupEmail.toLowerCase(),
-          subject: "Corporate Ledgers Registered - Zoho Books & Bizkhata Billing Core",
+          subject: "Corporate Ledgers Registered - Bizkhata Billing Core",
           body: `Hi ${signupAdminName},\n\nYour fresh billing instance has been successfully deployed for ${signupCompany} with ${requestedSeats} user seats capacity.\n\nEnjoy the ledger!\n\nBizkhata Central.`,
           timestamp: new Date().toISOString()
         }
@@ -548,6 +587,59 @@ export default function App() {
     }
   };
 
+  const handleDeleteUser = async (userId: string) => {
+    if (!window.confirm("Are you sure you want to permanently revoke this user's corporate access seats?")) {
+      return;
+    }
+    try {
+      const response = await fetch("/api/users/remove", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: userId,
+          author: activeUserEmail
+        })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        alert(errData.error || "Failed to delete sub-user seat.");
+        return;
+      }
+
+      alert("Corporate sub-user access seat successfully revoked!");
+      await fetchDB();
+    } catch (error) {
+      console.error(error);
+      alert("Encountered connection errors dispatching delete.");
+    }
+  };
+
+  const handlePassManualJournal = async (journalData: any) => {
+    try {
+      const response = await fetch("/api/journals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...journalData,
+          user: activeUserEmail
+        })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        alert(errData.error || "Failed to post manual journal entry to ledger.");
+        return;
+      }
+
+      alert("Balanced manual journal entry successfully posted and reconciled in general ledger!");
+      await fetchDB();
+    } catch (error) {
+      console.error(error);
+      alert("Communications error posting manual journal.");
+    }
+  };
+
   // API Call Brokers
   const handleUpdateCompany = async (companyData: CompanyInfo) => {
     const r = await fetch("/api/company", {
@@ -565,6 +657,69 @@ export default function App() {
       body: JSON.stringify({ role })
     });
     if (r.ok) await fetchDB();
+  };
+
+  const handleOwnerAddOrg = async (orgData: any) => {
+    try {
+      const r = await fetch("/api/owner/organization/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(orgData)
+      });
+      if (!r.ok) {
+        const data = await r.json();
+        alert(data.error || "Failed to enroll new purchased organisation.");
+        return;
+      }
+      alert("New organisation subscription track registered successfully!");
+      await fetchDB();
+    } catch (e) {
+      console.error(e);
+      alert("Encountered connection errors registering organisation.");
+    }
+  };
+
+  const handleOwnerUpdateOrg = async (orgData: any) => {
+    try {
+      const r = await fetch("/api/owner/organization/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(orgData)
+      });
+      if (!r.ok) {
+        const data = await r.json();
+        alert(data.error || "Failed to update subscription profile.");
+        return;
+      }
+      alert("Organisation subscription details updated successfully!");
+      await fetchDB();
+    } catch (e) {
+      console.error(e);
+      alert("Encountered connection errors updating profile.");
+    }
+  };
+
+  const handleOwnerDeleteOrg = async (orgId: string) => {
+    if (!window.confirm("Are you sure you want to suspend and remove this organization registration trace from Platform Owner Console?")) {
+      return;
+    }
+    try {
+      const r = await fetch("/api/owner/organization/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: orgId })
+      });
+      if (!r.ok) {
+        const data = await r.json();
+        alert(data.error || "Failed to remove organization subscriber.");
+        return;
+      }
+      alert("Organisation tracing deleted successfully!");
+      await fetchDB();
+    } catch (e) {
+      console.error(e);
+      alert("Encountered connection errors deleting trace.");
+    }
   };
 
   const handleResetDB = async () => {
@@ -638,6 +793,34 @@ export default function App() {
       const err = await r.json();
       alert(`Customer Validation Warning: ${err.error || "Cannot save customer"}`);
     }
+  };
+
+  const handleAddItem = async (itemPayload: any) => {
+    const r = await fetch("/api/items", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(itemPayload)
+    });
+    if (r.ok) {
+      await fetchDB();
+    } else {
+      const err = await r.json();
+      alert(`Item Validation Warning: ${err.error || "Cannot save item"}`);
+    }
+  };
+
+  const handleFormItemModalSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const payload = {
+      name: newItemName,
+      hsnSac: newItemHsnSac,
+      salesRate: Number(newItemSalesRate),
+      gstRate: Number(newItemGstRate),
+      unit: newItemUnit,
+      incomeAccount: newItemIncomeAccount
+    };
+    await handleAddItem(payload);
+    setShowItemModal(false);
   };
 
   const handleAddExpense = async (ePayload: any) => {
@@ -815,238 +998,537 @@ export default function App() {
 
   if (!currentUser) {
     return (
-      <div className="min-h-screen bg-[#0E111E] text-slate-100 flex flex-col justify-center items-center p-4 md:p-8 font-sans selection:bg-blue-650 selection:text-white leading-relaxed relative">
-        <div className="absolute inset-x-0 top-0 h-[300px] bg-radial-gradient from-blue-900/15 via-transparent to-transparent pointer-events-none" />
+      <div className="fixed inset-0 min-h-screen bg-[#F5F7FA] flex items-stretch font-sans overflow-hidden text-slate-700 select-none z-50">
         
-        <div className="w-full max-w-md space-y-6">
-          {/* Main Logo Header */}
-          <div className="text-center space-y-2">
-            <div className="inline-flex justify-center items-center w-12 h-12 rounded-xl bg-gradient-to-tr from-emerald-600 to-green-500 border border-emerald-400 font-black text-white text-xl shadow-lg mb-2">
-              BK
+        {/* ----- LEFT SIDEBAR: PREMIUM HERO DESIGN (Hides on Mobile/Tablet) ----- */}
+        <div className="hidden lg:flex w-[38%] bg-[#121622] text-white flex-col justify-between p-12 relative overflow-hidden shrink-0 border-r border-slate-800 z-10 select-none">
+          {/* Decorative subtle ambient circle glows */}
+          <div className="absolute -top-40 -left-40 w-96 h-96 bg-indigo-505/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+          
+          {/* Header Branding */}
+          <div className="flex items-center gap-3 relative z-10 transition hover:opacity-90">
+            <div className="grid grid-cols-2 gap-0.5 w-7 h-7">
+              <div className="bg-indigo-600 rounded-xs"></div>
+              <div className="bg-[#006EE5] rounded-xs"></div>
+              <div className="bg-indigo-200 rounded-xs"></div>
+              <div className="bg-[#006EE5] rounded-xs"></div>
             </div>
-            <h1 className="text-2xl font-black tracking-tight text-white font-sans sm:text-3xl">Bizkhata Enterprise</h1>
-            <p className="text-xs text-slate-400">Zoho-style Corporate Ledger & Multi-user Workspace Gate</p>
+            <div>
+              <span className="font-extrabold text-[#006EE5] text-[19px] tracking-tight">Biz</span>
+              <span className="text-white font-bold text-[14px] ml-1 bg-indigo-600 px-1.5 py-0.5 rounded border border-indigo-750/60 uppercase tracking-widest">Khata</span>
+            </div>
           </div>
 
-          {/* Admin Credentials Alert Plate - Hidden behind elegant expandable panel */}
-          <div className="bg-[#1A1E2E] border border-slate-800 rounded-xl overflow-hidden shadow-sm">
+          {/* Feature Carousel/Details Presentation */}
+          <div className="space-y-8 my-auto relative z-10">
+            <div className="space-y-2">
+              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest bg-emerald-900/45 px-2.5 py-1 rounded-full border border-emerald-500/20 inline-block">
+                ⚡ Premium Multi-Tenant Suite
+              </span>
+              <h2 className="text-3xl font-black tracking-tight leading-tight text-white max-w-sm">
+                Your complete business, automated.
+              </h2>
+              <p className="text-xs text-slate-400 leading-normal max-w-xs">
+                Manage your professional ledgers, run live GSTR checks, and balance accounts side by side.
+              </p>
+            </div>
+
+            {/* Benefit Checkpoints */}
+            <div className="space-y-4 text-xs font-medium">
+              <div className="flex items-start gap-3">
+                <span className="w-5 h-5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">✓</span>
+                <div>
+                  <h4 className="font-bold text-white text-[12.5px]">Indian GST Compliance Schedulers</h4>
+                  <p className="text-[10.5px] text-slate-450 leading-relaxed">Automap HSN/SAC codes and verify GSTR-1, GSTR-3B registers.</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <span className="w-5 h-5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">✓</span>
+                <div>
+                  <h4 className="font-bold text-white text-[12.5px]">Direct Access Control (Bizkhata SSO)</h4>
+                  <p className="text-[10.5px] text-slate-450 leading-relaxed">Assign granular role locks to auditors, billing users, and staff.</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <span className="w-5 h-5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">✓</span>
+                <div>
+                  <h4 className="font-bold text-white text-[12.5px]">Secure Multi-Device Sync</h4>
+                  <p className="text-[10.5px] text-slate-450 leading-relaxed">Enterprise end-to-end sandbox safety linked with Ministry of Corporate Affairs codes.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Interactive Badge representation */}
+            <div className="bg-[#191F2F]/75 border border-slate-800 rounded-xl p-4 flex gap-3.5 items-center max-w-xs backdrop-blur-sm shadow-sm select-none">
+              <div className="p-2.5 bg-emerald-500/10 rounded-lg text-emerald-400 border border-emerald-500/20">
+                <Laptop className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[10px] font-bold text-slate-450 uppercase tracking-widest block">Core Status Gateway</span>
+                <span className="font-mono text-[11px] font-bold text-[#00D779] flex items-center gap-1.5 mt-0.5">
+                  <span className="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></span>
+                  Connected to Indian FinGate
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer of Sidebar */}
+          <div className="text-[10.5px] text-slate-500 border-t border-slate-800/80 pt-4 relative z-10 flex justify-between items-center">
+            <span>© 2026 Bizkhata Books Corporation.</span>
+            <span className="hover:underline cursor-pointer">Security Protocol • Privacy Policy</span>
+          </div>
+        </div>
+
+        {/* ----- RIGHT SIDE: BIZKHATA HIGH FIDELITY AUTH COMPONENT ----- */}
+        <div className="flex-1 bg-white flex flex-col justify-between items-center px-6 py-8 md:p-12 lg:p-16 relative overflow-y-auto w-full">
+          
+          {/* Language / Quick Links bar top right */}
+          <div className="w-full flex justify-between lg:justify-end items-center text-xs text-slate-500 shrink-0 gap-4">
+            {/* Bizkhata mini branding visible only on Mobile/Tablet */}
+            <div className="flex lg:hidden items-center gap-2 select-none">
+              <div className="grid grid-cols-2 gap-0.5 w-5 h-5">
+                <div className="bg-indigo-600 rounded-xs"></div>
+                <div className="bg-[#006EE5] rounded-xs"></div>
+                <div className="bg-indigo-200 rounded-xs"></div>
+                <div className="bg-[#006EE5] rounded-xs"></div>
+              </div>
+              <span className="font-black text-slate-900 text-sm tracking-tight">Bizkhata</span>
+            </div>
+            
+            <div className="flex items-center gap-1">
+              <span className="text-[11px] font-medium text-slate-450">Server Zone:</span>
+              <span className="text-[11.5px] font-bold text-slate-800 bg-slate-100 hover:bg-slate-200 px-2 py-0.5 rounded transition cursor-pointer flex items-center gap-1">
+                🇮🇳 India (IN) ▾
+              </span>
+            </div>
+          </div>
+
+          {/* SSO Mock Loading Overlay */}
+          {ssoLoading && (
+            <div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center z-50 animate-fade-in font-sans">
+              <div className="flex gap-1.5 items-center justify-center mb-4">
+                <span className="w-3.5 h-3.5 rounded-full bg-indigo-600 animate-bounce [animation-delay:-0.3s]"></span>
+                <span className="w-3.5 h-3.5 rounded-full bg-[#006EE5] animate-bounce [animation-delay:-0.15s]"></span>
+                <span className="w-3.5 h-3.5 rounded-full bg-indigo-400 animate-bounce"></span>
+              </div>
+              <p className="text-xs font-bold text-slate-650 tracking-wider font-mono">ESTABLISHING SECURE FEDERATED SESSION...</p>
+              <p className="text-[10px] text-slate-400 mt-1">Authenticating corporate token with Bizkhata Accounts server</p>
+            </div>
+          )}
+
+          {/* Centered Auth Box Container */}
+          <div className="w-full max-w-[400px] my-auto py-6 space-y-6">
+            
+            <div className="space-y-1">
+              <h1 className="text-2xl font-black tracking-tight text-slate-900">
+                {authView === "signin" ? "Sign In" : "Register Organization"}
+              </h1>
+              <p className="text-slate-500 text-[12.5px] leading-relaxed">
+                {authView === "signin"
+                  ? "to access your corporate books, GST liabilities and ledgers."
+                  : "Start managing your finances with Bizkhata-style multi-device sync seats."
+                }
+              </p>
+            </div>
+
+            {/* Auth Tab Toggle Slider */}
+            <div className="grid grid-cols-2 bg-slate-100 p-1 rounded-xl text-xs font-bold font-sans">
+              <button
+                type="button"
+                onClick={() => { setAuthView("signin"); setAuthError(""); }}
+                className={`py-2 px-3 rounded-lg text-center transition ${
+                  authView === "signin"
+                    ? "bg-white text-slate-900 shadow-xs"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAuthView("signup"); setAuthError(""); }}
+                className={`py-2 px-3 rounded-lg text-center transition ${
+                  authView === "signup"
+                    ? "bg-white text-slate-900 shadow-xs"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                Create Account
+              </button>
+            </div>
+
+            {/* Error Message Box */}
+            {authError && (
+              <div className="bg-rose-50 border border-rose-200 rounded-xl p-3.5 text-xs text-rose-700 font-medium font-sans flex items-start gap-2.5 animate-bounce">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <span className="font-bold block uppercase tracking-widest text-[9.5px] text-rose-800">Authentication Error</span>
+                  <p className="text-[11px] leading-relaxed">{authError}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Form Section */}
+            {authView === "signin" ? (
+              /* ----- BIZKHATA AUTHENTIC STEP-BY-STEP SIGN IN FORM ----- */
+              <div className="space-y-5">
+                {loginStep === 1 ? (
+                  /* STEP 1: Email Address Screen */
+                  <form onSubmit={(e) => {
+                    e.preventDefault();
+                    setAuthError("");
+                    if (!loginEmail.trim()) {
+                      setAuthError("Email address is required to locate accounts.");
+                      return;
+                    }
+                    if (!loginEmail.includes("@")) {
+                      setAuthError("Please enter a valid business email format (e.g. name@company.com).");
+                      return;
+                    }
+                    setLoginStep(2);
+                  }} className="space-y-4">
+                    
+                    <div className="space-y-1.5 relative">
+                      <div className="flex justify-between items-center">
+                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Corporate Email Address</label>
+                        <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded uppercase tracking-wider">MCA Linked</span>
+                      </div>
+                      
+                      <div className="relative">
+                        <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                          <Mail className="h-4 w-4 text-slate-400" />
+                        </span>
+                        <input
+                          type="email"
+                          required
+                          placeholder="e.g. svtiger543939@gmail.com"
+                          value={loginEmail}
+                          onChange={(e) => setLoginEmail(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-[#1572E8] focus:ring-1 focus:ring-[#1572E8] focus:outline-none rounded-xl pl-10 pr-4 py-3 text-slate-900 text-[13px] font-medium transition placeholder:text-slate-400"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="w-full bg-[#1572E8] hover:bg-[#1366cf] text-white font-extrabold py-3.5 px-4 rounded-xl tracking-wider text-xs uppercase transition shadow-md active:scale-98 cursor-pointer text-center block"
+                    >
+                      Next Step
+                    </button>
+
+                    <div className="text-center">
+                      <p className="text-[11.5px] text-slate-500">
+                        Don't have a Bizkhata account?{" "}
+                        <button
+                          type="button"
+                          onClick={() => { setAuthView("signup"); setAuthError(""); }}
+                          className="text-[#1572E8] hover:underline font-bold"
+                        >
+                          Sign Up Now
+                        </button>
+                      </p>
+                    </div>
+
+                    <div className="relative flex py-2 items-center text-xs text-slate-400 uppercase font-bold tracking-widest select-none">
+                      <div className="flex-grow border-t border-slate-100"></div>
+                      <span className="flex-shrink mx-3">Or sign in via SSO</span>
+                      <div className="flex-grow border-t border-slate-100"></div>
+                    </div>
+
+                    {/* Federated Mock SSO Options */}
+                    <div className="grid grid-cols-2 gap-3 text-xs font-semibold">
+                      <button
+                        type="button"
+                        onClick={() => handleSSOLogin("Google")}
+                        className="w-full flex items-center justify-center gap-2 border border-slate-200 rounded-xl py-2.5 hover:bg-slate-50 cursor-pointer transition text-slate-700 shadow-2xs font-sans font-bold"
+                      >
+                        <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                          <path fill="#EA4335" d="M12 5.04c1.66 0 3.2.57 4.38 1.69l3.27-3.27C17.67 1.54 14.98 1 12 1 7.35 1 3.37 3.65 1.39 7.56l3.85 2.99C6.21 7.22 8.9 5.04 12 5.04z"/>
+                          <path fill="#4285F4" d="M23.49 12.27c0-.81-.07-1.59-.2-2.36H12v4.51h6.46c-.29 1.48-1.12 2.73-2.38 3.58l3.7 2.87c2.16-1.99 3.41-4.92 3.41-8.6z"/>
+                          <path fill="#FBBC05" d="M5.24 14.75a7.1 7.1 0 010-4.3c-.09-.28-.15-.56-.15-.85L1.24 6.61a11.97 11.97 0 000 10.78l3.85-2.99c.04-.22.1-.43.15-.65z"/>
+                          <path fill="#34A853" d="M12 23c3.24 0 5.97-1.07 7.96-2.92l-3.7-2.87c-1.11.75-2.54 1.19-4.26 1.19-3.1 0-5.79-2.18-6.76-5.11L1.39 16.3C3.37 20.35 7.35 23 12 23z"/>
+                        </svg>
+                        Google
+                      </button>
+                      
+                      <button
+                        type="button"
+                        onClick={() => handleSSOLogin("Microsoft")}
+                        className="w-full flex items-center justify-center gap-2 border border-slate-200 rounded-xl py-2.5 hover:bg-slate-50 cursor-pointer transition text-slate-700 shadow-2xs font-sans font-bold"
+                      >
+                        <svg className="w-4 h-4 shrink-0" viewBox="0 0 23 23">
+                          <rect x="0" y="0" width="10.5" height="10.5" fill="#f25022"/>
+                          <rect x="11.5" y="0" width="10.5" height="10.5" fill="#7fba00"/>
+                          <rect x="0" y="11.5" width="10.5" height="10.5" fill="#00a4ef"/>
+                          <rect x="11.5" y="11.5" width="10.5" height="10.5" fill="#ffb900"/>
+                        </svg>
+                        Microsoft
+                      </button>
+                    </div>
+
+                  </form>
+                ) : (
+                  /* STEP 2: Password Screen with Zoho UI features */
+                  <form onSubmit={handleSignIn} className="space-y-4">
+                    
+                    {/* Selected Email Display and Quick Edit Back door */}
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex justify-between items-center text-xs">
+                      <div className="flex flex-col gap-0.5 max-w-[70%] truncate">
+                        <span className="text-[10px] text-slate-450 uppercase font-black tracking-widest">Sign-In Account:</span>
+                        <span className="text-slate-900 font-bold truncate pr-3">{loginEmail}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setLoginStep(1)}
+                        className="text-[#1572E8] hover:text-[#115bbd] font-bold text-[11px] underline flex shrink-0 items-center gap-1"
+                      >
+                        <ArrowLeft className="w-3.5 h-3.5 inline" /> Change
+                      </button>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between items-center text-xs">
+                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">MFA Access Password</label>
+                        <button
+                          type="button"
+                          onClick={() => alert("Help Desk: Demoview Administrator passcode is 'Admin@123'. To reset, contact portal administrator.")}
+                          className="text-[#1572E8] hover:underline font-bold text-[11px]"
+                        >
+                          Forgot Password?
+                        </button>
+                      </div>
+
+                      <div className="relative">
+                        <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                          <Lock className="h-4 w-4 text-slate-400" />
+                        </span>
+                        
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          required
+                          placeholder="Enter your security password"
+                          value={loginPassword}
+                          onChange={(e) => setLoginPassword(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-[#1572E8] focus:ring-1 focus:ring-[#1572E8] focus:outline-none rounded-xl pl-10 pr-10 py-3 text-slate-900 text-[13px] font-medium transition placeholder:text-slate-400"
+                        />
+
+                        {/* Password toggle icon button */}
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none"
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Keep me logged in checkbox */}
+                    <div className="flex items-center justify-between text-xs font-semibold py-1">
+                      <label className="flex items-center gap-2 cursor-pointer select-none text-slate-650">
+                        <input
+                          type="checkbox"
+                          checked={rememberMe}
+                          onChange={(e) => setRememberMe(e.target.checked)}
+                          className="rounded border-slate-300 text-[#1572E8] focus:ring-[#1572E8] w-4 h-4 accent-[#1572E8]"
+                        />
+                        <span>Keep me signed in</span>
+                      </label>
+                    </div>
+
+                    {/* Authentication Submit buttons */}
+                    <div className="grid grid-cols-5 gap-3 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setLoginStep(1)}
+                        className="col-span-1 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold p-3.5 rounded-xl flex items-center justify-center transition active:scale-95"
+                        title="Back to Email Step"
+                      >
+                        <ArrowLeft className="w-4 h-4" />
+                      </button>
+                      
+                      <button
+                        type="submit"
+                        className="col-span-4 bg-[#1572E8] hover:bg-[#1366cf] text-white font-black py-3.5 px-4 rounded-xl tracking-wider text-xs uppercase transition shadow-md active:scale-98 cursor-pointer text-center"
+                      >
+                        Authorize & Login 🔒
+                      </button>
+                    </div>
+
+                  </form>
+                )}
+
+                {/* Instant Demo Login Button right here on card for maximum delight */}
+                <div className="bg-[#FFF8E6] border border-[#FFDDAA] rounded-xl p-3 flex justify-between items-center text-xs">
+                  <div className="flex items-baseline gap-1 text-amber-800">
+                    <span className="font-bold">✨ Quick Test:</span>
+                    <span className="text-[10.5px]">Instant developer bypass</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAutofillAdmin}
+                    className="bg-amber-600 hover:bg-amber-700 text-white font-black px-3 py-1.5 rounded-lg text-[10.5px] uppercase tracking-wide transition shadow-2xs cursor-pointer select-none shrink-0"
+                  >
+                    Quick Autofill Admin
+                  </button>
+                </div>
+
+              </div>
+            ) : (
+              /* ----- ZOHO AUTHENTIC REGISTER ORGANIZATION FORM ----- */
+              <form onSubmit={handleSignUp} className="space-y-4 text-xs font-medium">
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] uppercase font-bold text-slate-500 tracking-wider block">Company / Organization name</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Acme Widgets Private Ltd"
+                      value={signupCompany}
+                      onChange={(e) => setSignupCompany(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-[#1572E8] focus:outline-none rounded-xl p-3 text-slate-800 text-[11.5px] transition"
+                    />
+                  </div>
+                  
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] uppercase font-bold text-slate-500 tracking-wider block">Legal Trade Title</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Acme Widgets Pvt Ltd"
+                      value={signupLegal}
+                      onChange={(e) => setSignupLegal(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-[#1572E8] focus:outline-none rounded-xl p-3 text-slate-800 text-[11.5px] transition"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase font-bold text-slate-500 tracking-wider block">Owner / Senior Admin Name</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Rajesh Khanna"
+                    value={signupAdminName}
+                    onChange={(e) => setSignupAdminName(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-[#1572E8] focus:outline-none rounded-xl p-3 text-slate-800 text-[11.5px] transition"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] uppercase font-bold text-slate-500 tracking-wider block">Corporate Email (SSO)</label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="owner@acme.com"
+                      value={signupEmail}
+                      onChange={(e) => setSignupEmail(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-[#1572E8] focus:outline-none rounded-xl p-3 text-slate-800 text-[11.5px] transition"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] uppercase font-bold text-slate-500 tracking-wider block">Mobile Number (MCA Link)</label>
+                    <input
+                      type="tel"
+                      required
+                      placeholder="+91 87074 01846"
+                      value={signupMobile}
+                      onChange={(e) => setSignupMobile(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-[#1572E8] focus:outline-none rounded-xl p-3 text-slate-800 text-[11.5px] transition"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase font-bold text-slate-500 tracking-wider block">Corporate Access Password</label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="Create security password"
+                    value={signupPassword}
+                    onChange={(e) => setSignupPassword(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-[#1572E8] focus:outline-none rounded-xl p-3 text-slate-800 text-[11.5px] transition"
+                  />
+                </div>
+
+                {/* Seats control slider stylized */}
+                <div className="space-y-1.5 bg-slate-50 border border-slate-200 p-4 rounded-xl">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-[10.5px] font-bold text-slate-500 uppercase tracking-widest">💼 Licensed Slots:</span>
+                    <span className="text-sm font-black text-blue-600 font-mono">{signupSeatsCount} Seats</span>
+                  </div>
+                  <p className="text-[10px] text-slate-450 leading-relaxed mb-3">
+                    Configure capacity slots. Fully supports multi-user workspace gate.
+                  </p>
+                  <input
+                    type="range"
+                    min="1"
+                    max="30"
+                    value={signupSeatsCount}
+                    onChange={(e) => setSignupSeatsCount(Number(e.target.value))}
+                    className="w-full accent-[#1572E8] cursor-pointer h-1.5 rounded-lg bg-slate-200"
+                  />
+                  <div className="flex justify-between text-[9px] font-mono text-slate-400 mt-1">
+                    <span>1 (Solo)</span>
+                    <span>5 (Standard)</span>
+                    <span>30 (Enterprise Limit)</span>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full bg-[#1572E8] hover:bg-[#1366cf] text-white font-extrabold py-3.5 px-4 rounded-xl tracking-wider text-xs uppercase transition shadow-md active:scale-98 cursor-pointer text-center block mt-2"
+                >
+                  Create Bizkhata Corporate Instance
+                </button>
+              </form>
+            )}
+            
+          </div>
+
+          {/* Collapsible / Expandable Demo Panel at bottom for evaluation safety */}
+          <div className="w-full max-w-[400px] bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden shadow-2xs mt-6">
             <button
               type="button"
               onClick={() => setShowCreds(!showCreds)}
-              className="w-full text-left p-3.5 flex items-center justify-between text-xs font-semibold text-slate-300 hover:text-white transition"
+              className="w-full text-left px-4 py-3.5 flex items-center justify-between text-xs font-bold text-slate-600 hover:bg-slate-100/60 transition"
             >
               <span className="flex items-center gap-2">
                 <span>🔑</span> Show System Demo Admin Credentials
               </span>
-              <span className="text-[11px] font-bold text-emerald-500">
-                {showCreds ? "Hide" : "Show"}
+              <span className="text-[11px] font-bold text-[#1572E8]">
+                {showCreds ? "Hide Panel" : "Expand Panel"}
               </span>
             </button>
             {showCreds && (
-              <div className="border-t border-slate-800 p-4 bg-amber-500/5 text-xs text-amber-300 space-y-1.5 flex flex-col font-sans animate-fade-in">
-                <span className="font-bold text-amber-400 uppercase tracking-wider text-[9.5px]">🔑 Standard Administrative Access (Copy to Login):</span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 font-mono text-[10.5px] mt-1 text-amber-200">
-                  <div>Email: <span className="text-white font-bold select-all bg-amber-500/15 px-1 rounded">svtiger543939@gmail.com</span></div>
-                  <div>Password: <span className="text-white font-bold select-all bg-amber-500/15 px-1 rounded">Admin@123</span></div>
-                  <div className="sm:col-span-2">Registered Mobile: <span className="text-white font-bold select-all bg-[#00D779]/15 px-1 tracking-wide rounded">8707401846</span></div>
+              <div className="border-t border-slate-200 p-4 bg-amber-500/5 text-xs text-amber-900 space-y-2.5 flex flex-col font-sans animate-fade-in leading-relaxed">
+                <span className="font-bold text-amber-800 uppercase tracking-wider text-[9px]">🔑 Standard Administrative Access (Copy/Direct Autofill):</span>
+                <div className="grid grid-cols-1 gap-1.5 font-mono text-[11px] text-amber-905 bg-white p-3 border border-[#FFDDAA] rounded-xl shadow-3xs">
+                  <div>Email: <span className="text-slate-900 font-bold select-all bg-amber-500/10 px-1.5 py-0.5 rounded border border-[#FFDDAA]/40">svtiger543939@gmail.com</span></div>
+                  <div>Password: <span className="text-slate-900 font-bold select-all bg-amber-500/10 px-1.5 py-0.5 rounded border border-[#FFDDAA]/40">Admin@123</span></div>
+                  <div>Registered Mobile: <span className="text-slate-900 font-bold select-all bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-200">8707401846</span></div>
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1.5 leading-normal">
-                  *To simulate a multi-tenant corporate owner subscription purchase, select the <strong>"Register Organization"</strong> panel tab below.
+                
+                <p className="text-[10px] text-slate-500 leading-normal">
+                  💡 Clicking the <strong className="text-amber-700">"Quick Autofill Admin"</strong> button on the Sign-In card will automatically populate variables, swap steps, and configure authentication immediately.
                 </p>
               </div>
             )}
           </div>
 
-          {/* Authentication Panel Box */}
-          <div className="bg-[#1A1E2E] border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
-            {/* Tab Toggles */}
-            <div className="flex border-b border-slate-800 text-xs">
-              <button
-                onClick={() => { setAuthView("signin"); setAuthError(""); }}
-                className={`flex-1 py-3 text-center font-bold tracking-wide uppercase transition ${
-                  authView === "signin" 
-                    ? "bg-[#141724] text-[#00D779] border-b-2 border-emerald-500" 
-                    : "text-slate-400 hover:text-slate-200"
-                }`}
-              >
-                Sign In Portal
-              </button>
-              <button
-                onClick={() => { setAuthView("signup"); setAuthError(""); }}
-                className={`flex-1 py-3 text-center font-bold tracking-wide uppercase transition ${
-                  authView === "signup" 
-                    ? "bg-[#141724] text-[#00D779] border-b-2 border-emerald-500" 
-                    : "text-slate-400 hover:text-slate-200"
-                }`}
-              >
-                Register Organization
-              </button>
-            </div>
-
-            <div className="p-6">
-              {authError && (
-                <div className="mb-4 bg-rose-500/10 border border-rose-500/40 rounded-lg p-3 text-xs text-rose-300 font-sans flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 bg-rose-500 rounded-full shrink-0 animate-ping" />
-                  <span>{authError}</span>
-                </div>
-              )}
-
-              {authView === "signin" ? (
-                /* ----- SIGN IN FORM ----- */
-                <form onSubmit={handleSignIn} className="space-y-4 text-xs font-sans">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Email Address</label>
-                    <input
-                      type="email"
-                      required
-                      placeholder="e.g. svtiger543939@gmail.com"
-                      value={loginEmail}
-                      onChange={(e) => setLoginEmail(e.target.value)}
-                      className="w-full bg-[#141724] placeholder-slate-500 border border-slate-800 focus:border-emerald-500 focus:outline-none rounded-lg p-3 text-white transition-all text-xs"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between items-center">
-                      <label className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">MFA Credentials Password</label>
-                      <button type="button" onClick={() => alert("Please consult your org administrator to retrieve generated sub-user passcodes.")} className="text-[#FFBE00] text-[10.5px] hover:underline font-semibold">
-                        Retrieve Passcode?
-                      </button>
-                    </div>
-                    <input
-                      type="password"
-                      required
-                      placeholder="••••••••"
-                      value={loginPassword}
-                      onChange={(e) => setLoginPassword(e.target.value)}
-                      className="w-full bg-[#141724] placeholder-slate-500 border border-slate-800 focus:border-emerald-500 focus:outline-none rounded-lg p-3 text-white transition-all text-xs"
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-4 rounded-lg tracking-wide uppercase transition shadow-md cursor-pointer text-center text-xs mt-2"
-                  >
-                    Authenticate Security Session
-                  </button>
-                </form>
-              ) : (
-                /* ----- SIGN UP / PURCHASE FORM ----- */
-                <form onSubmit={handleSignUp} className="space-y-4 text-xs font-sans">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Company / Org Name</label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. Acme Widgets Private Ltd"
-                        value={signupCompany}
-                        onChange={(e) => setSignupCompany(e.target.value)}
-                        className="w-full bg-[#141724] placeholder-slate-500 border border-slate-800 focus:outline-none focus:border-emerald-500 rounded-lg p-3 text-white text-xs transition"
-                      />
-                    </div>
-                    
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Legal Trade Title</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Acme Widgets Pvt Ltd"
-                        value={signupLegal}
-                        onChange={(e) => setSignupLegal(e.target.value)}
-                        className="w-full bg-[#141724] placeholder-slate-500 border border-slate-800 focus:outline-none focus:border-emerald-500 rounded-lg p-3 text-white text-xs transition"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Senior Admin / Owner Name</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Rajesh Khanna"
-                      value={signupAdminName}
-                      onChange={(e) => setSignupAdminName(e.target.value)}
-                      className="w-full bg-[#141724] placeholder-slate-500 border border-slate-800 focus:outline-none focus:border-emerald-500 rounded-lg p-3 text-white text-xs transition"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Corporate Email (SSO)</label>
-                      <input
-                        type="email"
-                        required
-                        placeholder="owner@acme.com"
-                        value={signupEmail}
-                        onChange={(e) => setSignupEmail(e.target.value)}
-                        className="w-full bg-[#141724] placeholder-slate-500 border border-slate-800 focus:outline-none focus:border-emerald-500 rounded-lg p-3 text-white text-xs transition"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5 font-sans">
-                      <label className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Mobile Number (MCA Link)</label>
-                      <input
-                        type="tel"
-                        required
-                        placeholder="+91 98765 43210"
-                        value={signupMobile}
-                        onChange={(e) => setSignupMobile(e.target.value)}
-                        className="w-full bg-[#141724] placeholder-slate-500 border border-slate-800 focus:outline-none focus:border-emerald-500 rounded-lg p-3 text-white text-xs transition"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Corporate Access Password</label>
-                    <input
-                      type="password"
-                      required
-                      placeholder="Create account password"
-                      value={signupPassword}
-                      onChange={(e) => setSignupPassword(e.target.value)}
-                      className="w-full bg-[#141724] placeholder-slate-500 border border-slate-800 focus:outline-none focus:border-emerald-500 rounded-lg p-3 text-white text-xs transition"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5 bg-[#141724]/60 p-4 border border-slate-800 rounded-xl">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-[10.5px] font-bold text-slate-300 uppercase tracking-wide">💼 Licensed Seats:</span>
-                      <span className="text-xl font-black text-amber-400 font-mono">{signupSeatsCount} Users</span>
-                    </div>
-                    <p className="text-[10px] text-slate-400 leading-relaxed mb-3">
-                      Configure capacity slots. Default subscription matches 5 corporate seats.
-                    </p>
-                    <input
-                      type="range"
-                      min="1"
-                      max="30"
-                      value={signupSeatsCount}
-                      onChange={(e) => setSignupSeatsCount(Number(e.target.value))}
-                      className="w-full accent-emerald-500 cursor-pointer h-1.5 rounded-lg bg-slate-800"
-                    />
-                    <div className="flex justify-between text-[9px] font-mono text-slate-500 mt-1">
-                      <span>1 User (Single Seat)</span>
-                      <span>5 Seats (Subscribed)</span>
-                      <span>30 Users Max Enterprise</span>
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="w-full bg-[#00D779] hover:bg-emerald-400 text-slate-950 font-extrabold py-3 px-4 rounded-lg tracking-wide uppercase transition shadow-md cursor-pointer text-center text-xs mt-2"
-                  >
-                    Purchase License & Setup Ledger
-                  </button>
-                </form>
-              )}
-            </div>
+          {/* Secure trust label footers */}
+          <div className="text-center font-medium text-[10.5px] text-slate-400 mt-8 shrink-0 select-none">
+            Bizkhata Multi-tenant Core Sandbox • Ministry of Corporate Affairs, Govt of India Registry • Secured Sandbox Protocol.
           </div>
-
-          {/* Secure gateway trust labels */}
-          <div className="text-center text-[10px] text-slate-500">
-            Zoho Books Multi-tenant Core Engine • Ministry of Corporate Affairs (MCA), Govt of India.
-          </div>
+          
         </div>
+        
       </div>
     );
   }
@@ -1137,7 +1619,7 @@ export default function App() {
           </div>
 
           {/* Quick Info contacts */}
-          <button onClick={() => alert("Helpline: 18005726671 available Mon-Fri.")} className="hover:text-white transition-colors" title="Get Help">
+          <button onClick={() => setShowHelpDrawer(!showHelpDrawer)} className="hover:text-white transition-colors" title="Get Help">
             <HelpCircle className="w-4 h-4" />
           </button>
 
@@ -1477,6 +1959,27 @@ export default function App() {
                 </span>
               </button>
 
+              {/* SaaS Platform Owner Console */}
+              {activeRole === UserRole.Owner && (
+                <button
+                  id="sidebar-owner-console"
+                  onClick={() => { setActiveTab("owner_saas"); }}
+                  className={`w-full flex items-center justify-between px-4 py-2 text-xs font-semibold leading-relaxed transition-all cursor-pointer relative ${
+                    activeTab === "owner_saas"
+                      ? "bg-amber-100 text-amber-905 font-bold border-l-4 border-amber-500 shadow-2xs"
+                      : "text-slate-655 hover:bg-slate-100/80 hover:text-slate-900"
+                  }`}
+                >
+                  <span className="flex items-center gap-3">
+                    <ShieldCheck className="w-4 h-4 text-amber-600" />
+                    <span className="font-extrabold text-amber-950">SaaS Owner Desk</span>
+                  </span>
+                  <span className="text-[7.5px] font-black bg-amber-500 text-white rounded px-1.5 py-0.5 tracking-wide">
+                    {db?.organizations?.length || 4} Tenants
+                  </span>
+                </button>
+              )}
+
             </nav>
           </div>
 
@@ -1598,6 +2101,8 @@ export default function App() {
               <Accounting 
                 db={db} 
                 defaultTab={accountingSubTab}
+                onAddManualJournal={handlePassManualJournal}
+                userRole={activeRole}
               />
             )}
 
@@ -1640,13 +2145,19 @@ export default function App() {
                     <h2 className="text-lg font-bold text-slate-900">Items and Services Inventory</h2>
                     <p className="text-xs text-slate-500">Track standard consulting fees, sales rates, and GST tax percentages.</p>
                   </div>
-                  <button 
+                   <button 
                     onClick={() => {
-                      alert("To customize or load more items, add a Tax Invoice line or configure standard billing values under configuration keys.");
+                      setNewItemName("");
+                      setNewItemHsnSac("9983");
+                      setNewItemSalesRate(1200);
+                      setNewItemGstRate(18);
+                      setNewItemUnit("Hours");
+                      setNewItemIncomeAccount("Service Income");
+                      setShowItemModal(true);
                     }}
                     className="bg-[#006EE5] hover:bg-[#0060C7] text-white text-xs font-bold px-4 py-2.5 rounded-lg flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
                   >
-                    <Plus className="w-4 h-4" /> New Item Catalog
+                    <Plus className="w-4 h-4" /> Add Standard Catalog Item
                   </button>
                 </div>
 
@@ -1792,7 +2303,7 @@ export default function App() {
                           <tr key={e.id}>
                             <td className="p-3">{e.date}</td>
                             <td className="p-3 font-mono text-slate-500">Exp-{e.id}</td>
-                            <td className="p-3 text-slate-800">Spend Outflow of {e.vendorName || "General Vendor"} ({e.category})</td>
+                            <td className="p-3 text-slate-800">New Expense: {e.vendorName || "General Vendor"} ({db.accounts.find(a => a.code === e.category)?.name || e.category})</td>
                             <td className="p-3 text-slate-400">-</td>
                             <td className="p-3 font-mono text-rose-500 font-bold">- ₹ {e.total.toLocaleString()}</td>
                             <td className="p-3"><span className="text-[9.5px] font-bold bg-green-50 text-green-700 rounded px-1.5 py-0.5 border border-green-200">Reconciled</span></td>
@@ -1962,7 +2473,7 @@ export default function App() {
                 <div className="flex justify-between items-center pb-4 border-b border-slate-200">
                   <div>
                     <h2 className="text-lg font-bold text-slate-900">Corporate Seats & Team Directory</h2>
-                    <p className="text-xs text-slate-500">Configure corporate user authorization, invite accountants, and scale licensed seats (Zoho Books model).</p>
+                    <p className="text-xs text-slate-500">Configure corporate user authorization, invite accountants, and scale licensed seats (Bizkhata model).</p>
                   </div>
                   <span className="text-[10px] uppercase font-mono font-bold bg-[#E2EAFC] text-blue-800 rounded px-2.5 py-1 tracking-wider border border-blue-200">
                      Symmetric SSO Engine Active
@@ -2058,7 +2569,7 @@ export default function App() {
                   {/* LEFT: Invite Form Panel */}
                   <div className="lg:col-span-12 xl:col-span-8 bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
                     <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest border-b border-slate-100 pb-2">
-                      Invite Corporate Professional (Zohobooks Flow)
+                      Invite Corporate Professional (Bizkhata Flow)
                     </h3>
                     
                     <form onSubmit={handleInviteUser} className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-sans">
@@ -2103,12 +2614,14 @@ export default function App() {
                         <select 
                           value={inviteRole}
                           onChange={(e) => setInviteRole(e.target.value as any)}
-                          className="w-full bg-slate-50 border border-slate-200 focus:outline-none focus:border-blue-500 rounded p-2 text-xs text-slate-800 font-medium"
+                          className="w-full bg-slate-50 border border-slate-200 focus:outline-none focus:border-blue-500 rounded p-2 text-xs text-slate-800 font-semibold"
                         >
-                          <option value={UserRole.Viewer}>Viewer (Read-only GST status)</option>
-                          <option value={UserRole.Accountant}>Accountant (Double-entry Books)</option>
-                          <option value={UserRole.BillingUser}>BillingUser (Sales desk - blocked reports)</option>
-                          <option value={UserRole.Owner}>Owner (Unlimited controls)</option>
+                          <option value={UserRole.User}>User (General Entry Operator - Entry only)</option>
+                          <option value={UserRole.Accountant}>Accountant (Books Entry, Chart of Accounts, pass Journals & View)</option>
+                          <option value={UserRole.Auditor}>Auditor (Review & Transaction Approval access)</option>
+                          <option value={UserRole.Admin}>Admin (Management & All Transaction Approvals)</option>
+                          <option value={UserRole.Owner}>Owner (Unlimited Controls)</option>
+                          <option value={UserRole.Viewer}>Viewer (Read-only status monitoring)</option>
                         </select>
                       </div>
 
@@ -2178,6 +2691,7 @@ export default function App() {
                           <th className="p-3.5">Assigned Domain Role</th>
                           <th className="p-3.5">System Status</th>
                           <th className="p-3.5">Assigned Access Password</th>
+                          <th className="p-3.5 text-right">Actions Desk</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 font-sans">
@@ -2192,11 +2706,15 @@ export default function App() {
                               <span className={`text-[9px] font-bold uppercase rounded px-2 py-0.5 border ${
                                 u.role === UserRole.Owner 
                                   ? "bg-amber-50 text-amber-700 border-amber-200"
+                                  : u.role === UserRole.Admin
+                                  ? "bg-rose-50 text-rose-750 border-rose-200"
+                                  : u.role === UserRole.Auditor
+                                  ? "bg-cyan-50 text-cyan-750 border-cyan-200"
                                   : u.role === UserRole.Accountant
                                   ? "bg-blue-50 text-blue-700 border-blue-200"
-                                  : u.role === UserRole.BillingUser
-                                  ? "bg-purple-50 text-purple-700 border-purple-200"
-                                  : "bg-slate-50 text-slate-650 border-slate-200"
+                                  : u.role === UserRole.User
+                                  ? "bg-violet-50 text-violet-750 border-violet-200"
+                                  : "bg-slate-50 text-slate-655 border-slate-200"
                               }`}>
                                 {u.role}
                               </span>
@@ -2211,6 +2729,19 @@ export default function App() {
                                 {u.password || "Admin@123 (Default)"}
                               </span>
                             </td>
+                            <td className="p-3.5 text-right font-sans">
+                              {u.email !== "svtiger543939@gmail.com" && !u.isOwner ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteUser(u.id)}
+                                  className="text-red-600 hover:text-white hover:bg-red-600 border border-red-300 font-bold px-3 py-1 rounded transition-all text-[11px] cursor-pointer"
+                                >
+                                  Revoke Seats Access
+                                </button>
+                              ) : (
+                                <span className="text-[11px] text-slate-400 font-bold italic">System Owner</span>
+                              )}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -2223,9 +2754,9 @@ export default function App() {
                   <div className="flex justify-between items-center border-b border-slate-800 pb-3">
                     <div>
                       <h3 className="text-xs font-extrabold text-[#00D779] uppercase tracking-widest flex items-center gap-1.5">
-                        <Mail className="w-4 h-4 text-[#00D779]" /> Outbound SMTP Mailbox Simulation Desk (Zoho Connect Link)
+                        <Mail className="w-4 h-4 text-[#00D779]" /> Outbound SMTP Mailbox Simulation Desk (Bizkhata Connect Link)
                       </h3>
-                      <p className="text-[10px] text-slate-400">Verifying real-time secure registration and single-sign-on password emails dispatched by Zoho infrastructure.</p>
+                      <p className="text-[10px] text-slate-400">Verifying real-time secure registration and single-sign-on password emails dispatched by Bizkhata infrastructure.</p>
                     </div>
                     <button 
                       onClick={() => {
@@ -2263,6 +2794,419 @@ export default function App() {
                       ))}
                     </div>
                   )}
+                </div>
+
+              </div>
+            )}
+
+            {/* ----- CUSTOM TAB 5: Platform Owner SaaS Subscription Console ----- */}
+            {activeTab === "owner_saas" && activeRole === UserRole.Owner && (
+              <div className="space-y-6 animate-fade-in font-sans p-6">
+                {/* Visual Header */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-slate-200">
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                      <ShieldCheck className="w-5 h-5 text-amber-600" />
+                      Bizkhata SaaS Platform Owner Desk
+                    </h2>
+                    <p className="text-xs text-slate-505">Track and manage corporate subscriptions, license sizes, billing structures, and multi-tenant seating allocations.</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowNewOrgForm(!showNewOrgForm)}
+                      className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-4 py-2 rounded-lg cursor-pointer flex items-center gap-1.5 transition shadow-xs"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Enlist New Subscriber
+                    </button>
+                    <span className="text-[10px] uppercase font-mono font-bold bg-[#FEF3C7] text-amber-800 rounded px-2.5 py-1 tracking-wider border border-amber-200 flex items-center">
+                      SaaS Hyper-Registry Active
+                    </span>
+                  </div>
+                </div>
+
+                {/* SaaS MRR & Capacity Metrics */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-xs space-y-1">
+                    <p className="text-[9.5px] uppercase font-black text-slate-400 tracking-wider">Enrolled Tenant Businesses</p>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-2xl font-black text-slate-800">
+                        {db?.organizations?.length ?? 4}
+                      </span>
+                      <span className="text-xs text-slate-550">SME Corporations</span>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-xs space-y-1">
+                    <p className="text-[9.5px] uppercase font-black text-slate-400 tracking-wider">Licensed Seating Capacity</p>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-2xl font-black text-slate-800">
+                        {(db?.organizations || []).reduce((acc, curr) => acc + (curr.purchasedSeats || 0), 0)}
+                      </span>
+                      <span className="text-xs text-slate-550">Active Users Seats</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-xs space-y-1">
+                    <p className="text-[9.5px] uppercase font-black text-slate-400 tracking-wider">Platform Live MRR (Consolidated)</p>
+                    <div className="flex items-baseline gap-1 text-emerald-805">
+                      <span className="text-2xl font-black">
+                        ₹{((db?.organizations || []).reduce((acc, curr) => acc + (curr.pricingMonthly || 0), 0)).toLocaleString('en-IN')}
+                      </span>
+                      <span className="text-[10px] font-bold">/ month</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-white border border-[#FEF3C7] bg-[#FFFBEB]/40 p-4 rounded-xl shadow-xs space-y-1">
+                    <p className="text-[9.5px] uppercase font-black text-amber-800 tracking-wider flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" /> Active System Tenants Health
+                    </p>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-xl font-bold font-mono text-amber-900">
+                        98.6%
+                      </span>
+                      <span className="text-[10px] text-amber-850">0 Cloud Overages</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Create/Add New Tenant Form Panel */}
+                {showNewOrgForm && (
+                  <div className="bg-[#FAF9F5] border border-amber-200 rounded-2xl p-5 shadow-xs space-y-4 animate-fade-in text-xs text-slate-800">
+                    <div className="flex justify-between items-center border-b border-amber-200 pb-2">
+                      <h3 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
+                        <Plus className="w-4 h-4 text-amber-600" />
+                        Enroll Newly Purchased Bizkhata Corporate Tenant
+                      </h3>
+                      <button type="button" onClick={() => setShowNewOrgForm(false)} className="text-slate-400 hover:text-slate-900 font-bold font-mono">✕</button>
+                    </div>
+
+                    <form 
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        if (!newOrgName || !newOrgLegal || !newOrgEmail) {
+                          alert("Corporate Business Name, Legal Name, and registered customer email are mandatory.");
+                          return;
+                        }
+                        await handleOwnerAddOrg({
+                          name: newOrgName,
+                          legalName: newOrgLegal,
+                          pan: newOrgPan,
+                          gstin: newOrgGstin,
+                          purchasedSeats: Number(newOrgSeats || 4),
+                          packageType: newOrgPackage,
+                          pricingMonthly: Number(newOrgPricing || 2499),
+                          purchaseStatus: newOrgStatus,
+                          registeredEmail: newOrgEmail
+                        });
+                        // Reset
+                        setNewOrgName("");
+                        setNewOrgLegal("");
+                        setNewOrgPan("");
+                        setNewOrgGstin("");
+                        setNewOrgSeats(4);
+                        setNewOrgPackage("Standard");
+                        setNewOrgPricing(2499);
+                        setNewOrgStatus("Active");
+                        setNewOrgEmail("");
+                        setShowNewOrgForm(false);
+                      }}
+                      className="grid grid-cols-1 md:grid-cols-4 gap-4"
+                    >
+                      <div className="space-y-1">
+                        <label className="text-[10px] uppercase font-bold text-slate-500">Business Name *</label>
+                        <input 
+                          type="text" required placeholder="e.g. Mahindra Corp"
+                          value={newOrgName} onChange={(e) => setNewOrgName(e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded p-1.5 focus:outline-none"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] uppercase font-bold text-slate-500">Legal Org Name *</label>
+                        <input 
+                          type="text" required placeholder="e.g. Mahindra Solutions Ltd"
+                          value={newOrgLegal} onChange={(e) => setNewOrgLegal(e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded p-1.5 focus:outline-none"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] uppercase font-bold text-slate-500">SSO Admin Email *</label>
+                        <input 
+                          type="email" required placeholder="e.g. finance@mahindra.com"
+                          value={newOrgEmail} onChange={(e) => setNewOrgEmail(e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded p-1.5 focus:outline-none"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] uppercase font-bold text-slate-500">Registered PAN No.</label>
+                        <input 
+                          type="text" placeholder="e.g. MAHIN1234P"
+                          value={newOrgPan} onChange={(e) => setNewOrgPan(e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded p-1.5 focus:outline-none font-mono"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] uppercase font-bold text-slate-500">GSTIN Address (Optional)</label>
+                        <input 
+                          type="text" placeholder="e.g. 29MAHIN1234A1Z1"
+                          value={newOrgGstin} onChange={(e) => setNewOrgGstin(e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded p-1.5 focus:outline-none font-mono"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] uppercase font-bold text-slate-500">Purchased Corporate Seats *</label>
+                        <input 
+                          type="number" min="1" required placeholder="e.g. 4"
+                          value={newOrgSeats} onChange={(e) => {
+                            setNewOrgSeats(Number(e.target.value));
+                            // auto estimate price
+                            setNewOrgPricing(Number(e.target.value) * 625);
+                          }}
+                          className="w-full bg-white border border-slate-200 rounded p-1.5 focus:outline-none text-right font-bold"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] uppercase font-bold text-slate-500">Pricing Tier Plan</label>
+                        <select 
+                          value={newOrgPackage} onChange={(e) => setNewOrgPackage(e.target.value as any)}
+                          className="w-full bg-white border border-slate-200 rounded p-1.5 focus:outline-none font-bold"
+                        >
+                          <option value="Standard">Standard SME Plan</option>
+                          <option value="Professional">Professional Tier</option>
+                          <option value="Enterprise">Enterprise Workspace</option>
+                          <option value="SME Bundle">SME Bundle Paket</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] uppercase font-bold text-slate-500">Monthly Billing Fee (₹) *</label>
+                        <input 
+                          type="number" min="0" required placeholder="e.g. 2499"
+                          value={newOrgPricing} onChange={(e) => setNewOrgPricing(Number(e.target.value))}
+                          className="w-full bg-white border border-slate-200 rounded p-1.5 focus:outline-none text-right font-bold text-emerald-850"
+                        />
+                      </div>
+
+                      <div className="space-y-1 col-span-1">
+                        <label className="text-[10px] uppercase font-bold text-slate-500">Active Tenant Status</label>
+                        <select 
+                          value={newOrgStatus} onChange={(e) => setNewOrgStatus(e.target.value as any)}
+                          className="w-full bg-white border border-slate-200 rounded p-1.5 focus:outline-none font-bold"
+                        >
+                          <option value="Active">Active Subscription</option>
+                          <option value="Trial">Free Evaluation Trial</option>
+                          <option value="Suspended">Suspended/Revoked tenant</option>
+                          <option value="Overdue">Overdue payment</option>
+                        </select>
+                      </div>
+
+                      <div className="col-span-1 md:col-span-3 pt-4 flex justify-end gap-2.5">
+                        <button 
+                          type="button" 
+                          onClick={() => setShowNewOrgForm(false)} 
+                          className="border border-slate-200 hover:bg-slate-50 px-4 py-2 rounded text-slate-600 font-bold"
+                        >
+                          Cancel
+                        </button>
+                        <button 
+                          type="submit" 
+                          className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-6 py-2 rounded flex items-center gap-1.5 transition cursor-pointer"
+                        >
+                          <Check className="w-4 h-4" /> Finalise Enrollment
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                )}
+
+                {/* Edit Tenant modal Panel */}
+                {showOrgEditForm && (
+                  <div className="bg-blue-50/50 border border-blue-200 rounded-2xl p-5 shadow-xs space-y-4 animate-fade-in text-xs text-slate-800">
+                    <div className="flex justify-between items-center border-b border-blue-200 pb-2">
+                      <h3 className="font-bold text-blue-900 text-sm flex items-center gap-1.5">
+                        <Settings className="w-4 h-4 text-blue-600" />
+                        Modify Seating Plan & Org Profile details
+                      </h3>
+                      <button type="button" onClick={() => setShowOrgEditForm(false)} className="text-slate-400 hover:text-slate-900 font-bold font-mono">✕</button>
+                    </div>
+
+                    <form 
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        await handleOwnerUpdateOrg({
+                          id: editingOrgId,
+                          name: editingOrgName,
+                          legalName: editingOrgLegal,
+                          pan: editingOrgPan,
+                          gstin: editingOrgGstin,
+                          purchasedSeats: editingOrgSeats,
+                          packageType: editingOrgPackage,
+                          pricingMonthly: editingOrgPricing,
+                          purchaseStatus: editingOrgStatus,
+                          registeredEmail: editingOrgEmail
+                        });
+                        setShowOrgEditForm(false);
+                      }}
+                      className="grid grid-cols-1 md:grid-cols-4 gap-4"
+                    >
+                      <div className="space-y-1">
+                        <label className="text-[10px] uppercase font-bold text-slate-400">Business Name</label>
+                        <input 
+                          type="text" required value={editingOrgName} onChange={(e) => setEditingOrgName(e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded p-1.5 focus:outline-none"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] uppercase font-bold text-slate-400">Legal Org Name</label>
+                        <input 
+                          type="text" required value={editingOrgLegal} onChange={(e) => setEditingOrgLegal(e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded p-1.5 focus:outline-none"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] uppercase font-bold text-slate-400">SSO Email Target</label>
+                        <input 
+                          type="email" required value={editingOrgEmail} onChange={(e) => setEditingOrgEmail(e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded p-1.5 focus:outline-none"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] uppercase font-bold text-slate-400">Monthly Pricing (₹)</label>
+                        <input 
+                          type="number" required value={editingOrgPricing} onChange={(e) => setEditingOrgPricing(Number(e.target.value))}
+                          className="w-full bg-white border border-slate-200 rounded p-1.5 focus:outline-none text-right font-bold text-emerald-850"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] uppercase font-bold text-slate-400">Purchased Seats Capacity</label>
+                        <input 
+                          type="number" required value={editingOrgSeats} onChange={(e) => setEditingOrgSeats(Number(e.target.value))}
+                          className="w-full bg-white border border-slate-200 rounded p-1.5 focus:outline-none text-right font-black"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] uppercase font-bold text-slate-400">Corporate Plan Tier</label>
+                        <select 
+                          value={editingOrgPackage} onChange={(e) => setEditingOrgPackage(e.target.value as any)}
+                          className="w-full bg-white border border-slate-200 rounded p-1.5 focus:outline-none font-bold"
+                        >
+                          <option value="Standard">Standard SME Plan</option>
+                          <option value="Professional">Professional Tier</option>
+                          <option value="Enterprise">Enterprise Workspace</option>
+                          <option value="SME Bundle">SME Bundle Paket</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] uppercase font-bold text-slate-400">Service Status</label>
+                        <select 
+                          value={editingOrgStatus} onChange={(e) => setEditingOrgStatus(e.target.value as any)}
+                          className="w-full bg-white border border-slate-200 rounded p-1.5 focus:outline-none font-semibold"
+                        >
+                          <option value="Active">Active Subscription</option>
+                          <option value="Trial">Free Evaluation Trial</option>
+                          <option value="Suspended">Suspended / Blocked</option>
+                          <option value="Overdue">Overdue billing cycle</option>
+                        </select>
+                      </div>
+
+                      <div className="pt-4 flex items-end">
+                        <button 
+                          type="submit" 
+                          className="bg-blue-600 hover:bg-blue-700 text-white font-bold w-full py-2 rounded flex items-center justify-center gap-1.5 transition cursor-pointer"
+                        >
+                          <Check className="w-4 h-4" /> Update Seating Allocation
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                )}
+
+                {/* Main Tenants Register list */}
+                <div className="space-y-3">
+                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1">
+                    <Globe className="w-4 h-4 text-emerald-600 animate-pulse" /> Registered Tenant Businesses (Bizkhata Multi-Enterprise Node)
+                  </h3>
+                  <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
+                        <tr>
+                          <th className="p-3.5">Subscriber Corporation Name</th>
+                          <th className="p-3.5">registered legal name</th>
+                          <th className="p-3.5 font-mono text-center">Purchased Seats Size</th>
+                          <th className="p-3.5 font-mono">Service Pricing plan</th>
+                          <th className="p-3.5 text-center">Billing Health Status</th>
+                          <th className="p-3.5 text-right font-mono">Control desk</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-sans">
+                        {(db?.organizations || []).map((org) => (
+                          <tr key={org.id} className="hover:bg-slate-50/70 transition-colors">
+                            <td className="p-3.5">
+                              <p className="font-bold text-slate-800 text-xs">{org.name}</p>
+                              <p className="text-[10px] font-mono text-slate-500 select-all">{org.registeredEmail}</p>
+                            </td>
+                            <td className="p-3.5">
+                              <p className="font-medium text-slate-650">{org.legalName}</p>
+                              <p className="text-[9px] font-mono text-slate-450 uppercase">PAN: {org.pan || "N/A"} • GST: {org.gstin || "N/A"}</p>
+                            </td>
+                            <td className="p-3.5 font-bold text-center text-slate-800 text-xs font-mono">
+                              <span className="bg-blue-50 text-blue-800 rounded-full border border-blue-200 px-3 py-1 font-black text-[12px]">
+                                {org.purchasedSeats} Seats Shared
+                              </span>
+                            </td>
+                            <td className="p-3.5 font-mono">
+                              <span className="font-extrabold text-[#2C2C24]">₹{org.pricingMonthly.toLocaleString('en-IN')}</span> 
+                              <span className="text-slate-400 text-[10px]"> / mo ({org.packageType})</span>
+                            </td>
+                            <td className="p-3.5 text-center">
+                              <span className={`text-[10px] font-bold uppercase rounded-lg px-2.5 py-1 border ${
+                                org.purchaseStatus === "Active" 
+                                  ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                  : org.purchaseStatus === "Trial"
+                                  ? "bg-indigo-50 text-indigo-800 border-indigo-200"
+                                  : org.purchaseStatus === "Suspended"
+                                  ? "bg-red-50 text-red-800 border-red-200"
+                                  : "bg-amber-50 text-amber-800 border-amber-200"
+                              }`}>
+                                {org.purchaseStatus}
+                              </span>
+                            </td>
+                            <td className="p-3.5 text-right font-sans space-x-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingOrgId(org.id);
+                                  setEditingOrgName(org.name);
+                                  setEditingOrgLegal(org.legalName);
+                                  setEditingOrgPan(org.pan);
+                                  setEditingOrgGstin(org.gstin);
+                                  setEditingOrgSeats(org.purchasedSeats);
+                                  setEditingOrgPackage(org.packageType);
+                                  setEditingOrgPricing(org.pricingMonthly);
+                                  setEditingOrgStatus(org.purchaseStatus);
+                                  setEditingOrgEmail(org.registeredEmail);
+                                  setShowOrgEditForm(true);
+                                  setShowNewOrgForm(false);
+                                }}
+                                className="text-blue-600 hover:text-white hover:bg-blue-600 border border-blue-200 font-bold px-3 py-1 rounded transition-all text-[11px] cursor-pointer"
+                              >
+                                Edit Plan Config
+                              </button>
+                              
+                              <button
+                                type="button"
+                                onClick={() => handleOwnerDeleteOrg(org.id)}
+                                className="text-red-600 hover:text-white hover:bg-red-600 border border-red-200 font-bold px-3 py-1 rounded transition-all text-[11px] cursor-pointer"
+                              >
+                                Delete Trace
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
 
               </div>
@@ -2319,6 +3263,250 @@ export default function App() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Manual Standard Item/Service Creation Modal Overlay */}
+      {showItemModal && (
+        <div id="item-creation-modal-overlay" className="fixed inset-0 bg-black/40 backdrop-blur-sm z-55 flex items-center justify-center p-4">
+          <div className="bg-white border border-[#E5E1D8] rounded-2xl w-full max-w-md p-6 space-y-4 text-xs font-sans text-slate-800 shadow-2xl animate-fade-in">
+            <div className="flex justify-between items-center border-b border-[#E5E1D8] pb-3">
+              <h3 className="text-sm font-bold text-[#2C2C24] flex items-center gap-2">
+                <Plus className="w-4 h-4 text-[#006EE5]" />
+                Add Item / Service to Catalog
+              </h3>
+              <button onClick={() => setShowItemModal(false)} className="text-slate-400 hover:text-[#2C2C24]">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleFormItemModalSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-slate-600 font-bold block">Item / Service Name</label>
+                <input 
+                  type="text" 
+                  required 
+                  value={newItemName} 
+                  onChange={e => setNewItemName(e.target.value)}
+                  className="w-full bg-slate-50 border border-[#E5E1D8] px-3 py-2 rounded-lg text-slate-900 placeholder-slate-400 focus:border-indigo-505 outline-none font-sans"
+                  placeholder="e.g. Technology Advisory Services"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-slate-600 font-bold block">HSN / SAC Code</label>
+                  <input 
+                    type="text" 
+                    required 
+                    value={newItemHsnSac} 
+                    onChange={e => setNewItemHsnSac(e.target.value)}
+                    className="w-full bg-slate-50 border border-[#E5E1D8] px-3 py-2 rounded-lg text-slate-900 placeholder-slate-450 font-mono focus:border-indigo-550 outline-none"
+                    placeholder="e.g. 9983"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-slate-600 font-bold block">Unit Description</label>
+                  <select
+                    value={newItemUnit}
+                    onChange={e => setNewItemUnit(e.target.value)}
+                    className="w-full bg-slate-50 border border-[#E5E1D8] px-3 py-2 rounded-lg text-slate-900 focus:border-indigo-505 outline-none font-sans"
+                  >
+                    <option value="Hours">Hours</option>
+                    <option value="Days">Days</option>
+                    <option value="Units">Units</option>
+                    <option value="Services">Services</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-slate-600 font-bold block">Standard Base Rate (₹)</label>
+                  <input 
+                    type="number" 
+                    required 
+                    min={0}
+                    value={newItemSalesRate} 
+                    onChange={e => setNewItemSalesRate(parseInt(e.target.value) || 0)}
+                    className="w-full bg-slate-50 border border-[#E5E1D8] px-3 py-2 rounded-lg text-slate-900 font-mono focus:border-indigo-550 outline-none"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-slate-600 font-bold block">Standard GST Tax (%)</label>
+                  <select
+                    value={newItemGstRate}
+                    onChange={e => setNewItemGstRate(parseInt(e.target.value) || 18)}
+                    className="w-full bg-slate-50 border border-[#E5E1D8] px-3 py-2 rounded-lg text-slate-900 focus:border-indigo-505 outline-none font-mono"
+                  >
+                    <option value={18}>18% CGST/SGST/IGST</option>
+                    <option value={12}>12% CGST/SGST/IGST</option>
+                    <option value={5}>5% CGST/SGST/IGST</option>
+                    <option value={28}>28% CGST/SGST/IGST</option>
+                    <option value={0}>0% GST (Exempt/Nil)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-slate-600 font-bold block">Default GL Ledger Income Account</label>
+                <input 
+                  type="text" 
+                  required 
+                  value={newItemIncomeAccount} 
+                  onChange={e => setNewItemIncomeAccount(e.target.value)}
+                  className="w-full bg-slate-50 border border-[#E5E1D8] px-3 py-2 rounded-lg text-slate-900 placeholder-slate-400 focus:border-indigo-505 outline-none font-sans"
+                  placeholder="e.g. Sales Revenue"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-[#E5E1D8]">
+                <button 
+                  type="button"
+                  onClick={() => setShowItemModal(false)}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold px-4 py-2 rounded-lg cursor-pointer border-0"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  className="bg-[#006EE5] hover:bg-[#0060C7] text-white font-bold px-5 py-2 rounded-lg cursor-pointer border-0"
+                >
+                  Save to Inventory catalog
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------ SCREENSHOT 2: FLOATING HELP & ASSISTANCE POPULAR DRAWER ------------------------ */}
+      {showHelpDrawer && (
+        <div id="assist-popup-drawer" className="fixed inset-y-0 right-0 w-80 bg-white border-l border-slate-200 shadow-2xl z-55 flex flex-col justify-between animate-slide-in font-sans text-slate-700">
+          
+          {/* Popover Header */}
+          <div className="bg-[#1C2434] text-white p-5 flex justify-between items-center select-none">
+            <div className="flex items-center gap-2">
+              <HelpCircle className="w-5 h-5 text-[#FFBE00] animate-bounce" />
+              <span className="font-extrabold text-[13px] tracking-wider uppercase">Help & Support</span>
+            </div>
+            <button 
+              onClick={() => setShowHelpDrawer(false)}
+              className="p-1.5 bg-white/10 hover:bg-white/20 rounded-md transition cursor-pointer"
+              title="Close Panel"
+            >
+              <X className="w-4 h-4 text-white" />
+            </button>
+          </div>
+
+          {/* Drawer Scrollable Content */}
+          <div className="flex-1 overflow-y-auto p-5 space-y-6">
+            
+            {/* User Profile Block exactly as Screenshot 2 */}
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3.5 select-none text-left">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-[#FFBE00] text-slate-900 font-black text-sm rounded-full flex items-center justify-center border border-[#E5AA00] shadow-sm uppercase">
+                  S
+                </div>
+                <div className="space-y-0.5">
+                  <h4 className="font-black text-slate-900 text-[13px] leading-tight">Sudhanshu</h4>
+                  <p className="text-[10.5px] text-slate-500 font-medium truncate max-w-[160px]">sudhanshu.verma@thrymr.net</p>
+                </div>
+              </div>
+
+              {/* Unique corporate ids mimicking screenshot 2 */}
+              <div className="text-[10px] text-slate-500 font-mono space-y-0.5 border-t border-slate-200/60 pt-2 leading-relaxed">
+                <div>User ID: <span className="text-slate-700 font-bold">883615580</span></div>
+                <div>Organization ID: <span className="text-slate-700 font-bold">729374673</span></div>
+              </div>
+
+              {/* Plan marker */}
+              <div className="bg-yellow-50 border border-yellow-250 rounded-xl p-2.5 text-center flex items-center justify-center gap-1.5">
+                <Award className="w-4 h-4 text-yellow-600 shrink-0" />
+                <span className="text-[10px] font-bold text-yellow-800 uppercase tracking-wider">Professional Premium Plan</span>
+              </div>
+
+              {/* Sub items */}
+              <div className="flex justify-between text-[11px] font-bold text-[#006EE5] pt-1">
+                <button onClick={() => { alert("Redirecting to multi-device security token setup..."); }} className="hover:underline">My Account</button>
+                <button onClick={() => { localStorage.removeItem("bizkhata_session_v1"); window.location.reload(); }} className="text-rose-600 hover:underline">Sign Out</button>
+              </div>
+            </div>
+
+            {/* Quick Assistance Grid Option (Screenshot 2) */}
+            <div className="space-y-2.5">
+              <h3 className="text-[10.5px] font-black text-slate-450 uppercase tracking-widest border-b border-slate-100 pb-1.5">Quick Help Matrix</h3>
+              
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { title: "Help Documents", desc: "Detailed manuals", icon: BookOpen },
+                  { title: "FAQs Hub", desc: "Common answers", icon: MessageSquare },
+                  { title: "Forum Group", desc: "Developer logs", icon: Users },
+                  { title: "Video Guides", desc: "Step guides", icon: Laptop },
+                  { title: "Explore Features", desc: "Compliance tools", icon: Sliders },
+                  { title: "Migration Guide", desc: "Migrate Excel/CSV", icon: ChevronRight }
+                ].map((hlp, i) => {
+                  const Icon = hlp.icon;
+                  return (
+                    <button 
+                      key={i}
+                      onClick={() => alert(`Opening secure: ${hlp.title}`)}
+                      className="text-left bg-slate-50/70 hover:bg-slate-100/80 border border-slate-250/50 p-3 rounded-xl transition duration-150 flex flex-col justify-between h-20"
+                    >
+                      <Icon className="w-4 h-4 text-[#006EE5]" />
+                      <div>
+                        <span className="text-[11px] font-bold text-slate-905 block tracking-tight leading-tight">{hlp.title}</span>
+                        <span className="text-[9px] text-slate-400 font-medium leading-none block mt-0.5">{hlp.desc}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Accessibility Preferences menu option (Screenshot 2) */}
+            <div className="space-y-2 border-t border-slate-100 pt-4.5">
+              <button 
+                onClick={() => alert("Shortcut Toggle: Press ( / ) on your keyboard anytime to search ledger settings.")}
+                className="w-full text-left bg-white hover:bg-slate-50 border p-3.5 rounded-xl text-xs font-bold text-slate-805 flex justify-between items-center transition"
+              >
+                <span>Accessibility Preferences</span>
+                <span className="text-[9px] font-mono font-bold bg-[#1C2434] text-white p-0.5 px-1.5 rounded uppercase">Verified</span>
+              </button>
+            </div>
+
+            {/* Need Assistance Checklist Options (Screenshot 2) */}
+            <div className="space-y-2.5 border-t border-slate-100 pt-4.5">
+              <h3 className="text-[10.5px] font-black text-slate-450 uppercase tracking-widest">Need Assistance?</h3>
+              
+              <ul className="space-y-2 text-xs font-semibold text-slate-650">
+                <li className="flex items-center gap-2.5 p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition">
+                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                  <span>Send an email</span>
+                </li>
+                <li className="flex items-center gap-2.5 p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition">
+                  <span className="w-1.5 h-1.5 bg-indigo-505 rounded-full"></span>
+                  <span>Record screen & share feedback</span>
+                </li>
+                <li className="flex items-center gap-2.5 p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition">
+                  <span className="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
+                  <span>Register for webinars</span>
+                </li>
+                <li className="flex items-center gap-2.5 p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition">
+                  <span className="w-1.5 h-1.5 bg-teal-500 rounded-full"></span>
+                  <span>Find an accountant</span>
+                </li>
+              </ul>
+            </div>
+
+          </div>
+
+          {/* Helpline Footer exactly as Screenshot 2 */}
+          <div className="bg-slate-50 border-t border-slate-200 p-4.5 text-center select-none">
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest block">Toll Free Support</span>
+            <span className="text-[13.5px] font-black text-slate-900 block mt-0.5 font-mono">🇮🇳 1800 572 6671</span>
+          </div>
+
         </div>
       )}
 
