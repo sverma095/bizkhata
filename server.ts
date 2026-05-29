@@ -40,7 +40,10 @@ const app = express();
 app.use(express.json());
 
 const PORT = 3000;
-const DB_FILE = path.join(process.cwd(), "bizkhata_db.json");
+// On Vercel, process.cwd() is read-only; use /tmp for ephemeral file fallback
+const DB_FILE = process.env.VERCEL === "1"
+  ? "/tmp/bizkhata_db.json"
+  : path.join(process.cwd(), "bizkhata_db.json");
 
 // Define basic types locally or import
 import { DatabaseState, UserRole, Account, JournalEntry, JournalLine } from "./src/types.js";
@@ -1737,35 +1740,45 @@ app.post("/api/ai/generate-reminder", async (req, res) => {
 });
 
 // Serve frontend assets and start listening wrapped in an async IIFE
-(async () => {
-  // Pre-prime the server memory cache asynchronously so the server starts up instantly
-  readDB().then((db) => {
-    cachedDb = db;
-    console.log("Pre-primed database cache memory successfully on cold start.");
-  }).catch(err => {
-    console.error("Failed to pre-prime database cache, using default initial state:", err);
-    cachedDb = getInitialState();
-  });
-
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
+// On Vercel, skip Vite/static setup — Vercel serves the dist/ as static output separately
+if (process.env.VERCEL !== "1") {
+  (async () => {
+    // Pre-prime the server memory cache asynchronously so the server starts up instantly
+    readDB().then((db) => {
+      cachedDb = db;
+      console.log("Pre-primed database cache memory successfully on cold start.");
+    }).catch(err => {
+      console.error("Failed to pre-prime database cache, using default initial state:", err);
+      cachedDb = getInitialState();
     });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
-  }
 
-  if (process.env.VERCEL !== "1") {
+    if (process.env.NODE_ENV !== "production") {
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: "spa",
+      });
+      app.use(vite.middlewares);
+    } else {
+      const distPath = path.join(process.cwd(), "dist");
+      app.use(express.static(distPath));
+      app.get("*", (req, res) => {
+        res.sendFile(path.join(distPath, "index.html"));
+      });
+    }
+
     app.listen(PORT, "0.0.0.0", () => {
       console.log(`Bizkhata express ledger server listening on port ${PORT}...`);
     });
-  }
-})();
+  })();
+} else {
+  // On Vercel: warm up Supabase connection on cold start
+  readDB().then((db) => {
+    cachedDb = db;
+    console.log("Vercel cold-start: Supabase state pre-loaded.");
+  }).catch(err => {
+    console.error("Vercel cold-start: failed to pre-load state:", err);
+    cachedDb = getInitialState();
+  });
+}
 
 export default app;
