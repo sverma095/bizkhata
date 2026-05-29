@@ -37,7 +37,18 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
+
+// Wrapper to catch async errors in Express 4 (which doesn't auto-catch async throws)
+const asyncRoute = (fn: (req: express.Request, res: express.Response) => Promise<any>) =>
+  (req: express.Request, res: express.Response) => {
+    fn(req, res).catch((err: any) => {
+      console.error("[BizKhata API Error]", err?.message, err?.stack);
+      if (!res.headersSent) {
+        res.status(500).json({ error: err?.message || "Internal server error" });
+      }
+    });
+  };
 
 const PORT = 3000;
 // On Vercel, process.cwd() is read-only; use /tmp for ephemeral file fallback
@@ -627,17 +638,17 @@ async function writeDB(state: DatabaseState): Promise<void> {
 
 // REST Api Endpoints
 
-app.get("/api/db", async (req, res) => {
+app.get("/api/db", asyncRoute(async (req, res) => {
   const db = await readDB();
   res.json(db);
-});
+}));
 
 app.get("/api/supabase-status", (req, res) => {
   res.json(supabaseStatus);
 });
 
 // Secure API endpoint to provisions new sub-users with random single-sign-on credentials
-app.post("/api/users/add", async (req, res) => {
+app.post("/api/users/add", asyncRoute(async (req, res) => {
   const db = await readDB();
   const { name, email, mobile, role, author } = req.body;
   
@@ -702,10 +713,10 @@ app.post("/api/users/add", async (req, res) => {
 
   await writeDB(db);
   res.json({ success: true, db, newUser, password });
-});
+}));
 
 // Secure API endpoint to update corporate license capacity slots on-demand
-app.post("/api/user-seats/update", async (req, res) => {
+app.post("/api/user-seats/update", asyncRoute(async (req, res) => {
   const db = await readDB();
   const { seatsLimit, author } = req.body;
   if (!seatsLimit || isNaN(Number(seatsLimit))) {
@@ -725,9 +736,9 @@ app.post("/api/user-seats/update", async (req, res) => {
 
   await writeDB(db);
   res.json({ success: true, db });
-});
+}));
 
-app.post("/api/company", async (req, res) => {
+app.post("/api/company", asyncRoute(async (req, res) => {
   const db = await readDB();
   db.company = { ...db.company, ...req.body };
   db.auditLogs.unshift({
@@ -739,9 +750,9 @@ app.post("/api/company", async (req, res) => {
   });
   await writeDB(db);
   res.json({ success: true, db });
-});
+}));
 
-app.post("/api/customers", async (req, res) => {
+app.post("/api/customers", asyncRoute(async (req, res) => {
   const db = await readDB();
   const index = db.customers.findIndex(c => c.id === req.body.id);
   const user = req.body.authorUser || "User";
@@ -768,9 +779,9 @@ app.post("/api/customers", async (req, res) => {
   }
   await writeDB(db);
   res.json({ success: true, db });
-});
+}));
 
-app.post("/api/vendors", async (req, res) => {
+app.post("/api/vendors", asyncRoute(async (req, res) => {
   const db = await readDB();
   const index = db.vendors.findIndex(v => v.id === req.body.id);
   const user = req.body.authorUser || "User";
@@ -797,9 +808,9 @@ app.post("/api/vendors", async (req, res) => {
   }
   await writeDB(db);
   res.json({ success: true, db });
-});
+}));
 
-app.post("/api/items", async (req, res) => {
+app.post("/api/items", asyncRoute(async (req, res) => {
   const db = await readDB();
   const index = db.items.findIndex(i => i.id === req.body.id);
   const user = req.body.authorUser || "User";
@@ -826,7 +837,7 @@ app.post("/api/items", async (req, res) => {
   }
   await writeDB(db);
   res.json({ success: true, db });
-});
+}));
 
 // Accounting engine automatic journal entry creator
 function createInvoiceJournal(invoice: any, company: any) {
@@ -879,8 +890,11 @@ function createInvoiceJournal(invoice: any, company: any) {
   };
 }
 
-app.post("/api/invoices", async (req, res) => {
+app.post("/api/invoices", asyncRoute(async (req, res) => {
+  console.log("[/api/invoices] Body keys:", Object.keys(req.body || {}));
+  console.log("[/api/invoices] isProforma:", req.body?.isProforma, "customerId:", req.body?.customerId);
   const db = await readDB();
+  console.log("[/api/invoices] DB loaded, invoices count:", db?.invoices?.length);
   const invoiceData = req.body;
   const user = req.body.authorUser || "User";
 
@@ -917,10 +931,10 @@ app.post("/api/invoices", async (req, res) => {
 
   await writeDB(db);
   res.json({ success: true, db });
-});
+}));
 
 // Payments Recorder Double-Entry
-app.post("/api/payments", async (req, res) => {
+app.post("/api/payments", asyncRoute(async (req, res) => {
   const db = await readDB();
   const payment = req.body;
   const user = req.body.authorUser || "User";
@@ -996,10 +1010,10 @@ app.post("/api/payments", async (req, res) => {
 
   await writeDB(db);
   res.json({ success: true, db });
-});
+}));
 
 // Credit note issuer Double-Entry
-app.post("/api/credit-notes", async (req, res) => {
+app.post("/api/credit-notes", asyncRoute(async (req, res) => {
   const db = await readDB();
   const cn = req.body;
   const user = req.body.authorUser || "User";
@@ -1072,10 +1086,10 @@ app.post("/api/credit-notes", async (req, res) => {
 
   await writeDB(db);
   res.json({ success: true, db });
-});
+}));
 
 // Quick Expenses Entries Double-Entry
-app.post("/api/expenses", async (req, res) => {
+app.post("/api/expenses", asyncRoute(async (req, res) => {
   const db = await readDB();
   const exp = req.body;
   const user = req.body.authorUser || "User";
@@ -1163,10 +1177,10 @@ app.post("/api/expenses", async (req, res) => {
 
   await writeDB(db);
   res.json({ success: true, db });
-});
+}));
 
 // Bills Double-Entry
-app.post("/api/bills", async (req, res) => {
+app.post("/api/bills", asyncRoute(async (req, res) => {
   const db = await readDB();
   const bill = req.body;
   const user = req.body.authorUser || "User";
@@ -1246,9 +1260,9 @@ app.post("/api/bills", async (req, res) => {
 
   await writeDB(db);
   res.json({ success: true, db });
-});
+}));
 
-app.post("/api/bills/pay", async (req, res) => {
+app.post("/api/bills/pay", asyncRoute(async (req, res) => {
   const db = await readDB();
   const { billId, date, paymentMode, referenceNumber, amountPaid, authorUser } = req.body;
   const user = authorUser || "User";
@@ -1287,10 +1301,10 @@ app.post("/api/bills/pay", async (req, res) => {
 
   await writeDB(db);
   res.json({ success: true, db });
-});
+}));
 
 // Post Manual Journal entry
-app.post("/api/journals", async (req, res) => {
+app.post("/api/journals", asyncRoute(async (req, res) => {
   const db = await readDB();
   const { date, reference, description, lines, user } = req.body;
 
@@ -1336,10 +1350,10 @@ app.post("/api/journals", async (req, res) => {
 
   await writeDB(db);
   res.json({ success: true, db });
-});
+}));
 
 // Secure API endpoint to delete sub-users from Corporate Team Directory
-app.post("/api/users/remove", async (req, res) => {
+app.post("/api/users/remove", asyncRoute(async (req, res) => {
   const db = await readDB();
   const { id, author } = req.body;
 
@@ -1373,10 +1387,10 @@ app.post("/api/users/remove", async (req, res) => {
 
   await writeDB(db);
   res.json({ success: true, db });
-});
+}));
 
 // Owner SaaS Console APIs
-app.post("/api/owner/organization/add", async (req, res) => {
+app.post("/api/owner/organization/add", asyncRoute(async (req, res) => {
   const db = await readDB();
   const { name, legalName, pan, gstin, purchasedSeats, packageType, pricingMonthly, purchaseStatus, registeredEmail } = req.body;
 
@@ -1411,9 +1425,9 @@ app.post("/api/owner/organization/add", async (req, res) => {
 
   await writeDB(db);
   res.json({ success: true, db });
-});
+}));
 
-app.post("/api/owner/organization/update", async (req, res) => {
+app.post("/api/owner/organization/update", asyncRoute(async (req, res) => {
   const db = await readDB();
   const { id, name, legalName, pan, gstin, purchasedSeats, packageType, pricingMonthly, purchaseStatus, registeredEmail } = req.body;
 
@@ -1459,9 +1473,9 @@ app.post("/api/owner/organization/update", async (req, res) => {
 
   await writeDB(db);
   res.json({ success: true, db });
-});
+}));
 
-app.post("/api/owner/organization/delete", async (req, res) => {
+app.post("/api/owner/organization/delete", asyncRoute(async (req, res) => {
   const db = await readDB();
   const { id } = req.body;
 
@@ -1489,25 +1503,25 @@ app.post("/api/owner/organization/delete", async (req, res) => {
 
   await writeDB(db);
   res.json({ success: true, db });
-});
+}));
 
 // Update Role API
-app.post("/api/role", async (req, res) => {
+app.post("/api/role", asyncRoute(async (req, res) => {
   const db = await readDB();
   db.role = req.body.role;
   await writeDB(db);
   res.json({ success: true, db });
-});
+}));
 
 // Reset database
-app.post("/api/reset", async (req, res) => {
+app.post("/api/reset", asyncRoute(async (req, res) => {
   const fresh = getInitialState();
   await writeDB(fresh);
   res.json(fresh);
-});
+}));
 
 // Server-side AI Services utilizing Google Gemini API 3.5 Flash
-app.post("/api/ai/invoice-create", async (req, res) => {
+app.post("/api/ai/invoice-create", asyncRoute(async (req, res) => {
   const { prompt } = req.body;
   if (!prompt) {
     return res.status(400).json({ error: "No prompts provided." });
@@ -1574,9 +1588,9 @@ app.post("/api/ai/invoice-create", async (req, res) => {
     console.error("Gemini parse failed:", error);
     res.status(500).json({ error: "Gemini failed to resolve fields. Please try manually.", details: error.message });
   }
-});
+}));
 
-app.post("/api/ai/reconcile", async (req, res) => {
+app.post("/api/ai/reconcile", asyncRoute(async (req, res) => {
   const { bankFeed } = req.body;
   if (!bankFeed) {
     return res.status(400).json({ error: "Feed prompt is required." });
@@ -1630,9 +1644,9 @@ app.post("/api/ai/reconcile", async (req, res) => {
   } catch (err: any) {
     res.status(500).json({ error: "Failed to query AI models.", details: err.message });
   }
-});
+}));
 
-app.post("/api/ai/categorize", async (req, res) => {
+app.post("/api/ai/categorize", asyncRoute(async (req, res) => {
   const { text } = req.body;
   if (!ai) {
     return res.json({
@@ -1675,9 +1689,9 @@ app.post("/api/ai/categorize", async (req, res) => {
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
-app.post("/api/ai/explain-report", async (req, res) => {
+app.post("/api/ai/explain-report", asyncRoute(async (req, res) => {
   const { reportType, data } = req.body;
   if (!ai) {
     return res.json({
@@ -1703,9 +1717,9 @@ app.post("/api/ai/explain-report", async (req, res) => {
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
-app.post("/api/ai/generate-reminder", async (req, res) => {
+app.post("/api/ai/generate-reminder", asyncRoute(async (req, res) => {
   const { invoiceNum, clientName, dueDate, amount } = req.body;
   const tonePrompt = `Draft a professional, yet gentle payment outstanding email reminder for Indian invoice number ${invoiceNum}. Client: ${clientName}, Due date: ${dueDate}, Balance outstanding: ₹${amount}. Write a helpful subject line and email body.`;
 
@@ -1737,7 +1751,7 @@ app.post("/api/ai/generate-reminder", async (req, res) => {
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
 // Serve frontend assets and start listening wrapped in an async IIFE
 // On Vercel, skip Vite/static setup — Vercel serves the dist/ as static output separately
