@@ -169,6 +169,10 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState(new Date().toISOString().split('T')[0]);
   const [isProforma, setIsProforma] = useState(false);
+  const [tdsSection, setTdsSection] = useState<string>("");
+  const [tdsRate, setTdsRate] = useState<number>(0);
+  const [tdsAmount, setTdsAmount] = useState<number>(0);
+  const [roundingOff, setRoundingOff] = useState<boolean>(false);
   const [formItems, setFormItems] = useState<Array<{ itemId: string; name: string; hsnSac: string; qty: number; rate: number; gstRate: number }>>([]);
   const [draftInvoiceNum, setDraftInvoiceNum] = useState("");
 
@@ -184,6 +188,10 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
     setIsProforma(activeTab === "proforma");
     setFormItems([{ itemId: "", name: "", hsnSac: "", qty: 1, rate: 0, gstRate: 18 }]);
     setDraftInvoiceNum("");
+    setTdsSection("");
+    setTdsRate(0);
+    setTdsAmount(0);
+    setRoundingOff(false);
   };
 
   useEffect(() => {
@@ -442,7 +450,8 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
               if (activeTab === "customers") {
                 handleCreateCustomerClick();
               } else {
-                resetForm(); 
+                resetForm();
+                setIsProforma(activeTab === "proforma");
                 setShowForm(true); 
               }
             }}
@@ -471,7 +480,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
             </button>
           </div>
 
-          <form id="frm-invoice-draft" onSubmit={handleInvoiceSubmit} className="space-y-4">
+          <form id="frm-invoice-draft" onSubmit={(e) => e.preventDefault()} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-1.5">
                 <label id="lbl-fld-cust" className="text-xs text-slate-400 font-medium">Customer Master Record</label>
@@ -592,6 +601,26 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                         className="w-full bg-slate-950 border border-slate-855 rounded px-2 py-1 text-slate-300 text-xs text-right focus:border-slate-700 outline-none"
                       />
                     </div>
+                    <div className="md:col-span-2 space-y-1">
+                      <select
+                        value={item.gstRate}
+                        onChange={(e) => handleFormItemChange(idx, "gstRate", parseFloat(e.target.value))}
+                        className="w-full bg-slate-950 border border-slate-855 rounded px-2 py-1 text-slate-300 text-xs focus:border-slate-700 outline-none"
+                        title="GST Rate"
+                      >
+                        <option value={0}>0% GST (Exempt)</option>
+                        <option value={0.1}>0.1% GST</option>
+                        <option value={0.25}>0.25% GST</option>
+                        <option value={1.5}>1.5% GST</option>
+                        <option value={3}>3% GST</option>
+                        <option value={5}>5% GST</option>
+                        <option value={6}>6% GST</option>
+                        <option value={7.5}>7.5% GST</option>
+                        <option value={12}>12% GST</option>
+                        <option value={18}>18% GST</option>
+                        <option value={28}>28% GST</option>
+                      </select>
+                    </div>
                     <div className="md:col-span-2 text-right p-1 font-mono text-slate-300 text-xs">
                       ₹ {(item.qty * item.rate).toLocaleString('en-IN')}
                     </div>
@@ -642,10 +671,104 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                   <span className="font-mono text-slate-200">₹{liveResults.igst.toLocaleString('en-IN')}</span>
                 </div>
               )}
+
+              {/* TDS Section */}
+              <div className="border-t border-slate-800 pt-2 space-y-1.5">
+                <label className="text-[10px] text-amber-400 font-semibold uppercase tracking-wide">TDS Deduction (Income Tax)</label>
+                <select
+                  value={tdsSection}
+                  onChange={(e) => {
+                    const sec = e.target.value;
+                    setTdsSection(sec);
+                    const rateMap: Record<string,number> = {
+                      "194C_ind": 1, "194C_huf": 1, "194C_comp": 2,
+                      "194J_prof": 10, "194J_tech": 2,
+                      "194I_land": 10, "194I_plant": 2,
+                      "194A": 10, "194H": 5, "194IA": 1,
+                      "194IB": 5, "194IC": 10, "194M": 5,
+                      "194N": 2, "194O": 1, "194Q": 0.1, "206C": 1
+                    };
+                    const rate = rateMap[sec] || 0;
+                    setTdsRate(rate);
+                    setTdsAmount(Math.round(liveResults.subtotal * rate / 100 * 100) / 100);
+                  }}
+                  className="w-full bg-slate-900 border border-amber-900/50 rounded px-2 py-1 text-slate-300 text-[10px] outline-none"
+                >
+                  <option value="">No TDS</option>
+                  <optgroup label="Contract Payments">
+                    <option value="194C_ind">Sec 194C – Contractor (Individual/HUF) @ 1%</option>
+                    <option value="194C_comp">Sec 194C – Contractor (Company) @ 2%</option>
+                  </optgroup>
+                  <optgroup label="Professional/Technical">
+                    <option value="194J_prof">Sec 194J – Professional Services @ 10%</option>
+                    <option value="194J_tech">Sec 194J – Technical Services @ 2%</option>
+                  </optgroup>
+                  <optgroup label="Rent">
+                    <option value="194I_land">Sec 194I – Rent (Land/Building) @ 10%</option>
+                    <option value="194I_plant">Sec 194I – Rent (Plant/Machinery) @ 2%</option>
+                    <option value="194IB">Sec 194IB – Rent (Individual) @ 5%</option>
+                    <option value="194IC">Sec 194IC – JDA Payment @ 10%</option>
+                  </optgroup>
+                  <optgroup label="Other Payments">
+                    <option value="194A">Sec 194A – Interest (Non-Bank) @ 10%</option>
+                    <option value="194H">Sec 194H – Commission/Brokerage @ 5%</option>
+                    <option value="194IA">Sec 194IA – Immovable Property @ 1%</option>
+                    <option value="194M">Sec 194M – Certain Payments @ 5%</option>
+                    <option value="194O">Sec 194O – E-Commerce @ 1%</option>
+                    <option value="194Q">Sec 194Q – Purchase of Goods @ 0.1%</option>
+                    <option value="194N">Sec 194N – Cash Withdrawal @ 2%</option>
+                    <option value="206C">Sec 206C – TCS on Sales @ 1%</option>
+                  </optgroup>
+                </select>
+                {tdsSection && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-amber-400 text-[10px]">TDS @ {tdsRate}% = ₹</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={tdsAmount}
+                      onChange={(e) => setTdsAmount(parseFloat(e.target.value) || 0)}
+                      className="w-28 bg-slate-900 border border-amber-700/60 rounded px-2 py-0.5 text-amber-300 text-[10px] font-mono outline-none text-right"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Rounding Off */}
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="chk-rounding"
+                  checked={roundingOff}
+                  onChange={(e) => setRoundingOff(e.target.checked)}
+                  className="accent-emerald-500 cursor-pointer"
+                />
+                <label htmlFor="chk-rounding" className="text-slate-400 text-[10px] cursor-pointer select-none">
+                  Round off total to nearest ₹1
+                </label>
+                {roundingOff && (() => {
+                  const preRound = liveResults.total - tdsAmount;
+                  const rounded = Math.round(preRound);
+                  const diff = rounded - preRound;
+                  return diff !== 0 ? (
+                    <span className="font-mono text-[10px] text-slate-500">({diff > 0 ? '+' : ''}{diff.toFixed(2)})</span>
+                  ) : null;
+                })()}
+              </div>
+
               <div className="border-t border-slate-800 pt-2 flex justify-between font-bold text-slate-100 text-sm">
                 <span>Grand Total:</span>
-                <span className="font-mono text-emerald-400">₹{liveResults.total.toLocaleString('en-IN')}</span>
+                <span className="font-mono text-emerald-400">
+                  ₹{(() => {
+                    const base = liveResults.total - tdsAmount;
+                    return (roundingOff ? Math.round(base) : Math.round(base * 100) / 100).toLocaleString('en-IN');
+                  })()}
+                </span>
               </div>
+              {tdsSection && (
+                <div className="text-[10px] text-amber-500/80 italic">* TDS of ₹{tdsAmount.toFixed(2)} deducted at source ({tdsSection.replace('_',' ').toUpperCase()})</div>
+              )}
             </div>
 
             <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">

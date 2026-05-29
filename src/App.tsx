@@ -1541,12 +1541,10 @@ export default function App() {
         
         {/* Left: Bizkhata logo stack */}
         <div className="flex items-center gap-2">
-          {/* Logo symbol */}
-          <div className="flex justify-center items-center w-6 h-6 rounded-md bg-emerald-600 border border-emerald-500 shadow-sm font-black text-white text-[11px]">
-            B
-          </div>
+          {/* Logo */}
+          <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACUAAAA0CAYAAAANFPE9AAAABHNCSVQICAgIfAhkiAAAABl0RVh0U29mdHdhcmUAZ25vbWUtc2NyZWVuc2hvdO8Dvz4AAAAsdEVYdENyZWF0aW9uIFRpbWUARnJpZGF5IDI5IE1heSAyMDI2IDExOjIxOjM4IEFNT7RIqAAAAxtJREFUWIXtmEuLHFUYhp/vVPVlLklXdzNO2zohGREdBtRGMoKQP+DelcEL/gK36o/RjQu3ugkBEV14Q4QQjESTcYa0dNKZdE1f63bOcZEREqZ7pmYsSQv1wNmcgpfnfOdSp0rq9bplzlBPWmAauVRacqm05FJpmUspt9FoPGmHQ8xlpXKptORSacml0pJLpSWXSsshKc/z8Dzv5EmShc5D3EPZcsr0g2+isFFGn1mmEFdw4wpKF8EKosBaAI198BtE/fRSpyWuFGhfPs/4OY/yZI363iUq+xdxIw+xD50FQIHtbRNffQ+C+1OzsllTAncun2fUqkMCkihUXEBiAW2w5qDpBKvBWb2ALD87My4TqckzC4yfX0b8ACsGoyISd4hxJlgxYA2C4JRdxMZEP3+KuX9tZl4m02cWXUCw1oBYkkKfycIdCpMGi7rE8lIVQoP+4wv09U8wvZtH7otMpMq7I9xBTFItIaMYzYjJ0m3OVYs0Bh2633Xxv7nCQngdAEGwzP5b8O+lBJzA8PTnu7TfuYCplakVFVu6w9qvN9j58h4bYZeLl0YY6/L1tbPc6joIzNSSzc3Nx55Vq1UAer3eif2C1TKDlzyahTGr2wOC/XVe22ry5tYtWis3cOwe/d8X+PizFb5quzPFMjsSrAjluwHlqx2i4gZ3W2/TfL1F5N3mF/8KEg85R8hKrPhoXfjxL2Fop9cqMymxFqm9gNp8H3f9DdwCdCchSddQWH6ZNbtDM+oR7MQ8tb/IRjHhp1D/d1JWHJzWB7gvvoUqFdChJY40iMtYV9gbNukN1wh7bUx7gPWLDHQyMy8TKbXyCqVX3yUZgw4SEMGiEMBohQ1KmP4ZuFdhcaj4fjDiZpwgIlPXVCaHp+3/SdLZRhwQx0WUgzgKRxRLRlMfB9T3Ykq+8O2DCR/6I8wR79jsdl/xLFLb4NFxKmsompBK3KcW+QzjAbtxfGzUoemzM3bEsUR9bOeHx7o0MDlonUf6jzqjpkr5vn86qRNw3LD/HzfPeSCXSksulZZcKi25VFrmUsr951YwT8xlpeZS6m8hWDMlEzwCiAAAAABJRU5ErkJggg==" alt="BizKhata Logo" className="h-8 w-auto object-contain" />
           <div className="flex items-baseline gap-1">
-            <span className="font-extrabold text-white text-[15px] leading-none tracking-tight">Bizkhata</span>
+            <span className="font-extrabold text-white text-[15px] leading-none tracking-tight">BizKhata</span>
             <span className="text-[14px] font-bold text-[#00D779]">Workspace</span>
           </div>
         </div>
