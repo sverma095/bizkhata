@@ -731,16 +731,21 @@ export default function App() {
   };
 
   const handleSaveInvoice = async (invoicePayload: any) => {
-    const r = await fetch("/api/invoices", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(invoicePayload)
-    });
-    if (r.ok) {
-      await fetchDB();
-    } else {
-      const err = await r.json();
-      alert(`Ledger Validation Warning: ${err.error || "Cannot write post"}`);
+    try {
+      const r = await fetch("/api/invoices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(invoicePayload)
+      });
+      if (r.ok) {
+        await fetchDB();
+      } else {
+        let errMsg = "Server error";
+        try { const err = await r.json(); errMsg = err.error || errMsg; } catch {}
+        alert(`Save failed (${r.status}): ${errMsg}\n\nCheck that Supabase env vars are set in Vercel and redeploy.`);
+      }
+    } catch (networkErr: any) {
+      alert(`Network error saving invoice: ${networkErr.message}\n\nThe API endpoint may be unreachable. Check Vercel function logs.`);
     }
   };
 

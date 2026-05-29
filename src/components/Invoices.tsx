@@ -169,6 +169,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState(new Date().toISOString().split('T')[0]);
   const [isProforma, setIsProforma] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [tdsSection, setTdsSection] = useState<string>("");
   const [tdsRate, setTdsRate] = useState<number>(0);
   const [tdsAmount, setTdsAmount] = useState<number>(0);
@@ -267,10 +268,13 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
     if (e && e.preventDefault) e.preventDefault();
     if (!customerId) return alert("Please select a customer.");
     const cust = db.customers.find(c => c.id === customerId);
-    if (!cust) return;
+    if (!cust) return alert("Selected customer not found in database.");
+    const validItems = formItems.filter(it => it.itemId !== "" && it.rate > 0);
+    if (validItems.length === 0) return alert("Please add at least one item with a rate.");
+    setIsSaving(true);
 
     // Compile Invoice Items schema
-    const finalItems: InvoiceItem[] = formItems.map((fItem, idx) => {
+    const finalItems: InvoiceItem[] = validItems.map((fItem, idx) => {
       const isIntrastate = db.company.state.trim().toLowerCase() === cust.state.trim().toLowerCase();
       const lineAmount = fItem.qty * fItem.rate;
       const lineGst = (lineAmount * fItem.gstRate) / 100;
@@ -309,9 +313,13 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
       paymentReceived: 0
     };
 
-    await onSaveInvoice(invoicePayload);
-    setShowForm(false);
-    resetForm();
+    try {
+      await onSaveInvoice(invoicePayload);
+      setShowForm(false);
+      resetForm();
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCreditNoteSubmit = async (e: React.FormEvent) => {
@@ -783,8 +791,9 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
               {!isProforma && (
                 <button 
                   type="button"
+                  disabled={isSaving}
                   onClick={(e) => handleInvoiceSubmit(e, "Draft")}
-                  className="flex items-center gap-2 bg-[#8C867A]/20 hover:bg-[#8C867A]/30 border border-[#8C867A]/50 font-semibold text-[#E5E1D8] text-xs px-4 py-2 rounded-lg cursor-pointer transition"
+                  className="flex items-center gap-2 bg-[#8C867A]/20 hover:bg-[#8C867A]/30 border border-[#8C867A]/50 disabled:opacity-60 font-semibold text-[#E5E1D8] text-xs px-4 py-2 rounded-lg cursor-pointer transition"
                 >
                   Save as Draft Invoice
                 </button>
@@ -792,11 +801,19 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
 
               <button 
                 type="button"
-                onClick={(e) => handleInvoiceSubmit(e, isProforma ? "Draft" : "Approved")}
-                className="flex items-center gap-2 bg-emerald-600/90 hover:bg-emerald-500 font-medium text-white text-xs px-5 py-2 rounded-lg cursor-pointer select-none transition border border-emerald-500/25"
+                disabled={isSaving}
+                onClick={(e) => {
+                  // Always use isProforma from state directly - don't rely on closure
+                  const status = isProforma ? "Draft" : "Approved";
+                  handleInvoiceSubmit(e, status);
+                }}
+                className="flex items-center gap-2 bg-emerald-600/90 hover:bg-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed font-medium text-white text-xs px-5 py-2 rounded-lg cursor-pointer select-none transition border border-emerald-500/25"
               >
-                <Save className="w-3.5 h-3.5" />
-                {isProforma ? "Draft Proforma" : "Settle as Approved"}
+                {isSaving ? (
+                  <><span className="animate-spin inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full" /> Saving...</>
+                ) : (
+                  <><Save className="w-3.5 h-3.5" />{isProforma ? "Draft Proforma" : "Settle as Approved"}</>
+                )}
               </button>
             </div>
           </form>
