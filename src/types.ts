@@ -8,6 +8,17 @@ export interface CompanyInfo {
   currency: string;
   financialYear: string;
   logoUrl?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  bankName?: string;
+  bankAccount?: string;
+  bankIfsc?: string;
+  eInvoicePortal?: {
+    username: string;
+    password: string;
+    configured: boolean;
+  };
 }
 
 export enum UserRole {
@@ -99,6 +110,12 @@ export interface Invoice {
   paymentReceived: number;
   convertedToTax?: boolean;
   convertedInvoiceNumber?: string;
+  irn?: string;           // E-Invoice Reference Number from IRP
+  ackNo?: string;         // Acknowledgement Number
+  ackDate?: string;       // Acknowledgement Date
+  ewbNo?: string;         // E-Way Bill Number
+  notes?: string;         // Internal notes
+  termsAndConditions?: string;
 }
 
 export interface CreditNoteItem {
@@ -269,4 +286,11 @@ export interface DatabaseState {
   userSeatsLimit?: number;
   mailLogs?: MailLog[];
   organizations?: OrgPurchase[];
+}
+
+export interface EInvoicePortalConfig {
+  username: string;
+  password: string;
+  gstin: string;
+  configured: boolean;
 }

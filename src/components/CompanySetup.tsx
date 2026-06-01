@@ -1298,24 +1298,7 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
 
           {/* ------------------------ SECTION: e-Invoicing ------------------------ */}
           {activeSection === "einvoicing" && (
-            <div className="bg-white border border-[#E5E1D8] rounded-2xl p-6 space-y-6 shadow-xs max-w-xl mx-auto animate-fade-in font-sans">
-              <div>
-                <h3 className="font-bold text-slate-900 border-b pb-3 flex items-center gap-2 text-sm">⚡ API IRN e-Invoicing Integration</h3>
-                <p className="text-xs text-slate-500 mt-1">Configure direct API keys linking with National Informatics Centre (NIC) portal for direct IRN QR code generation.</p>
-              </div>
-              <div className="space-y-4">
-                <label className="flex items-center gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200 cursor-pointer">
-                  <input type="checkbox" checked={cfgEinvoicingAutoPush} onChange={(e) => setCfgEinvoicingAutoPush(e.target.checked)} className="rounded text-[#006EE5] cursor-pointer" />
-                  <div>
-                    <span className="font-bold text-xs text-slate-900 block">Enable Auto IRN Generation on Settle</span>
-                    <span className="text-[11px] text-slate-500 block font-medium">Bypasses manual "Push E-Invoice" clicking, directly reporting to live GST database.</span>
-                  </div>
-                </label>
-                <button onClick={() => { triggerToast("NIC portal API endpoints synchronized!"); setActiveSection("menu"); }} className="w-full bg-[#006EE5] text-white hover:bg-[#0060C7] text-xs font-bold py-2.5 rounded-lg transition cursor-pointer">
-                  Re-authenticate NIC Certificate Channel
-                </button>
-              </div>
-            </div>
+            <EInvoicePortalSection db={db} onSaveCompany={onUpdateCompany} triggerToast={triggerToast} setActiveSection={setActiveSection} />
           )}
 
           {/* ------------------------ SECTION: MSME ------------------------ */}
@@ -2942,6 +2925,92 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
         </div>
       )}
 
+    </div>
+  );
+}
+
+// ── E-Invoice Portal Configuration Component ──────────────────────────────
+function EInvoicePortalSection({ db, onSaveCompany, triggerToast, setActiveSection }: {
+  db: any; onSaveCompany: (data: any) => Promise<void>; triggerToast: (msg: string) => void; setActiveSection: (s: string) => void;
+}) {
+  const portal = db.company.eInvoicePortal || {};
+  const [username, setUsername] = React.useState(portal.username || "");
+  const [password, setPassword] = React.useState(portal.password || "");
+  const [saving, setSaving] = React.useState(false);
+
+  const handleSave = async () => {
+    if (!username || !password) return alert("Please enter both IRP Username and Password.");
+    setSaving(true);
+    try {
+      await onSaveCompany({ ...db.company, eInvoicePortal: { username, password, configured: true } });
+      triggerToast("✅ E-Invoice Portal credentials saved! You can now push IRN to the government portal.");
+      setActiveSection("menu");
+    } catch(e: any) { alert("Failed to save: " + e.message); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div className="bg-white border border-[#E5E1D8] rounded-2xl p-6 space-y-6 shadow-xs max-w-xl mx-auto animate-fade-in font-sans">
+      <div>
+        <h3 className="font-bold text-slate-900 border-b pb-3 flex items-center gap-2 text-sm">⚡ E-Invoice Portal (IRP) Configuration</h3>
+        <p className="text-xs text-slate-500 mt-2">Enter your <strong>GST IRP (Invoice Registration Portal)</strong> login credentials. These are the same credentials you use to log into <code>einvoice1.gst.gov.in</code>. Required before pushing any invoice to generate an IRN.</p>
+      </div>
+
+      {portal.configured && (
+        <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-xs text-emerald-800 font-semibold">
+          ✅ Portal connected — credentials on file. IRN generation is enabled.
+        </div>
+      )}
+      {!portal.configured && (
+        <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800 font-semibold">
+          ⚠️ Not configured — "Push E-Invoice" button will be blocked until you save credentials here.
+        </div>
+      )}
+
+      <div className="space-y-4">
+        <div>
+          <label className="block text-xs font-bold text-slate-700 mb-1">IRP Portal Username (GSTIN)</label>
+          <input
+            type="text"
+            value={username}
+            onChange={e => setUsername(e.target.value)}
+            placeholder="e.g. 27AABCU9603R1ZX"
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 font-mono"
+          />
+          <p className="text-[10px] text-slate-400 mt-1">Usually your company's GSTIN used as the IRP login.</p>
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-700 mb-1">IRP Portal Password</label>
+          <input
+            type="password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            placeholder="Your IRP portal password"
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
+
+        <div className="bg-slate-50 rounded-lg p-3 text-[11px] text-slate-600 space-y-1">
+          <div className="font-bold text-slate-700">How to get IRP credentials:</div>
+          <div>1. Go to <strong>einvoice1.gst.gov.in</strong></div>
+          <div>2. Login with your GSTIN & password (same as GST portal)</div>
+          <div>3. If not registered, click "e-Invoice Enablement" on the GST portal first</div>
+          <div>4. Your GSTIN is your username; set a separate IRP password if prompted</div>
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex-1 bg-[#006EE5] text-white hover:bg-[#0060C7] disabled:opacity-60 text-xs font-bold py-2.5 rounded-lg transition cursor-pointer"
+          >
+            {saving ? "Saving..." : "Save IRP Credentials"}
+          </button>
+          <button onClick={() => setActiveSection("menu")} className="bg-white hover:bg-slate-100 text-slate-600 border font-semibold px-4 py-2.5 rounded-lg transition text-xs">
+            Cancel
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

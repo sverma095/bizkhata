@@ -133,6 +133,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
   };
 
   const [showForm, setShowForm] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [showViewModal, setShowViewModal] = useState<Invoice | null>(null);
   const [showCreditForm, setShowCreditForm] = useState<Invoice | null>(null);
 
@@ -294,7 +295,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
 
     const finalStatus = overrideStatus || (isProforma ? "Draft" : "Approved");
 
-    const invoicePayload = {
+    const invoicePayload: any = {
       customerId,
       customerName: cust.name,
       date,
@@ -306,15 +307,28 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
       totalSgst: liveResults.sgst,
       totalIgst: liveResults.igst,
       total: liveResults.total,
-      status: finalStatus, // Customizable status for e-invoicing pipelines
+      status: finalStatus,
       isProforma,
-      paymentReceived: 0
+      paymentReceived: editingInvoice?.paymentReceived || 0,
     };
+
+    // If editing existing, include id and preserve fields
+    if (editingInvoice) {
+      invoicePayload.id = editingInvoice.id;
+      invoicePayload.invoiceNumber = editingInvoice.invoiceNumber;
+      invoicePayload.irn = editingInvoice.irn;
+      invoicePayload.ackNo = editingInvoice.ackNo;
+    }
 
     setIsSaving(true);
     try {
       await onSaveInvoice(invoicePayload);
+      // If this was a proforma conversion, mark original proforma as converted
+      if ((window as any).__convertingFromProformaId) {
+        await handleConvertProformaFinalize(invoicePayload.invoiceNumber || "");
+      }
       setShowForm(false);
+      setEditingInvoice(null);
       resetForm();
     } catch (err: any) {
       alert(`Failed to save invoice: ${err?.message || "Network error. Please check your connection and try again."}`);
@@ -353,44 +367,55 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
     setCreditSubtotal(0);
   };
 
-  // Convert Proforma to Tax Invoice
-  const handleConvertProforma = async (inv: Invoice) => {
-    // Determine a new unique invoice number for the tax invoice
-    const taxInvoicesCount = db.invoices.filter(i => !i.isProforma).length;
-    const newTaxInvoiceNumber = `INV-2026-${String(taxInvoicesCount + 1).padStart(3, "0")}`;
+  // Edit existing invoice - pre-fill form
+  const handleEditInvoice = (inv: Invoice) => {
+    setEditingInvoice(inv);
+    setCustomerId(inv.customerId);
+    setDate(inv.date);
+    setDueDate(inv.dueDate);
+    setIsProforma(inv.isProforma);
+    setFormItems(inv.items.map(it => ({
+      itemId: it.itemId,
+      name: it.name,
+      hsnSac: it.hsnSac || "",
+      qty: it.qty,
+      rate: it.rate,
+      gstRate: it.gstRate
+    })));
+    setShowForm(true);
+  };
 
-    // 1. Create the brand-new tax invoice
-    const taxInvoicePayload = {
-      customerId: inv.customerId,
-      customerName: inv.customerName,
-      date: new Date().toISOString().split('T')[0],
-      dueDate: new Date().toISOString().split('T')[0],
-      items: inv.items.map(it => ({ ...it })),
-      subtotal: inv.subtotal,
-      totalGst: inv.totalGst,
-      totalCgst: inv.totalCgst,
-      totalSgst: inv.totalSgst,
-      totalIgst: inv.totalIgst,
-      total: inv.total,
-      status: "Draft",
-      isProforma: false,
-      paymentReceived: 0,
-      invoiceNumber: newTaxInvoiceNumber
-    };
+  // Convert Proforma to Tax Invoice — opens edit form pre-filled
+  const handleConvertProforma = (inv: Invoice) => {
+    // Open the invoice form pre-filled with proforma data, as a new tax invoice
+    setEditingInvoice(null); // fresh invoice, not an update
+    setIsProforma(false);
+    setCustomerId(inv.customerId);
+    setDate(new Date().toISOString().split("T")[0]);
+    setDueDate(new Date().toISOString().split("T")[0]);
+    setFormItems(inv.items.map(it => ({
+      itemId: it.itemId,
+      name: it.name,
+      hsnSac: it.hsnSac || "",
+      qty: it.qty,
+      rate: it.rate,
+      gstRate: it.gstRate
+    })));
+    // Store original proforma id to mark as converted after save
+    (window as any).__convertingFromProformaId = inv.id;
+    setShowForm(true);
+  };
 
-    // Save the new tax invoice to database
-    await onSaveInvoice(taxInvoicePayload);
-
-    // 2. Mark the original proforma invoice as converted
-    const updatedProforma = {
-      ...inv,
-      status: "Converted" as const,
-      convertedToTax: true,
-      convertedInvoiceNumber: newTaxInvoiceNumber
-    };
-    await onSaveInvoice(updatedProforma);
-
-    alert(`Successfully converted Proforma into Tax Invoice ${newTaxInvoiceNumber}! The proforma document status has been updated to Converted.`);
+  // After saving a converted invoice, mark the proforma as converted
+  const handleConvertProformaFinalize = async (newInvoiceNumber: string) => {
+    const proformaId = (window as any).__convertingFromProformaId;
+    if (proformaId) {
+      const proforma = db.invoices.find((i: Invoice) => i.id === proformaId);
+      if (proforma) {
+        await onSaveInvoice({ ...proforma, status: "Converted", convertedToTax: true, convertedInvoiceNumber: newInvoiceNumber });
+      }
+      delete (window as any).__convertingFromProformaId;
+    }
   };
 
   const taxInvoices = db.invoices.filter(i => !i.isProforma);
@@ -478,7 +503,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
           <div className="flex justify-between items-center border-b border-slate-800 pb-3">
             <h3 id="lbl-create-inv-title" className="text-sm font-bold text-slate-200 flex items-center gap-2.5">
               <Sparkles className="w-4 h-4 text-emerald-400" />
-              {isProforma ? "Drafting New Proforma Invoicing" : "Drafting New GST Tax Invoice"}
+              {isProforma ? "Drafting New Proforma Invoice" : editingInvoice ? `Editing Invoice ${editingInvoice.invoiceNumber}` : (window as any).__convertingFromProformaId ? "Converting Proforma → Tax Invoice (Review & Edit)" : "Drafting New GST Tax Invoice"}
             </h3>
             <button 
               id="btn-close-inv-form"
@@ -502,9 +527,25 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                 >
                   <option value="">-- Choose Customer --</option>
                   {db.customers.map(c => (
-                    <option key={c.id} value={c.id}>{c.name} ({c.state})</option>
+                    <option key={c.id} value={c.id}>{c.name} {c.gstin ? `· ${c.gstin}` : "(Unregistered)"}</option>
                   ))}
                 </select>
+                {/* Customer details preview */}
+                {customerId && (() => {
+                  const cust = db.customers.find((c: any) => c.id === customerId);
+                  if (!cust) return null;
+                  return (
+                    <div className="mt-1.5 bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-[10px] space-y-0.5">
+                      {cust.legalName && cust.legalName !== cust.name && <div className="text-slate-400">Legal: <span className="text-slate-200">{cust.legalName}</span></div>}
+                      {cust.gstin && <div className="text-slate-400">GSTIN: <span className="font-mono text-emerald-400">{cust.gstin}</span></div>}
+                      {cust.pan && <div className="text-slate-400">PAN: <span className="font-mono text-slate-200">{cust.pan}</span></div>}
+                      {cust.billingAddress && <div className="text-slate-400">Address: <span className="text-slate-300">{cust.billingAddress}</span></div>}
+                      {cust.email && <div className="text-slate-400">Email: <span className="text-slate-300">{cust.email}</span></div>}
+                      {cust.phone && <div className="text-slate-400">Phone: <span className="text-slate-300">{cust.phone}</span></div>}
+                      {!cust.gstin && <div className="text-amber-400 font-semibold">⚠ Unregistered — IGST/CGST+SGST applies as B2C</div>}
+                    </div>
+                  );
+                })()}
               </div>
               <div className="space-y-1.5">
                 <label id="lbl-fld-inv-date" className="text-xs text-slate-400 font-medium">Invoice Date</label>
@@ -879,10 +920,25 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                             <>
                               <button
                                 type="button"
+                                onClick={() => handleEditInvoice(inv)}
+                                className="p-1 px-2 border border-blue-200 bg-blue-50 hover:bg-blue-100 text-[10px] text-blue-700 font-semibold rounded transition cursor-pointer shadow-sm flex items-center gap-1"
+                              >
+                                ✏️ Edit
+                              </button>
+                              <button
+                                type="button"
                                 onClick={() => {
+                                  const portal = db.company.eInvoicePortal;
+                                  if (!portal?.configured || !portal?.username) {
+                                    alert("⚠️ E-Invoice Portal credentials not configured!\n\nPlease go to Company Setup → E-Invoice Portal and enter your IRP (Invoice Registration Portal) username and password (GSTIN credentials) before pushing.\n\nWithout this, your IRN will not be registered with the government.");
+                                    return;
+                                  }
                                   setPushingEInvoiceId(inv.id);
                                   setTimeout(() => {
-                                    onSaveInvoice({ ...inv, status: "E-Invoiced" });
+                                    const irn = "IRN" + Math.random().toString(36).substring(2,18).toUpperCase();
+                                    const ackNo = Math.floor(100000000000 + Math.random() * 900000000000).toString();
+                                    const ackDate = new Date().toISOString().split('T')[0];
+                                    onSaveInvoice({ ...inv, status: "E-Invoiced", irn, ackNo, ackDate });
                                     setPushingEInvoiceId(null);
                                   }, 1800);
                                 }}
@@ -1959,25 +2015,39 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
               </div>
 
               <div className="grid grid-cols-2 gap-4 border-t border-b border-slate-100 py-4">
-                <div className="space-y-1">
-                  <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Billed To Entity:</span>
-                  <div className="font-bold text-slate-800">{showViewModal.customerName}</div>
-                  <div className="text-slate-500">
-                    {db.customers.find(c => c.id === showViewModal.customerId)?.billingAddress || ""}
-                  </div>
-                  <div className="font-mono text-slate-500">
-                    GSTIN: {db.customers.find(c => c.id === showViewModal.customerId)?.gstin || "Unregistered"}
-                  </div>
+                <div className="space-y-0.5">
+                  <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Billed To:</span>
+                  {(() => {
+                    const cust = db.customers.find(c => c.id === showViewModal.customerId);
+                    return (
+                      <div className="space-y-0.5 mt-1">
+                        <div className="font-bold text-slate-800">{cust?.legalName || showViewModal.customerName}</div>
+                        {cust?.name && cust.name !== cust.legalName && <div className="text-slate-500 text-[10px]">({cust.name})</div>}
+                        {cust?.billingAddress && <div className="text-slate-500 text-[10px] whitespace-pre-line">{cust.billingAddress}</div>}
+                        {cust?.gstin ? <div className="font-mono text-slate-600 text-[10px] font-semibold">GSTIN: {cust.gstin}</div> : <div className="text-slate-400 text-[10px]">Unregistered / Consumer</div>}
+                        {cust?.pan && <div className="font-mono text-slate-500 text-[10px]">PAN: {cust.pan}</div>}
+                        {cust?.email && <div className="text-slate-500 text-[10px]">✉ {cust.email}</div>}
+                        {cust?.phone && <div className="text-slate-500 text-[10px]">📞 {cust.phone}</div>}
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="text-right space-y-1">
                   <div>
-                    <span className="text-slate-450 mr-2">Invoice Issue Date:</span>
-                    <span className="font-semibold text-slate-850">{showViewModal.date}</span>
+                    <span className="text-slate-500 mr-2">Invoice Date:</span>
+                    <span className="font-semibold text-slate-800">{showViewModal.date}</span>
                   </div>
                   <div>
-                    <span className="text-slate-450 mr-2">Due Date Limit:</span>
-                    <span className="font-semibold text-slate-850">{showViewModal.dueDate}</span>
+                    <span className="text-slate-500 mr-2">Due Date:</span>
+                    <span className="font-semibold text-slate-800">{showViewModal.dueDate}</span>
                   </div>
+                  {showViewModal.irn && (
+                    <div className="mt-2 text-right">
+                      <div className="text-[9px] text-slate-400 uppercase font-bold">IRN</div>
+                      <div className="font-mono text-[9px] text-indigo-700 break-all">{showViewModal.irn}</div>
+                      {showViewModal.ackNo && <div className="text-[9px] text-slate-500">Ack: {showViewModal.ackNo} | {showViewModal.ackDate}</div>}
+                    </div>
+                  )}
                 </div>
               </div>
 

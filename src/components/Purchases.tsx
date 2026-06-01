@@ -516,9 +516,24 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                 >
                   <option value="">-- Choose Vendor Supplier --</option>
                   {db.vendors.map(v => (
-                    <option key={v.id} value={v.id}>{v.name}</option>
+                    <option key={v.id} value={v.id}>{v.name} {v.gstin ? `· ${v.gstin}` : "(Unregistered)"}</option>
                   ))}
                 </select>
+                {/* Vendor details preview */}
+                {billVendorId && (() => {
+                  const vend = db.vendors.find((v: any) => v.id === billVendorId);
+                  if (!vend) return null;
+                  return (
+                    <div className="mt-1.5 bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-[10px] space-y-0.5">
+                      {vend.legalName && vend.legalName !== vend.name && <div className="text-slate-400">Legal: <span className="text-slate-200">{vend.legalName}</span></div>}
+                      {vend.gstin && <div className="text-slate-400">GSTIN: <span className="font-mono text-emerald-400">{vend.gstin}</span></div>}
+                      {vend.pan && <div className="text-slate-400">PAN: <span className="font-mono text-slate-200">{vend.pan}</span></div>}
+                      {vend.billingAddress && <div className="text-slate-400">Address: <span className="text-slate-300">{vend.billingAddress}</span></div>}
+                      {vend.email && <div className="text-slate-400">Email: <span className="text-slate-300">{vend.email}</span></div>}
+                      {!vend.gstin && <div className="text-amber-400 font-semibold">⚠ Unregistered Vendor</div>}
+                    </div>
+                  );
+                })()}
               </div>
 
               <div className="space-y-1.5">
