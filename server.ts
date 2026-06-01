@@ -37,7 +37,36 @@ const __filename = (() => { try { return fileURLToPath(import.meta.url); } catch
 const __dirname = __filename ? path.dirname(__filename) : process.cwd();
 
 const app = express();
+app.use((req: any, res: any, next: any) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") return res.sendStatus(200);
+  next();
+});
 app.use(express.json());
+
+// Diagnostic health check
+app.get("/api/health", async (req: any, res: any) => {
+  const checks: any = {
+    server: "ok",
+    supabaseConfigured: !!supabase,
+    supabaseUrl: SUPABASE_URL ? SUPABASE_URL.substring(0, 40) : "missing",
+    env: process.env.VERCEL === "1" ? "vercel" : "local",
+    node: process.version,
+  };
+  if (supabase) {
+    try {
+      const { data, error } = await supabase.from("bizkhata_state").select("id").limit(1);
+      checks.supabaseReachable = !error;
+      checks.supabaseError = error ? error.message : null;
+    } catch (e: any) {
+      checks.supabaseReachable = false;
+      checks.supabaseError = e.message;
+    }
+  }
+  res.json(checks);
+});
 
 const PORT = 3000;
 // On Vercel, process.cwd() is read-only; use /tmp for ephemeral file fallback
