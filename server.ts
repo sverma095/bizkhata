@@ -2,7 +2,6 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
-import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
@@ -45,8 +44,21 @@ const DB_FILE = process.env.VERCEL === "1"
   ? "/tmp/bizkhata_db.json"
   : path.join(process.cwd(), "bizkhata_db.json");
 
-// Define basic types locally or import
-import { DatabaseState, UserRole, Account, JournalEntry, JournalLine } from "./src/types.js";
+// Inline types to avoid cross-directory import issues in Vercel serverless
+enum UserRole {
+  Owner = "Owner",
+  Admin = "Admin",
+  Accountant = "Accountant",
+  BillingUser = "Billing User",
+  Approver = "Approver",
+  Viewer = "Viewer",
+  Auditor = "Auditor",
+  User = "User"
+}
+type Account = { code: string; name: string; type: string; balance: number };
+type JournalLine = { id: string; accountCode: string; accountName: string; debit: number; credit: number };
+type JournalEntry = { id: string; date: string; reference: string; description: string; lines: JournalLine[] };
+type DatabaseState = any;
 
 // Initialize Gemini client safely
 let ai: GoogleGenAI | null = null;
@@ -1753,6 +1765,7 @@ if (process.env.VERCEL !== "1") {
     });
 
     if (process.env.NODE_ENV !== "production") {
+      const { createServer: createViteServer } = await import("vite");
       const vite = await createViteServer({
         server: { middlewareMode: true },
         appType: "spa",
