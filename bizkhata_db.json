@@ -1,0 +1,612 @@
+{
+  "company": {
+    "name": "Bizkhata Pvt Ltd",
+    "legalName": "Bizkhata Solutions Private Limited",
+    "gstin": "29AAAAA0000A1Z1",
+    "pan": "AAAAA1111A",
+    "address": "102 tech Hub, Double Road, Indiranagar, Bengaluru",
+    "state": "Karnataka",
+    "currency": "INR",
+    "financialYear": "2026-2027"
+  },
+  "role": "Owner",
+  "customers": [
+    {
+      "id": "cust_1",
+      "name": "Rajesh Khanna & Sons",
+      "legalName": "Rajesh Khanna Enterprises Ltd",
+      "gstin": "27BBBBB1111B1Z2",
+      "pan": "BBBBB1111B",
+      "email": "finance@rajeshkhanna.com",
+      "phone": "+91-9876543210",
+      "billingAddress": "402 Marine Drive, Mumbai",
+      "state": "Maharashtra",
+      "paymentTerms": "Net 30",
+      "openingBalance": 0
+    },
+    {
+      "id": "cust_2",
+      "name": "Zenith Software Hub",
+      "legalName": "Zenith Tech Labs Karnataka Pvt Ltd",
+      "gstin": "29CCCCC2222C1Z4",
+      "pan": "CCCCC2222C",
+      "email": "accounts@zenithhub.co.in",
+      "phone": "+91-9123456789",
+      "billingAddress": "80 Feet Road, Koramangala, Bengaluru",
+      "state": "Karnataka",
+      "paymentTerms": "Due on Receipt",
+      "openingBalance": 0
+    }
+  ],
+  "vendors": [
+    {
+      "id": "vend_1",
+      "name": "Acme Office Supplies",
+      "gstin": "29DDDDD3333D1Z5",
+      "pan": "DDDDD3333D",
+      "msmeStatus": "Micro",
+      "email": "sales@acmeofficesupplies.in",
+      "phone": "+91-8888777766",
+      "address": "55 Infantry Road, Bengaluru, Karnataka",
+      "openingBalance": 0
+    },
+    {
+      "id": "vend_2",
+      "name": "CloudScale Systems LLC",
+      "gstin": "",
+      "pan": "EEEEE4444E",
+      "msmeStatus": "Non-MSME",
+      "email": "billing@cloudscale.net",
+      "phone": "+1-415-555-0199",
+      "address": "101 California St, San Francisco, CA, USA",
+      "openingBalance": 0
+    }
+  ],
+  "items": [
+    {
+      "id": "item_1",
+      "name": "Premium Software Architecture Consulting",
+      "hsnSac": "998314",
+      "gstRate": 18,
+      "unit": "Hours",
+      "salesRate": 5000,
+      "purchaseRate": 0,
+      "incomeAccount": "service_income",
+      "expenseAccount": "contractor_expense"
+    },
+    {
+      "id": "item_2",
+      "name": "Paper Reams & Office Stationery Bundles",
+      "hsnSac": "4802",
+      "gstRate": 12,
+      "unit": "Boxes",
+      "salesRate": 800,
+      "purchaseRate": 550,
+      "incomeAccount": "sales_income",
+      "expenseAccount": "office_stationery"
+    }
+  ],
+  "accounts": [
+    {
+      "code": "bank_account",
+      "name": "Bank Account",
+      "type": "Asset",
+      "balance": 555460
+    },
+    {
+      "code": "cash",
+      "name": "Cash",
+      "type": "Asset",
+      "balance": 0
+    },
+    {
+      "code": "accounts_receivable",
+      "name": "Accounts Receivable",
+      "type": "Asset",
+      "balance": 118000
+    },
+    {
+      "code": "tds_receivable",
+      "name": "TDS Receivable",
+      "type": "Asset",
+      "balance": 0
+    },
+    {
+      "code": "input_gst",
+      "name": "Input GST",
+      "type": "Asset",
+      "balance": 1200
+    },
+    {
+      "code": "accounts_payable",
+      "name": "Accounts Payable",
+      "type": "Liability",
+      "balance": 6160
+    },
+    {
+      "code": "gst_payable",
+      "name": "GST Payable",
+      "type": "Liability",
+      "balance": 27000
+    },
+    {
+      "code": "tds_payable",
+      "name": "TDS Payable",
+      "type": "Liability",
+      "balance": 0
+    },
+    {
+      "code": "sales_income",
+      "name": "Sales Income",
+      "type": "Income",
+      "balance": 0
+    },
+    {
+      "code": "service_income",
+      "name": "Service Income",
+      "type": "Income",
+      "balance": 150000
+    },
+    {
+      "code": "salary_expense",
+      "name": "Salary Expense",
+      "type": "Expense",
+      "balance": 5500
+    },
+    {
+      "code": "contractor_expense",
+      "name": "Contractor Expense",
+      "type": "Expense",
+      "balance": 0
+    },
+    {
+      "code": "rent",
+      "name": "Rent",
+      "type": "Expense",
+      "balance": 0
+    },
+    {
+      "code": "software_subscription",
+      "name": "Software Subscription",
+      "type": "Expense",
+      "balance": 3000
+    },
+    {
+      "code": "professional_fees",
+      "name": "Professional Fees",
+      "type": "Expense",
+      "balance": 0
+    },
+    {
+      "code": "bank_charges",
+      "name": "Bank Charges",
+      "type": "Expense",
+      "balance": 0
+    },
+    {
+      "code": "capital",
+      "name": "Capital",
+      "type": "Equity",
+      "balance": 500000
+    },
+    {
+      "code": "retained_earnings",
+      "name": "Retained Earnings",
+      "type": "Equity",
+      "balance": 0
+    }
+  ],
+  "invoices": [
+    {
+      "id": "inv_1",
+      "invoiceNumber": "INV-2026-001",
+      "customerId": "cust_1",
+      "customerName": "Rajesh Khanna & Sons",
+      "date": "2026-05-10",
+      "dueDate": "2026-06-10",
+      "items": [
+        {
+          "id": "h36rfi076",
+          "itemId": "item_1",
+          "name": "Premium Software Architecture Consulting",
+          "hsnSac": "998314",
+          "qty": 20,
+          "rate": 5000,
+          "gstRate": 18,
+          "amount": 100000,
+          "cgst": 0,
+          "sgst": 0,
+          "igst": 18000
+        }
+      ],
+      "subtotal": 100000,
+      "totalGst": 18000,
+      "totalCgst": 0,
+      "totalSgst": 0,
+      "totalIgst": 18000,
+      "total": 118000,
+      "status": "Approved",
+      "isProforma": false,
+      "paymentReceived": 0
+    },
+    {
+      "id": "inv_2",
+      "invoiceNumber": "INV-2026-002",
+      "customerId": "cust_2",
+      "customerName": "Zenith Software Hub",
+      "date": "2026-05-15",
+      "dueDate": "2026-05-15",
+      "items": [
+        {
+          "id": "cv772hw2p",
+          "itemId": "item_1",
+          "name": "Premium Software Architecture Consulting",
+          "hsnSac": "998314",
+          "qty": 10,
+          "rate": 5000,
+          "gstRate": 18,
+          "amount": 50000,
+          "cgst": 4500,
+          "sgst": 4500,
+          "igst": 0
+        }
+      ],
+      "subtotal": 50000,
+      "totalGst": 9000,
+      "totalCgst": 4500,
+      "totalSgst": 4500,
+      "totalIgst": 0,
+      "total": 59000,
+      "status": "Paid",
+      "isProforma": false,
+      "paymentReceived": 59000
+    },
+    {
+      "customerId": "cust_1",
+      "customerName": "Test",
+      "date": "2026-06-01",
+      "dueDate": "2026-06-30",
+      "items": [
+        {
+          "id": "l1",
+          "itemId": "item_1",
+          "name": "Test",
+          "hsnSac": "998314",
+          "qty": 1,
+          "rate": 1000,
+          "gstRate": 18,
+          "amount": 1000,
+          "cgst": 0,
+          "sgst": 0,
+          "igst": 180
+        }
+      ],
+      "subtotal": 1000,
+      "totalGst": 180,
+      "totalCgst": 0,
+      "totalSgst": 0,
+      "totalIgst": 180,
+      "total": 1180,
+      "status": "Draft",
+      "isProforma": true,
+      "paymentReceived": 0,
+      "invoiceNumber": "INV-2026-003",
+      "id": "inv_kw1vdeske"
+    }
+  ],
+  "creditNotes": [],
+  "payments": [
+    {
+      "id": "pay_1",
+      "receiptNumber": "PAY-2026-001",
+      "customerId": "cust_2",
+      "customerName": "Zenith Software Hub",
+      "date": "2026-05-16",
+      "amountReceived": 59000,
+      "tdsDeducted": 0,
+      "paymentMode": "NEFT",
+      "referenceNumber": "N12345678X",
+      "bankAccount": "bank_account",
+      "allocations": [
+        {
+          "invoiceId": "inv_2",
+          "amount": 59000
+        }
+      ]
+    }
+  ],
+  "expenses": [
+    {
+      "id": "exp_1",
+      "date": "2026-05-12",
+      "vendorName": "Broadband Provider Ltd",
+      "category": "software_subscription",
+      "subtotal": 3000,
+      "gstAmount": 540,
+      "tdsAmount": 0,
+      "paymentMode": "Corporate Card",
+      "total": 3540
+    }
+  ],
+  "bills": [
+    {
+      "id": "bill_1",
+      "billNumber": "BILL-ACME-8902",
+      "vendorId": "vend_1",
+      "vendorName": "Acme Office Supplies",
+      "date": "2026-05-20",
+      "dueDate": "2026-06-20",
+      "items": [
+        {
+          "itemId": "item_2",
+          "name": "Paper Reams & Office Stationery Bundles",
+          "qty": 10,
+          "rate": 550,
+          "gstRate": 12,
+          "amount": 5500,
+          "cgst": 330,
+          "sgst": 330,
+          "igst": 0
+        }
+      ],
+      "subtotal": 5500,
+      "totalGst": 660,
+      "totalCgst": 330,
+      "totalSgst": 330,
+      "totalIgst": 0,
+      "total": 6160,
+      "status": "Approved",
+      "paymentPaid": 0
+    }
+  ],
+  "journals": [
+    {
+      "id": "j_init",
+      "date": "2026-04-01",
+      "reference": "Opening Balance",
+      "description": "Initial capital contribution in bank account",
+      "lines": [
+        {
+          "id": "008tzhtao",
+          "accountCode": "bank_account",
+          "accountName": "Bank Account",
+          "debit": 500000,
+          "credit": 0
+        },
+        {
+          "id": "hywcthft2",
+          "accountCode": "capital",
+          "accountName": "Capital",
+          "debit": 0,
+          "credit": 500000
+        }
+      ]
+    },
+    {
+      "id": "j_inv_1",
+      "date": "2026-05-10",
+      "reference": "Invoice INV-2026-001",
+      "description": "Services rendered to Rajesh Khanna & Sons",
+      "lines": [
+        {
+          "id": "2tpt605wf",
+          "accountCode": "accounts_receivable",
+          "accountName": "Accounts Receivable",
+          "debit": 118000,
+          "credit": 0
+        },
+        {
+          "id": "68bajhwwn",
+          "accountCode": "service_income",
+          "accountName": "Service Income",
+          "debit": 0,
+          "credit": 100000
+        },
+        {
+          "id": "q6cqyu7au",
+          "accountCode": "gst_payable",
+          "accountName": "GST Payable (IGST 18%)",
+          "debit": 0,
+          "credit": 18000
+        }
+      ]
+    },
+    {
+      "id": "j_inv_2",
+      "date": "2026-05-15",
+      "reference": "Invoice INV-2026-002",
+      "description": "Services rendered to Zenith Software Hub",
+      "lines": [
+        {
+          "id": "hgbwtymq9",
+          "accountCode": "accounts_receivable",
+          "accountName": "Accounts Receivable",
+          "debit": 59000,
+          "credit": 0
+        },
+        {
+          "id": "oxtq2jf7z",
+          "accountCode": "service_income",
+          "accountName": "Service Income",
+          "debit": 0,
+          "credit": 50000
+        },
+        {
+          "id": "63rw13viu",
+          "accountCode": "gst_payable",
+          "accountName": "GST Payable (CGST/SGST 9%)",
+          "debit": 0,
+          "credit": 9000
+        }
+      ]
+    },
+    {
+      "id": "j_pay_1",
+      "date": "2026-05-16",
+      "reference": "Payment PAY-2026-001",
+      "description": "Payment received for ZEN-KOR-2026-002",
+      "lines": [
+        {
+          "id": "lqh764w79",
+          "accountCode": "bank_account",
+          "accountName": "Bank Account",
+          "debit": 59000,
+          "credit": 0
+        },
+        {
+          "id": "t9s8mfino",
+          "accountCode": "accounts_receivable",
+          "accountName": "Accounts Receivable",
+          "debit": 0,
+          "credit": 59000
+        }
+      ]
+    },
+    {
+      "id": "j_exp_1",
+      "date": "2026-05-12",
+      "reference": "Expense - Broadband Provider Ltd",
+      "description": "Broadband Subscription & Internet charges",
+      "lines": [
+        {
+          "id": "dl142a2jp",
+          "accountCode": "software_subscription",
+          "accountName": "Software Subscription",
+          "debit": 3000,
+          "credit": 0
+        },
+        {
+          "id": "lihgx2gzj",
+          "accountCode": "input_gst",
+          "accountName": "Input GST (18%)",
+          "debit": 540,
+          "credit": 0
+        },
+        {
+          "id": "rzv8h7wyx",
+          "accountCode": "bank_account",
+          "accountName": "Bank Account",
+          "debit": 0,
+          "credit": 3540
+        }
+      ]
+    },
+    {
+      "id": "j_bill_1",
+      "date": "2026-05-20",
+      "reference": "Vendor Bill BILL-ACME-8902",
+      "description": "Purchased office paper & stationery boxes",
+      "lines": [
+        {
+          "id": "oziaf7oze",
+          "accountCode": "salary_expense",
+          "accountName": "General Stationeries (through Salary/Admin)",
+          "debit": 5500,
+          "credit": 0
+        },
+        {
+          "id": "y44fvwc2t",
+          "accountCode": "input_gst",
+          "accountName": "Input GST (12%)",
+          "debit": 660,
+          "credit": 0
+        },
+        {
+          "id": "evz5vw7vw",
+          "accountCode": "accounts_payable",
+          "accountName": "Accounts Payable",
+          "debit": 0,
+          "credit": 6160
+        }
+      ]
+    }
+  ],
+  "auditLogs": [
+    {
+      "id": "w5wn76al6",
+      "timestamp": "2026-06-01T05:32:23.424Z",
+      "user": "User",
+      "action": "Save Proforma Invoice",
+      "details": "Generated standard billing number INV-2026-003 for client ₹1180"
+    },
+    {
+      "id": "djljxl8it",
+      "timestamp": "2026-05-26T04:00:00.000Z",
+      "user": "svtiger543939@gmail.com",
+      "action": "System Init",
+      "details": "Bizkhata default ledger initialized successfully with secure role access management."
+    }
+  ],
+  "users": [
+    {
+      "id": "usr_default_admin",
+      "name": "System Administrator (MCA)",
+      "email": "svtiger543939@gmail.com",
+      "mobile": "8707401846",
+      "role": "Owner",
+      "password": "Admin@123",
+      "isOwner": true
+    },
+    {
+      "id": "usr_aman_accountant",
+      "name": "Aman Sharma Accountant",
+      "email": "aman@bizkhata.com",
+      "mobile": "9112233445",
+      "role": "Accountant",
+      "password": "aman",
+      "isOwner": false
+    }
+  ],
+  "userSeatsLimit": 4,
+  "mailLogs": [],
+  "organizations": [
+    {
+      "id": "org_1",
+      "name": "Bizkhata Pvt Ltd",
+      "legalName": "Bizkhata Solutions Private Limited",
+      "pan": "AAAAA1111A",
+      "gstin": "29AAAAA0000A1Z1",
+      "purchasedSeats": 4,
+      "packageType": "Standard",
+      "pricingMonthly": 2499,
+      "purchaseStatus": "Active",
+      "registeredEmail": "svtiger543939@gmail.com"
+    },
+    {
+      "id": "org_2",
+      "name": "Tata Motors SME Hub",
+      "legalName": "Tata Motors Enterprises Limited",
+      "pan": "TATA12345A",
+      "gstin": "27TATAM1234A1Z5",
+      "purchasedSeats": 12,
+      "packageType": "Professional",
+      "pricingMonthly": 5999,
+      "purchaseStatus": "Active",
+      "registeredEmail": "finance@tatamotors.com"
+    },
+    {
+      "id": "org_3",
+      "name": "Relio Global Accounts",
+      "legalName": "Relio Global Technologies Inc",
+      "pan": "RELI11112B",
+      "gstin": "29RELIO2222B1Z6",
+      "purchasedSeats": 25,
+      "packageType": "Enterprise",
+      "pricingMonthly": 12499,
+      "purchaseStatus": "Trial",
+      "registeredEmail": "billing@relioaccounts.glob"
+    },
+    {
+      "id": "org_4",
+      "name": "Unregistered Small Shop",
+      "legalName": "Sai Kiran Retails India",
+      "pan": "KIRA98765C",
+      "gstin": "",
+      "purchasedSeats": 2,
+      "packageType": "Standard",
+      "pricingMonthly": 1499,
+      "purchaseStatus": "Suspended",
+      "registeredEmail": "sai@kiranretail.in"
+    }
+  ]
+}

@@ -32,8 +32,9 @@ if (SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL !== "MY_SUPABASE_URL") {
 
 let cachedDb: any = null;
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// __dirname fallback for CJS/ESM compatibility
+const __filename = (() => { try { return fileURLToPath(import.meta.url); } catch { return ''; } })();
+const __dirname = __filename ? path.dirname(__filename) : process.cwd();
 
 const app = express();
 app.use(express.json());
