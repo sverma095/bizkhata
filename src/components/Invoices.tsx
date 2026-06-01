@@ -175,8 +175,17 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
   const [tdsRate, setTdsRate] = useState<number>(0);
   const [tdsAmount, setTdsAmount] = useState<number>(0);
   const [roundingOff, setRoundingOff] = useState<boolean>(false);
-  const [formItems, setFormItems] = useState<Array<{ itemId: string; name: string; hsnSac: string; qty: number; rate: number; gstRate: number }>>([]);
+  const [formItems, setFormItems] = useState<Array<{ itemId: string; name: string; hsnSac: string; qty: number; rate: number; gstRate: number; discount: number }>>([]);
   const [draftInvoiceNum, setDraftInvoiceNum] = useState("");
+  const [discountType, setDiscountType] = useState<'percent'|'amount'>('percent');
+  const [discountValue, setDiscountValue] = useState(0);
+  const [shippingCharge, setShippingCharge] = useState(0);
+  const [otherCharges, setOtherCharges] = useState(0);
+  const [paymentTerms, setPaymentTerms] = useState('Net 30');
+  const [invoiceNotes, setInvoiceNotes] = useState('');
+  const [termsAndConditions, setTermsAndConditions] = useState('Payment due within the agreed period. Cheques to be made payable to the company name.');
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurringFrequency, setRecurringFrequency] = useState<'weekly'|'monthly'|'quarterly'|'yearly'>('monthly');
 
   // Credit Note Form State
   const [creditReason, setCreditReason] = useState("");
@@ -188,12 +197,18 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
     setDate(new Date().toISOString().split('T')[0]);
     setDueDate(new Date().toISOString().split('T')[0]);
     setIsProforma(activeTab === "proforma");
-    setFormItems([{ itemId: "", name: "", hsnSac: "", qty: 1, rate: 0, gstRate: 18 }]);
+    setFormItems([{ itemId: "", name: "", hsnSac: "", qty: 1, rate: 0, gstRate: 18, discount: 0 }]);
     setDraftInvoiceNum("");
     setTdsSection("");
     setTdsRate(0);
     setTdsAmount(0);
     setRoundingOff(false);
+    setDiscountValue(0);
+    setShippingCharge(0);
+    setOtherCharges(0);
+    setPaymentTerms('Net 30');
+    setInvoiceNotes('');
+    setIsRecurring(false);
   };
 
   useEffect(() => {
@@ -214,12 +229,29 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
   const { sameState, companyState, customerState } = testStateAndClient();
 
   const handleAddItemRow = () => {
-    setFormItems([...formItems, { itemId: "", name: "", hsnSac: "", qty: 1, rate: 0, gstRate: 18 }]);
+    setFormItems([...formItems, { itemId: "", name: "", hsnSac: "", qty: 1, rate: 0, gstRate: 18, discount: 0 }]);
   };
 
   const handleRemoveItemRow = (index: number) => {
     if (formItems.length === 1) return;
     setFormItems(formItems.filter((_, i) => i !== index));
+  };
+
+  // Payment terms -> auto due date
+  const applyPaymentTerms = (terms: string, fromDate: string) => {
+    const d = new Date(fromDate);
+    const daysMap: Record<string, number> = {
+      'Net 15': 15, 'Net 30': 30, 'Net 45': 45, 'Net 60': 60, 'Net 90': 90,
+      'Due on Receipt': 0, 'End of Month': 0, 'End of Next Month': 0
+    };
+    if (terms === 'End of Month') {
+      d.setMonth(d.getMonth() + 1, 0);
+    } else if (terms === 'End of Next Month') {
+      d.setMonth(d.getMonth() + 2, 0);
+    } else {
+      d.setDate(d.getDate() + (daysMap[terms] ?? 30));
+    }
+    setDueDate(d.toISOString().split('T')[0]);
   };
 
   const handleFormItemChange = (index: number, field: string, value: any) => {
@@ -259,11 +291,15 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
   };
 
   // Perform live financial computations as the user inputs values!
-  const liveResults = calculateGst(
-    formItems.filter(it => it.itemId !== ""),
-    db.company.state,
-    customerState || db.company.state
-  );
+  const itemsForCalc = formItems.filter(it => it.itemId !== "").map(it => ({
+    ...it,
+    rate: it.discount > 0 ? it.rate * (1 - it.discount / 100) : it.rate
+  }));
+  const liveResults = calculateGst(itemsForCalc, db.company.state, customerState || db.company.state);
+  const discountAmount = discountType === 'percent'
+    ? Math.round(liveResults.subtotal * discountValue / 100 * 100) / 100
+    : discountValue;
+  const finalTotal = liveResults.total - discountAmount + shippingCharge + otherCharges;
 
   const handleInvoiceSubmit = async (e: React.FormEvent, overrideStatus?: 'Draft' | 'Sent' | 'Approved') => {
     if (e && e.preventDefault) e.preventDefault();
@@ -310,6 +346,14 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
       status: finalStatus,
       isProforma,
       paymentReceived: editingInvoice?.paymentReceived || 0,
+      notes: invoiceNotes || undefined,
+      termsAndConditions: termsAndConditions || undefined,
+      shippingCharge: shippingCharge || undefined,
+      otherCharges: otherCharges || undefined,
+      discountValue: discountValue || undefined,
+      discountType: discountType || undefined,
+      isRecurring: isRecurring || undefined,
+      recurringFrequency: isRecurring ? recurringFrequency : undefined,
     };
 
     // If editing existing, include id and preserve fields
@@ -548,24 +592,30 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                 })()}
               </div>
               <div className="space-y-1.5">
-                <label id="lbl-fld-inv-date" className="text-xs text-slate-400 font-medium">Invoice Date</label>
-                <input 
-                  id="fld-inv-date"
-                  type="date"
-                  required
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
+                <label className="text-xs text-slate-400 font-medium">Invoice Date</label>
+                <input type="date" required value={date}
+                  onChange={(e) => { setDate(e.target.value); applyPaymentTerms(paymentTerms, e.target.value); }}
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 text-xs focus:border-slate-700 outline-none"
                 />
               </div>
               <div className="space-y-1.5">
-                <label id="lbl-fld-due-date" className="text-xs text-slate-400 font-medium">Payment Due Date</label>
-                <input 
-                  id="fld-due-date"
-                  type="date"
-                  required
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
+                <label className="text-xs text-slate-400 font-medium">Payment Terms</label>
+                <select value={paymentTerms} onChange={(e) => { setPaymentTerms(e.target.value); applyPaymentTerms(e.target.value, date); }}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 text-xs focus:border-slate-700 outline-none"
+                >
+                  <option>Due on Receipt</option>
+                  <option>Net 15</option>
+                  <option>Net 30</option>
+                  <option>Net 45</option>
+                  <option>Net 60</option>
+                  <option>Net 90</option>
+                  <option>End of Month</option>
+                  <option>End of Next Month</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs text-slate-400 font-medium">Due Date</label>
+                <input type="date" required value={dueDate} onChange={(e) => setDueDate(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 text-xs focus:border-slate-700 outline-none"
                 />
               </div>
@@ -671,8 +721,20 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                         <option value={28}>28% GST</option>
                       </select>
                     </div>
+                    <div className="md:col-span-1 space-y-1">
+                      <div className="flex items-center gap-1">
+                        <input type="number" min={0} max={100} step={0.5} value={item.discount || 0}
+                          placeholder="Disc%"
+                          onChange={(e) => handleFormItemChange(idx, "discount", parseFloat(e.target.value) || 0)}
+                          className="w-full bg-slate-950 border border-slate-855 rounded px-1 py-1 text-slate-300 text-xs text-center focus:border-amber-600 outline-none"
+                          title="Discount %"
+                        />
+                        <span className="text-slate-500 text-[10px]">%</span>
+                      </div>
+                    </div>
                     <div className="md:col-span-2 text-right p-1 font-mono text-slate-300 text-xs">
-                      ₹ {(item.qty * item.rate).toLocaleString('en-IN')}
+                      {item.discount > 0 && <div className="text-slate-500 line-through text-[10px]">₹{(item.qty * item.rate).toLocaleString('en-IN')}</div>}
+                      ₹ {(item.qty * item.rate * (1 - (item.discount||0)/100)).toLocaleString('en-IN', {maximumFractionDigits:2})}
                     </div>
                     <div className="md:col-span-1 flex justify-center">
                       <button 
@@ -721,6 +783,41 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                   <span className="font-mono text-slate-200">₹{liveResults.igst.toLocaleString('en-IN')}</span>
                 </div>
               )}
+
+              {/* Discount */}
+              <div className="border-t border-slate-800 pt-2 space-y-1.5">
+                <label className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wide">Discount</label>
+                <div className="flex items-center gap-2">
+                  <select value={discountType} onChange={(e) => setDiscountType(e.target.value as any)}
+                    className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-300 text-[10px] outline-none">
+                    <option value="percent">%</option>
+                    <option value="amount">₹</option>
+                  </select>
+                  <input type="number" min={0} step={0.01} value={discountValue}
+                    onChange={(e) => setDiscountValue(parseFloat(e.target.value)||0)}
+                    className="flex-1 bg-slate-900 border border-emerald-800/50 rounded px-2 py-1 text-emerald-300 text-[10px] font-mono outline-none text-right"
+                    placeholder="0"
+                  />
+                  {discountAmount > 0 && <span className="text-emerald-400 text-[10px] font-mono">-₹{discountAmount.toLocaleString('en-IN')}</span>}
+                </div>
+              </div>
+              {/* Shipping + Other Charges */}
+              <div className="flex gap-2">
+                <div className="flex-1 space-y-1">
+                  <label className="text-[10px] text-slate-400">Shipping (₹)</label>
+                  <input type="number" min={0} step={0.01} value={shippingCharge}
+                    onChange={(e) => setShippingCharge(parseFloat(e.target.value)||0)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-300 text-[10px] font-mono outline-none text-right"
+                  />
+                </div>
+                <div className="flex-1 space-y-1">
+                  <label className="text-[10px] text-slate-400">Other Charges (₹)</label>
+                  <input type="number" min={0} step={0.01} value={otherCharges}
+                    onChange={(e) => setOtherCharges(parseFloat(e.target.value)||0)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-300 text-[10px] font-mono outline-none text-right"
+                  />
+                </div>
+              </div>
 
               {/* TDS Section */}
               <div className="border-t border-slate-800 pt-2 space-y-1.5">
@@ -811,7 +908,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                 <span>Grand Total:</span>
                 <span className="font-mono text-emerald-400">
                   ₹{(() => {
-                    const base = liveResults.total - tdsAmount;
+                    const base = finalTotal - tdsAmount;
                     return (roundingOff ? Math.round(base) : Math.round(base * 100) / 100).toLocaleString('en-IN');
                   })()}
                 </span>
@@ -821,6 +918,38 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
               )}
             </div>
 
+            {/* Notes, T&C, Recurring */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-800 pt-4">
+              <div className="space-y-1.5">
+                <label className="text-xs text-slate-400 font-medium">Customer Notes</label>
+                <textarea rows={3} value={invoiceNotes} onChange={(e) => setInvoiceNotes(e.target.value)}
+                  placeholder="e.g. Thank you for your business!"
+                  className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-slate-300 text-xs focus:border-slate-700 outline-none resize-none"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs text-slate-400 font-medium">Terms & Conditions</label>
+                <textarea rows={3} value={termsAndConditions} onChange={(e) => setTermsAndConditions(e.target.value)}
+                  placeholder="e.g. Payment due within 30 days..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-slate-300 text-xs focus:border-slate-700 outline-none resize-none"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-4 flex-wrap">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={isRecurring} onChange={(e) => setIsRecurring(e.target.checked)} className="accent-indigo-500" />
+                <span className="text-xs text-slate-400 font-medium">🔄 Make Recurring</span>
+              </label>
+              {isRecurring && (
+                <select value={recurringFrequency} onChange={(e) => setRecurringFrequency(e.target.value as any)}
+                  className="bg-slate-950 border border-slate-800 rounded px-2 py-1 text-slate-300 text-xs outline-none">
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="quarterly">Quarterly</option>
+                  <option value="yearly">Yearly</option>
+                </select>
+              )}
+            </div>
             <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
               <button 
                 type="button"
@@ -2122,6 +2251,34 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
               </div>
             </div>
             
+            {/* Bank Payment Details */}
+            {(db.company.bankName || db.company.bankAccount) && (
+              <div className="px-8 pb-4">
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-[10px] space-y-1">
+                  <div className="font-bold text-slate-700 uppercase tracking-wide text-[9px]">Bank Payment Details</div>
+                  {db.company.bankName && <div className="text-slate-600">Bank: <span className="font-semibold">{db.company.bankName}</span></div>}
+                  {db.company.bankAccount && <div className="text-slate-600 font-mono">Account No: <span className="font-semibold">{db.company.bankAccount}</span></div>}
+                  {db.company.bankIfsc && <div className="text-slate-600 font-mono">IFSC: <span className="font-semibold">{db.company.bankIfsc}</span></div>}
+                </div>
+              </div>
+            )}
+            {/* Notes + Terms */}
+            {(showViewModal.notes || showViewModal.termsAndConditions) && (
+              <div className="px-8 pb-4 grid grid-cols-2 gap-4 text-[10px]">
+                {showViewModal.notes && (
+                  <div>
+                    <div className="font-bold text-slate-600 mb-1">Notes:</div>
+                    <div className="text-slate-500 whitespace-pre-line">{showViewModal.notes}</div>
+                  </div>
+                )}
+                {showViewModal.termsAndConditions && (
+                  <div>
+                    <div className="font-bold text-slate-600 mb-1">Terms & Conditions:</div>
+                    <div className="text-slate-500 whitespace-pre-line">{showViewModal.termsAndConditions}</div>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="p-4 border-t border-slate-100 bg-slate-50 text-right text-[10px] text-slate-500 rounded-b-2xl font-mono">
               Double-entry audit hash: dr. Accounts Receivable | cr. Taxable Income
             </div>

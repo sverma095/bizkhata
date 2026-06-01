@@ -296,6 +296,38 @@ export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProp
 
           </div>
 
+          {/* 3.5 Overdue Alerts */}
+          {(totalOverdue > 0 || db.bills.filter(b => b.status !== "Paid" && b.dueDate < presentDate).length > 0) && (
+            <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 flex flex-wrap gap-4 items-center">
+              <div className="flex items-center gap-2 text-orange-800">
+                <span className="text-lg">⚠️</span>
+                <span className="font-bold text-sm">Action Required</span>
+              </div>
+              {totalOverdue > 0 && (
+                <div className="flex-1 min-w-48">
+                  <div className="text-xs text-orange-700 font-semibold">Overdue Receivables</div>
+                  <div className="font-mono font-bold text-orange-900">₹{totalOverdue.toLocaleString('en-IN', {maximumFractionDigits:0})}</div>
+                  <div className="text-[10px] text-orange-600">{outstandingInvoices.filter(i => i.dueDate < presentDate).length} invoice(s) past due</div>
+                </div>
+              )}
+              {db.bills.filter(b => b.status !== "Paid" && b.dueDate < presentDate).length > 0 && (
+                <div className="flex-1 min-w-48">
+                  <div className="text-xs text-orange-700 font-semibold">Overdue Payables</div>
+                  <div className="font-mono font-bold text-orange-900">₹{db.bills.filter(b => b.status !== "Paid" && b.dueDate < presentDate).reduce((a,c)=>a+(c.total-(c.paymentPaid||0)),0).toLocaleString('en-IN', {maximumFractionDigits:0})}</div>
+                  <div className="text-[10px] text-orange-600">{db.bills.filter(b => b.status !== "Paid" && b.dueDate < presentDate).length} bill(s) past due</div>
+                </div>
+              )}
+              <div className="flex gap-2 ml-auto">
+                <button onClick={() => onNavigate("sales")} className="text-xs font-bold bg-orange-100 hover:bg-orange-200 text-orange-800 px-3 py-1.5 rounded-lg cursor-pointer border border-orange-200">
+                  Collect Payments →
+                </button>
+                <button onClick={() => onNavigate("purchases")} className="text-xs font-bold bg-orange-100 hover:bg-orange-200 text-orange-800 px-3 py-1.5 rounded-lg cursor-pointer border border-orange-200">
+                  Pay Bills →
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* 4. Cash Flow area line Chart segment aligned with screenshot */}
           <div id="zoho-cashflow-panel" className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-6">
             <div className="flex justify-between items-center">

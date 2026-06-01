@@ -61,6 +61,12 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
   const [state, setState] = useState(db.company.state || "Telangana");
   const [currency, setCurrency] = useState(db.company.currency || "INR");
   const [financialYear, setFinancialYear] = useState(db.company.financialYear || "2026-2027");
+  const [phone, setPhone] = useState(db.company.phone || "");
+  const [email, setEmail] = useState(db.company.email || "");
+  const [website, setWebsite] = useState(db.company.website || "");
+  const [bankName, setBankName] = useState(db.company.bankName || "");
+  const [bankAccount, setBankAccount] = useState(db.company.bankAccount || "");
+  const [bankIfsc, setBankIfsc] = useState(db.company.bankIfsc || "");
 
   // Auxiliary UI States
   const [savingCompany, setSavingCompany] = useState(false);
@@ -209,6 +215,7 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
     e.preventDefault();
     setSavingCompany(true);
     await onUpdateCompany({
+      ...db.company,
       name,
       legalName,
       gstin,
@@ -216,7 +223,13 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
       address,
       state,
       currency,
-      financialYear
+      financialYear,
+      phone: phone || undefined,
+      email: email || undefined,
+      website: website || undefined,
+      bankName: bankName || undefined,
+      bankAccount: bankAccount || undefined,
+      bankIfsc: bankIfsc || undefined,
     });
     setSavingCompany(false);
     triggerToast("Organization profile settings saved successfully!");
@@ -683,6 +696,48 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
                     </div>
                   </div>
 
+                  {/* Contact Details */}
+                  <div className="border-t pt-4 space-y-3">
+                    <h4 className="text-xs font-bold text-slate-700">Contact Information</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div className="space-y-1.5">
+                        <label className="text-xs text-slate-500 font-bold">Phone</label>
+                        <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+91 98XXXXXXXX"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2 text-slate-800 text-xs focus:border-[#006EE5] outline-none" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs text-slate-500 font-bold">Email</label>
+                        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="accounts@company.com"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2 text-slate-800 text-xs focus:border-[#006EE5] outline-none" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs text-slate-500 font-bold">Website</label>
+                        <input type="url" value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://yourcompany.com"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2 text-slate-800 text-xs focus:border-[#006EE5] outline-none" />
+                      </div>
+                    </div>
+                  </div>
+                  {/* Bank Details */}
+                  <div className="border-t pt-4 space-y-3">
+                    <h4 className="text-xs font-bold text-slate-700">Bank Details (shown on invoices)</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div className="space-y-1.5">
+                        <label className="text-xs text-slate-500 font-bold">Bank Name</label>
+                        <input type="text" value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="e.g. HDFC Bank"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2 text-slate-800 text-xs focus:border-[#006EE5] outline-none" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs text-slate-500 font-bold">Account Number</label>
+                        <input type="text" value={bankAccount} onChange={(e) => setBankAccount(e.target.value)} placeholder="XXXXXXXXXXXX"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2 text-slate-800 text-xs font-mono focus:border-[#006EE5] outline-none" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs text-slate-500 font-bold">IFSC Code</label>
+                        <input type="text" value={bankIfsc} onChange={(e) => setBankIfsc(e.target.value.toUpperCase())} placeholder="HDFC0001234"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2 text-slate-800 text-xs font-mono focus:border-[#006EE5] outline-none" />
+                      </div>
+                    </div>
+                  </div>
                   <div className="pt-4 flex justify-end gap-3">
                     <button 
                       type="submit"

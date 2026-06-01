@@ -790,17 +790,34 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                           </span>
                         </td>
                         <td className="py-3 px-3 text-center">
-                          {b.status !== "Paid" ? (
-                            <button
-                              id={`btn-pay-bill-${b.id}`}
-                              onClick={() => { setShowPayBillForm(b); setPayAmount(b.total - (b.paymentPaid || 0)); }}
-                              className="p-1 px-2.5 bg-[#5A5A40] hover:bg-[#4E4E37] text-[10px] text-white font-bold rounded cursor-pointer transition flex items-center gap-1 mx-auto shadow-sm"
-                            >
-                              Settle Remittance
-                            </button>
-                          ) : (
-                            <span className="text-[10px] text-emerald-800 font-bold">Settled</span>
-                          )}
+                          <div className="flex justify-center items-center gap-1.5 flex-wrap">
+                            {b.status === "Draft" && (
+                              <button
+                                onClick={() => onAddBill({ ...b, status: "Approved" })}
+                                className="p-1 px-2 bg-blue-600 hover:bg-blue-700 text-[10px] text-white font-bold rounded cursor-pointer transition shadow-sm"
+                              >
+                                ✓ Approve
+                              </button>
+                            )}
+                            {(b.status === "Approved") && (
+                              <button
+                                id={`btn-pay-bill-${b.id}`}
+                                onClick={() => { setShowPayBillForm(b); setPayAmount(b.total - (b.paymentPaid || 0)); }}
+                                className="p-1 px-2.5 bg-[#5A5A40] hover:bg-[#4E4E37] text-[10px] text-white font-bold rounded cursor-pointer transition flex items-center gap-1 shadow-sm"
+                              >
+                                💳 Pay
+                              </button>
+                            )}
+                            {b.status === "Paid" && <span className="text-[10px] text-emerald-800 font-bold">✓ Settled</span>}
+                            {b.status !== "Paid" && b.status !== "Cancelled" && (
+                              <button
+                                onClick={() => onAddBill({ ...b, status: "Cancelled" })}
+                                className="p-1 px-2 border border-red-200 bg-red-50 text-[10px] text-red-600 font-semibold rounded cursor-pointer transition"
+                              >
+                                Cancel
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
