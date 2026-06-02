@@ -9,6 +9,9 @@ import Purchases from "./components/Purchases.jsx";
 import Accounting from "./components/Accounting.jsx";
 import Reports from "./components/Reports.jsx";
 import AIAssistant from "./components/AIAssistant.jsx";
+import SalesOrders from "./components/SalesOrders.jsx";
+import PurchaseOrders from "./components/PurchaseOrders.jsx";
+import VendorCredits from "./components/VendorCredits.jsx";
 import CompanySetup from "./components/CompanySetup.jsx";
 
 // Lucide Icons
@@ -61,6 +64,8 @@ import {
 export default function App() {
   const [db, setDb] = useState<DatabaseState | null>(null);
   const [activeTab, setActiveTab] = useState<"dashboard" | "items" | "sales" | "purchases" | "payments" | "accounting" | "reports" | "ai" | "settings" | "banking" | "timetracking" | "users">("dashboard");
+  const [salesSubTab, setSalesSubTab] = useState<"tax" | "proforma" | "salesorders" | "notes" | "customers">("tax");
+  const [purchasesSubTab2, setPurchasesSubTab2] = useState<"vendors" | "expenses" | "bills" | "purchaseorders" | "vendorcredits">("bills");
   const [loading, setLoading] = useState(true);
 
   // Secure user login state persistence logic
@@ -867,6 +872,39 @@ export default function App() {
       const err = await r.json();
       alert(`Payment Posting Failed: ${err.error}`);
     }
+  };
+
+  // Sales Orders
+  const handleSaveSO = async (payload: any) => {
+    const r = await fetch("/api/sales-orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (r.ok) await fetchDB(); else { const e = await r.json(); throw new Error(e.error || "Failed"); }
+  };
+
+  const handleConvertSOToInvoice = (so: any) => {
+    setActiveTab("sales");
+    setSalesSubTab("tax" as any);
+    // Pre-fill invoice form from SO
+    (window as any).__soConvertPayload = so;
+    alert(`Opening invoice form pre-filled from Sales Order ${so.soNumber}. Review and save to invoice.`);
+  };
+
+  // Purchase Orders
+  const handleSavePO = async (payload: any) => {
+    const r = await fetch("/api/purchase-orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (r.ok) await fetchDB(); else { const e = await r.json(); throw new Error(e.error || "Failed"); }
+  };
+
+  const handleConvertPOToBill = async (po: any) => {
+    // Convert PO to bill
+    const billPayload = { vendorId: po.vendorId, vendorName: po.vendorName, date: new Date().toISOString().split("T")[0], dueDate: new Date(Date.now() + 30*86400000).toISOString().split("T")[0], items: po.items, subtotal: po.subtotal, totalGst: po.totalGst, totalCgst: po.totalGst/2, totalSgst: po.totalGst/2, totalIgst: 0, total: po.total, status: "Draft", paymentPaid: 0 };
+    await handleAddBill(billPayload);
+    await handleSavePO({ ...po, status: "Billed", convertedToBill: true });
+  };
+
+  // Vendor Credits
+  const handleSaveVC = async (payload: any) => {
+    const r = await fetch("/api/vendor-credits", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (r.ok) await fetchDB(); else { const e = await r.json(); throw new Error(e.error || "Failed"); }
   };
 
   // AI OCR integration
@@ -1726,6 +1764,18 @@ export default function App() {
                       Estimates
                     </button>
 
+                    {/* Sales Orders */}
+                    <button
+                      onClick={() => { setActiveTab("sales"); setSaleSubTab("salesorders" as any); }}
+                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${
+                        activeTab === "sales" && (saleSubTab as any) === "salesorders"
+                          ? "text-blue-600 font-bold bg-[#E2EAFC]/80"
+                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"
+                      }`}
+                    >
+                      Sales Orders
+                    </button>
+
                     {/* Clients Directory */}
                     <button
                       onClick={() => { setActiveTab("sales"); setSaleSubTab("customers"); }}
@@ -1828,6 +1878,30 @@ export default function App() {
                       }`}
                     >
                       Bills
+                    </button>
+
+                    {/* Purchase Orders */}
+                    <button
+                      onClick={() => { setActiveTab("purchases"); setPurchasesSubTab2("purchaseorders"); setPurchasesSubTab("bills"); }}
+                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${
+                        purchasesSubTab2 === "purchaseorders" && activeTab === "purchases"
+                          ? "text-amber-600 font-bold bg-amber-50"
+                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"
+                      }`}
+                    >
+                      Purchase Orders
+                    </button>
+
+                    {/* Vendor Credits */}
+                    <button
+                      onClick={() => { setActiveTab("purchases"); setPurchasesSubTab2("vendorcredits"); setPurchasesSubTab("bills"); }}
+                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${
+                        purchasesSubTab2 === "vendorcredits" && activeTab === "purchases"
+                          ? "text-purple-600 font-bold bg-purple-50"
+                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"
+                      }`}
+                    >
+                      Vendor Credits
                     </button>
                     
                   </div>
@@ -2065,7 +2139,7 @@ export default function App() {
             )}
 
             {/* Invoices and Estimate bills segment */}
-            {activeTab === "sales" && (
+            {activeTab === "sales" && (saleSubTab as any) !== "salesorders" && (
               <Invoices 
                 db={db} 
                 onSaveInvoice={handleSaveInvoice}
@@ -2076,9 +2150,16 @@ export default function App() {
                 defaultTab={saleSubTab}
               />
             )}
+            {activeTab === "sales" && (saleSubTab as any) === "salesorders" && (
+              <SalesOrders
+                db={db}
+                onSaveSO={handleSaveSO}
+                onConvertToInvoice={handleConvertSOToInvoice}
+              />
+            )}
 
             {/* Purchases bills & supplier spend tracking */}
-            {activeTab === "purchases" && (
+            {activeTab === "purchases" && purchasesSubTab2 !== "purchaseorders" && purchasesSubTab2 !== "vendorcredits" && (
               <Purchases 
                 db={db} 
                 onAddVendor={handleAddVendor}
@@ -2087,6 +2168,19 @@ export default function App() {
                 onPayBill={handlePayBill}
                 onTriggerAI={handleUniversalAITrigger}
                 defaultTab={purchasesSubTab}
+              />
+            )}
+            {activeTab === "purchases" && purchasesSubTab2 === "purchaseorders" && (
+              <PurchaseOrders
+                db={db}
+                onSavePO={handleSavePO}
+                onConvertToBill={handleConvertPOToBill}
+              />
+            )}
+            {activeTab === "purchases" && purchasesSubTab2 === "vendorcredits" && (
+              <VendorCredits
+                db={db}
+                onSaveVC={handleSaveVC}
               />
             )}
 

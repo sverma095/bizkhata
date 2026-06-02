@@ -1854,6 +1854,67 @@ app.post("/api/ai/generate-reminder", async (req, res) => {
 
 // Serve frontend assets and start listening wrapped in an async IIFE
 // On Vercel, skip Vite/static setup — Vercel serves the dist/ as static output separately
+// ── Sales Orders API ────────────────────────────────────────────────────────
+app.post("/api/sales-orders", async (req: any, res: any) => {
+  try {
+    const db = await readDB();
+    const payload = req.body;
+    if (!db.salesOrders) db.salesOrders = [];
+    if (payload.id) {
+      const idx = db.salesOrders.findIndex((s: any) => s.id === payload.id);
+      if (idx >= 0) { db.salesOrders[idx] = { ...db.salesOrders[idx], ...payload }; }
+      else { db.salesOrders.push(payload); }
+    } else {
+      const soCount = db.salesOrders.length + 1;
+      const soNumber = `SO-${new Date().getFullYear()}-${String(soCount).padStart(3, "0")}`;
+      db.salesOrders.push({ ...payload, id: `so_${Date.now()}`, soNumber });
+    }
+    await writeDB(db);
+    res.json({ success: true });
+  } catch(e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Purchase Orders API ─────────────────────────────────────────────────────
+app.post("/api/purchase-orders", async (req: any, res: any) => {
+  try {
+    const db = await readDB();
+    const payload = req.body;
+    if (!db.purchaseOrders) db.purchaseOrders = [];
+    if (payload.id) {
+      const idx = db.purchaseOrders.findIndex((p: any) => p.id === payload.id);
+      if (idx >= 0) { db.purchaseOrders[idx] = { ...db.purchaseOrders[idx], ...payload }; }
+      else { db.purchaseOrders.push(payload); }
+    } else {
+      const poCount = db.purchaseOrders.length + 1;
+      const poNumber = `PO-${new Date().getFullYear()}-${String(poCount).padStart(3, "0")}`;
+      db.purchaseOrders.push({ ...payload, id: `po_${Date.now()}`, poNumber });
+    }
+    await writeDB(db);
+    res.json({ success: true });
+  } catch(e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Vendor Credits API ──────────────────────────────────────────────────────
+app.post("/api/vendor-credits", async (req: any, res: any) => {
+  try {
+    const db = await readDB();
+    const payload = req.body;
+    if (!db.vendorCredits) db.vendorCredits = [];
+    if (payload.id) {
+      const idx = db.vendorCredits.findIndex((v: any) => v.id === payload.id);
+      if (idx >= 0) { db.vendorCredits[idx] = { ...db.vendorCredits[idx], ...payload }; }
+      else { db.vendorCredits.push(payload); }
+    } else {
+      const vcCount = db.vendorCredits.length + 1;
+      const vcNumber = `VC-${new Date().getFullYear()}-${String(vcCount).padStart(3, "0")}`;
+      db.vendorCredits.push({ ...payload, id: `vc_${Date.now()}`, vcNumber });
+    }
+    await writeDB(db);
+    res.json({ success: true });
+  } catch(e: any) { res.status(500).json({ error: e.message }); }
+});
+
+
 if (process.env.VERCEL !== "1") {
   (async () => {
     // Pre-prime the server memory cache asynchronously so the server starts up instantly

@@ -286,6 +286,12 @@ export interface DatabaseState {
   userSeatsLimit?: number;
   mailLogs?: MailLog[];
   organizations?: OrgPurchase[];
+  salesOrders?: SalesOrder[];
+  purchaseOrders?: PurchaseOrder[];
+  deliveryChallans?: DeliveryChallan[];
+  vendorCredits?: VendorCredit[];
+  priceLists?: PriceList[];
+  budgets?: Budget[];
 }
 
 export interface EInvoicePortalConfig {
@@ -293,4 +299,90 @@ export interface EInvoicePortalConfig {
   password: string;
   gstin: string;
   configured: boolean;
+}
+
+// ── Sales Order ────────────────────────────────────────────────────────────
+export interface SalesOrder {
+  id: string;
+  soNumber: string;
+  customerId: string;
+  customerName: string;
+  date: string;
+  deliveryDate: string;
+  items: InvoiceItem[];
+  subtotal: number;
+  totalGst: number;
+  totalCgst: number;
+  totalSgst: number;
+  totalIgst: number;
+  total: number;
+  status: 'Draft' | 'Confirmed' | 'Invoiced' | 'Cancelled';
+  notes?: string;
+  shippingAddress?: string;
+  convertedToInvoice?: boolean;
+}
+
+// ── Purchase Order ─────────────────────────────────────────────────────────
+export interface PurchaseOrder {
+  id: string;
+  poNumber: string;
+  vendorId: string;
+  vendorName: string;
+  date: string;
+  deliveryDate: string;
+  items: BillItem[];
+  subtotal: number;
+  totalGst: number;
+  total: number;
+  status: 'Draft' | 'Issued' | 'Received' | 'Billed' | 'Cancelled';
+  notes?: string;
+  convertedToBill?: boolean;
+}
+
+// ── Delivery Challan ───────────────────────────────────────────────────────
+export interface DeliveryChallan {
+  id: string;
+  challanNumber: string;
+  customerId: string;
+  customerName: string;
+  date: string;
+  invoiceId?: string;
+  soId?: string;
+  items: InvoiceItem[];
+  status: 'Open' | 'Delivered' | 'Cancelled';
+  notes?: string;
+}
+
+// ── Vendor Credit ──────────────────────────────────────────────────────────
+export interface VendorCredit {
+  id: string;
+  vcNumber: string;
+  vendorId: string;
+  vendorName: string;
+  date: string;
+  billId?: string;
+  reason: string;
+  items: BillItem[];
+  subtotal: number;
+  totalGst: number;
+  total: number;
+  status: 'Open' | 'Applied' | 'Closed';
+}
+
+// ── Price List ─────────────────────────────────────────────────────────────
+export interface PriceList {
+  id: string;
+  name: string;
+  type: 'Sales' | 'Purchase';
+  currency: string;
+  discount: number; // percent off standard rate
+  items: Array<{ itemId: string; customRate: number }>;
+}
+
+// ── Budget ─────────────────────────────────────────────────────────────────
+export interface Budget {
+  id: string;
+  name: string;
+  fiscalYear: string;
+  accounts: Array<{ accountCode: string; accountName: string; budgetedAmount: number }>;
 }
