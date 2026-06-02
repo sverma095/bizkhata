@@ -600,13 +600,36 @@ async function readDB(): Promise<DatabaseState> {
           console.log("State loaded from Supabase successfully.");
           return cachedDb;
         } else {
-          // No row yet — seed it
-          console.log("No state row found in Supabase. Seeding initial state...");
+          // Row exists but empty {} OR no row — seed with full initial state
+          console.log("Empty or missing state in Supabase. Seeding full initial state...");
           const init = getInitialState();
           cachedDb = init;
-          await supabaseREST("POST", { id: "default_ledger", state: init });
+          // Use PATCH to update existing empty row, POST if missing
+          try {
+            const patchUrl = `${SUPABASE_URL}/rest/v1/bizkhata_state?id=eq.default_ledger`;
+            const controller = new AbortController();
+            setTimeout(() => controller.abort(), 12000);
+            const r = await fetch(patchUrl, {
+              method: "PATCH",
+              headers: {
+                "Content-Type": "application/json",
+                "apikey": SUPABASE_ANON_KEY!,
+                "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+                "Prefer": "return=minimal"
+              },
+              body: JSON.stringify({ state: init }),
+              signal: controller.signal
+            });
+            if (!r.ok && r.status !== 204) {
+              // Fallback to POST
+              await supabaseREST("POST", { id: "default_ledger", state: init });
+            }
+          } catch(e) {
+            await supabaseREST("POST", { id: "default_ledger", state: init }).catch(() => {});
+          }
           supabaseStatus.connected = true;
           supabaseStatus.error = null;
+          console.log("Initial state seeded to Supabase.");
           return cachedDb;
         }
       } catch (err: any) {
