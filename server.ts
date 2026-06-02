@@ -9,8 +9,8 @@ import { createClient } from "@supabase/supabase-js";
 dotenv.config();
 
 // Supabase credentials
-const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "https://zffkvwhvasavenqgkkcx.supabase.co";
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpmZmt2d2h2YXNhdmVucWdra2N4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzNTMxNDMsImV4cCI6MjA5NTkyOTE0M30.Yku2X577pcla2GqpaaNz78sCjIc-uWA9GdLvYyirJTk";
 
 let supabaseStatus: any = { configured: false, connected: false, error: null };
 
