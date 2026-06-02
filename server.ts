@@ -49,6 +49,23 @@ app.use((req: any, res: any, next: any) => {
 });
 app.use(express.json());
 
+// Raw Supabase connectivity test
+app.get("/api/test-supabase", async (req: any, res: any) => {
+  const url = `${SUPABASE_URL}/rest/v1/bizkhata_state?id=eq.default_ledger&select=id`;
+  const key = SUPABASE_ANON_KEY;
+  if (!url || !key) return res.json({ error: "not configured" });
+  try {
+    const r = await fetch(url, {
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
+      signal: AbortSignal.timeout(12000)
+    });
+    const text = await r.text();
+    res.json({ status: r.status, ok: r.ok, body: text.substring(0, 500) });
+  } catch (e: any) {
+    res.json({ error: e.message, type: e.constructor?.name, cause: String(e.cause || '') });
+  }
+});
+
 // Diagnostic health check
 app.get("/api/health", async (req: any, res: any) => {
   const checks: any = {
