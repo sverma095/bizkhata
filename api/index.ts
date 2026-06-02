@@ -8,22 +8,25 @@ import { createClient } from "@supabase/supabase-js";
 
 dotenv.config();
 
-// Securely read Supabase credentials for automated cloud state synchronization
+// Supabase credentials
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
-let supabaseStatus: any = {
-  configured: false,
-  connected: false,
-  error: null
-};
+let supabaseStatus: any = { configured: false, connected: false, error: null };
 
 let supabase: any = null;
 if (SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL !== "MY_SUPABASE_URL") {
   try {
-    supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { fetch: (url: any, opts: any) => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 12000);
+        return fetch(url, { ...opts, signal: controller.signal }).finally(() => clearTimeout(timer));
+      }}
+    });
     supabaseStatus.configured = true;
-    console.log(`Supabase State Engine Successfully Initialized for URL: ${SUPABASE_URL}`);
+    console.log(`Supabase initialized: ${SUPABASE_URL}`);
   } catch (err: any) {
     supabaseStatus.error = { message: err?.message || String(err) };
     console.error("Failed to initialize Supabase client:", err);
@@ -55,11 +58,12 @@ app.get("/api/health", async (req: any, res: any) => {
     env: process.env.VERCEL === "1" ? "vercel" : "local",
     node: process.version,
   };
-  if (supabase) {
+  if (SUPABASE_URL && SUPABASE_ANON_KEY) {
     try {
-      const { data, error } = await supabase.from("bizkhata_state").select("id").limit(1);
-      checks.supabaseReachable = !error;
-      checks.supabaseError = error ? error.message : null;
+      const rows = await supabaseREST("GET");
+      checks.supabaseReachable = Array.isArray(rows);
+      checks.supabaseRowExists = Array.isArray(rows) && rows.length > 0;
+      checks.supabaseError = null;
     } catch (e: any) {
       checks.supabaseReachable = false;
       checks.supabaseError = e.message;
@@ -529,54 +533,69 @@ function withTimeout(promise: Promise<any> | any, timeoutMs: number, errorMsg: s
   ]);
 }
 
+// Direct REST helper — bypasses Supabase JS client entirely, avoids RLS hangs
+async function supabaseREST(method: string, body?: any): Promise<any> {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) throw new Error("Supabase not configured");
+  const url = `${SUPABASE_URL}/rest/v1/bizkhata_state`;
+  const headers: any = {
+    "Content-Type": "application/json",
+    "apikey": SUPABASE_ANON_KEY,
+    "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+    "Prefer": "return=representation,resolution=merge-duplicates"
+  };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    const endpoint = method === "GET" ? `${url}?id=eq.default_ledger&select=state` : url;
+    const res = await fetch(endpoint, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal
+    });
+    clearTimeout(timer);
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Supabase REST ${method} failed: ${res.status} ${errText}`);
+    }
+    return method === "GET" ? await res.json() : true;
+  } catch (err: any) {
+    clearTimeout(timer);
+    throw err;
+  }
+}
+
 async function readDB(): Promise<DatabaseState> {
   try {
     if (cachedDb) {
       return cachedDb;
     }
 
-    // Lazy load from Supabase if configured and not cached yet
-    if (supabase) {
+    // Lazy load from Supabase via direct REST (bypasses RLS/JS-client hangs)
+    if (SUPABASE_URL && SUPABASE_ANON_KEY) {
       try {
-        console.log("Lazy pulling database state from Supabase Cloud PostgreSQL...");
-        const { data, error } = await withTimeout(
-          supabase
-            .from("bizkhata_state")
-            .select("state")
-            .eq("id", "default_ledger")
-            .maybeSingle(),
-          4000,
-          "Supabase select state request timed out"
-        );
-
-        if (error) {
-          supabaseStatus.connected = false;
-          supabaseStatus.error = { code: error.code, message: error.message, details: error.details, hint: error.hint };
-          console.error("Supabase load failed inside readDB:", error);
-        } else if (data && data.state && Object.keys(data.state).length > 0) {
+        console.log("Pulling state from Supabase REST API...");
+        const rows = await supabaseREST("GET");
+        if (Array.isArray(rows) && rows.length > 0 && rows[0].state && Object.keys(rows[0].state).length > 0) {
+          cachedDb = rows[0].state;
           supabaseStatus.connected = true;
           supabaseStatus.error = null;
-          cachedDb = data.state;
-          console.log("Successfully restored database state from Supabase Cloud inside readDB!");
+          console.log("State loaded from Supabase successfully.");
           return cachedDb;
         } else {
-          supabaseStatus.connected = true;
-          supabaseStatus.error = null;
-          console.log("No existing state found in Supabase. Initializing default ledger state...");
+          // No row yet — seed it
+          console.log("No state row found in Supabase. Seeding initial state...");
           const init = getInitialState();
           cachedDb = init;
-          // Synchronously seed the initial table row to prevent concurrency overlaps
-          await withTimeout(
-            supabase.from("bizkhata_state").upsert({ id: "default_ledger", state: init }),
-            4000,
-            "Supabase init upsert request timed out"
-          );
+          await supabaseREST("POST", { id: "default_ledger", state: init });
+          supabaseStatus.connected = true;
+          supabaseStatus.error = null;
           return cachedDb;
         }
       } catch (err: any) {
         supabaseStatus.connected = false;
         supabaseStatus.error = { message: err?.message || String(err) };
-        console.error("Lazy Supabase pull failed, falling back to local file system:", err);
+        console.error("Supabase REST read failed, falling back to local:", err);
       }
     }
 
@@ -635,31 +654,43 @@ async function writeDB(state: DatabaseState): Promise<void> {
       // Ignore read-only errors on serverless deploys
     }
 
-    // Await synchronous push state updates to Supabase PostgreSQL Database in production
-    if (supabase) {
-      console.log("Synchronously pushing updated ledger state to Supabase Cloud...");
+    // Push state to Supabase via direct REST PATCH (upsert)
+    if (SUPABASE_URL && SUPABASE_ANON_KEY) {
       try {
-        const { error } = await withTimeout(
-          supabase
-            .from("bizkhata_state")
-            .upsert({ id: "default_ledger", state: state }),
-          4000,
-          "Supabase push state request timed out"
-        );
-
-        if (error) {
-          supabaseStatus.connected = false;
-          supabaseStatus.error = { code: error.code, message: error.message };
-          console.error("Sync write to Supabase failed during writeDB:", error);
-        } else {
-          supabaseStatus.connected = true;
-          supabaseStatus.error = null;
-          console.log("Database state successfully synchronized with Supabase postgres database.");
-        }
+        console.log("Pushing state to Supabase REST API...");
+        await supabaseREST("POST", { id: "default_ledger", state });
+        supabaseStatus.connected = true;
+        supabaseStatus.error = null;
+        console.log("State synced to Supabase successfully.");
       } catch (err: any) {
-        supabaseStatus.connected = false;
-        supabaseStatus.error = { message: err?.message || String(err) };
-        console.error("Sync write to Supabase timed out or failed:", err);
+        // Try PATCH as fallback
+        try {
+          const patchUrl = `${SUPABASE_URL}/rest/v1/bizkhata_state?id=eq.default_ledger`;
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 15000);
+          const res = await fetch(patchUrl, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              "apikey": SUPABASE_ANON_KEY,
+              "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+              "Prefer": "return=minimal"
+            },
+            body: JSON.stringify({ state }),
+            signal: controller.signal
+          });
+          clearTimeout(timer);
+          if (res.ok || res.status === 204) {
+            supabaseStatus.connected = true;
+            supabaseStatus.error = null;
+          } else {
+            throw new Error(`PATCH failed: ${res.status}`);
+          }
+        } catch (patchErr: any) {
+          supabaseStatus.connected = false;
+          supabaseStatus.error = { message: patchErr?.message || String(patchErr) };
+          console.error("Supabase write failed:", patchErr);
+        }
       }
     }
   } catch (err) {
