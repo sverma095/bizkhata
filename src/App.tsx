@@ -9,6 +9,12 @@ import Purchases from "./components/Purchases.jsx";
 import Accounting from "./components/Accounting.jsx";
 import Reports from "./components/Reports.jsx";
 import AIAssistant from "./components/AIAssistant.jsx";
+import LoginScreen from "./components/LoginScreen.jsx";
+import AdminDashboard from "./components/AdminDashboard.jsx";
+import SuperAdminDashboard from "./components/SuperAdminDashboard.jsx";
+import UserDashboard from "./components/UserDashboard.jsx";
+import TesterPanel from "./components/TesterPanel.jsx";
+import { SessionInfo, AppUserFull } from "./types.js";
 import SalesOrders from "./components/SalesOrders.jsx";
 import PurchaseOrders from "./components/PurchaseOrders.jsx";
 import VendorCredits from "./components/VendorCredits.jsx";
@@ -62,6 +68,70 @@ import {
 } from "lucide-react";
 
 export default function App() {
+  // ── Session / Auth state ──────────────────────────────────────────────────
+  const [session, setSession] = useState<SessionInfo | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [panelView, setPanelView] = useState<'login' | 'register' | 'forgot' | 'reset' | 'activate'>('login');
+  const [routeEmail, setRouteEmail] = useState('');
+  const [routeCode, setRouteCode] = useState('');
+
+  // Hydrate session on load
+  React.useEffect(() => {
+    const hydrateSession = async () => {
+      const savedToken = localStorage.getItem('bizkhata_session_token');
+      if (savedToken) {
+        try {
+          const res = await fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${savedToken}` } });
+          if (res.ok) {
+            const data = await res.json();
+            setSession({ token: savedToken, user: data.user, organization: data.organization });
+          } else {
+            localStorage.removeItem('bizkhata_session_token');
+          }
+        } catch (err) { console.error("Session hydration failed", err); }
+      }
+      setAuthLoading(false);
+    };
+    hydrateSession();
+  }, []);
+
+  const handleLoginSuccess = (newSession: SessionInfo) => {
+    setSession(newSession);
+    localStorage.setItem('bizkhata_session_token', newSession.token);
+  };
+
+  const handleLogout = () => {
+    setSession(null);
+    localStorage.removeItem('bizkhata_session_token');
+    setPanelView('login');
+  };
+
+  const handleUpdateSelfUser = (updatedUser: AppUserFull) => {
+    if (session) setSession({ ...session, user: updatedUser });
+  };
+
+  const handleQuickLoginImpersonation = async (email: string) => {
+    setAuthLoading(true);
+    try {
+      const res = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password: 'Admin@123' }) });
+      const data = await res.json();
+      if (res.ok) {
+        if (data.twoFactorRequired) {
+          const nRes = await fetch('/api/notifications');
+          const notifs = await nRes.json();
+          const lastOtp = notifs.find((n: any) => n.to === email && n.type === 'OTP')?.code;
+          if (lastOtp) {
+            const mfaRes = await fetch('/api/auth/verify-2fa', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, otp: lastOtp }) });
+            const mfaData = await mfaRes.json();
+            if (mfaRes.ok) handleLoginSuccess(mfaData);
+          }
+        } else { handleLoginSuccess(data); }
+      } else { alert(`Login failed: ${data.error}`); }
+    } catch(e) { console.error(e); }
+    finally { setAuthLoading(false); }
+  };
+
+  // ── Ledger DB state ───────────────────────────────────────────────────────
   const [db, setDb] = useState<DatabaseState | null>(null);
   const [activeTab, setActiveTab] = useState<"dashboard" | "items" | "sales" | "purchases" | "payments" | "accounting" | "reports" | "ai" | "settings" | "banking" | "timetracking" | "users">("dashboard");
   const [salesSubTab, setSalesSubTab] = useState<"tax" | "proforma" | "salesorders" | "notes" | "customers">("tax");
@@ -1575,6 +1645,61 @@ export default function App() {
     );
   }
 
+  // ── Auth Gate ─────────────────────────────────────────────────────────────
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-900">
+        <div className="text-center space-y-3">
+          <div className="w-10 h-10 border-4 border-emerald-400 border-t-transparent rounded-full animate-spin mx-auto" />
+          <div className="text-slate-400 text-sm font-medium">Connecting to BizKhata...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <LoginScreen
+          onLoginSuccess={handleLoginSuccess}
+          initialView={panelView}
+          initialEmail={routeEmail}
+          initialCode={routeCode}
+        />
+        <TesterPanel
+          onQuickLogin={handleQuickLoginImpersonation}
+          onNavigateToReset={(email: string, code: string) => { setPanelView('reset'); setRouteEmail(email); setRouteCode(code); }}
+          onNavigateToActivate={(email: string, code: string) => { setPanelView('reset'); setRouteEmail(email); setRouteCode(code); }}
+        />
+      </div>
+    );
+  }
+
+  // ── Users tab: show Admin/SuperAdmin dashboards ──────────────────────────
+  if (activeTab === "users") {
+    if (session.user.role === "Super Admin") {
+      return (
+        <div className="min-h-screen">
+          <SuperAdminDashboard token={session.token} activeUser={session.user} onLogout={handleLogout} />
+          <TesterPanel onQuickLogin={handleQuickLoginImpersonation} onNavigateToReset={(e,c)=>{}} onNavigateToActivate={(e,c)=>{}} />
+        </div>
+      );
+    }
+    if (session.user.role === "Admin") {
+      return (
+        <div className="min-h-screen">
+          <AdminDashboard token={session.token} activeUser={session.user} onLogout={handleLogout} />
+          <TesterPanel onQuickLogin={handleQuickLoginImpersonation} onNavigateToReset={(e,c)=>{}} onNavigateToActivate={(e,c)=>{}} />
+        </div>
+      );
+    }
+    return (
+      <div className="min-h-screen">
+        <UserDashboard token={session.token} activeUser={session.user} onUpdateSelfUser={handleUpdateSelfUser} onLogout={handleLogout} />
+      </div>
+    );
+  }
+
   return (
     <div id="bizkhata-main-container" className="h-screen flex flex-col overflow-hidden bg-slate-50 font-sans text-slate-700">
       
@@ -1588,6 +1713,7 @@ export default function App() {
           <div className="flex items-baseline gap-1">
             <span className="font-extrabold text-white text-[15px] leading-none tracking-tight">BizKhata</span>
             <span className="text-[14px] font-bold text-[#00D779]">Workspace</span>
+            {session && <span className="ml-2 text-[10px] text-slate-400 font-medium hidden md:block">· {session.user.fullName} ({session.user.role})</span>}
           </div>
         </div>
 
@@ -1691,6 +1817,7 @@ export default function App() {
               }}
               className="p-1 hover:text-white text-slate-400 hover:bg-slate-800 rounded transition cursor-pointer flex items-center justify-center"
               title="Sign Out"
+              onClick={handleLogout}
             >
               <LogOut className="w-3.5 h-3.5 text-rose-400 hover:text-rose-300" />
             </button>

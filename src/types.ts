@@ -386,3 +386,92 @@ export interface Budget {
   fiscalYear: string;
   accounts: Array<{ accountCode: string; accountName: string; budgetedAmount: number }>;
 }
+
+// ── User Management Types ─────────────────────────────────────────────────────
+export interface Organization {
+  id: string;
+  name: string;
+  gstNumber: string;
+  status: 'Pending' | 'Active' | 'Suspended' | 'Rejected';
+  allocatedSeats: number;
+  usedSeats: number;
+  createdAt: string;
+}
+
+export interface AppUserFull {
+  id: string;
+  organizationId: string | null;
+  fullName: string;
+  email: string;
+  mobileNumber: string;
+  department?: string;
+  designation?: string;
+  role: string;
+  status: 'Active' | 'Pending Activation' | 'Disabled';
+  password?: string;
+  permissions: string[];
+  twoFactorEnabled: boolean;
+  twoFactorVerified?: boolean;
+  lastLogin?: string;
+  deviceDetails?: string;
+  ipAddress?: string;
+  createdAt: string;
+  activationCode?: string;
+  resetCode?: string;
+}
+
+export interface SeatRequest {
+  id: string;
+  organizationId: string;
+  requestedBy: string;
+  currentSeatCount: number;
+  additionalSeatsRequested: number;
+  reason: string;
+  status: 'Pending' | 'Approved' | 'Rejected';
+  createdAt: string;
+}
+
+export interface CustomRole {
+  id: string;
+  organizationId: string;
+  name: string;
+  description: string;
+  permissions: string[];
+}
+
+export interface RegistrationRequest {
+  id: string;
+  companyName: string;
+  gstNumber: string;
+  adminName: string;
+  email: string;
+  mobileNumber: string;
+  numberOfRequiredSeats: number;
+  status: 'Pending' | 'Approved' | 'Rejected';
+  additionalInfoRequest?: string;
+  createdAt: string;
+}
+
+export interface SessionInfo {
+  token: string;
+  user: AppUserFull;
+  organization: Organization | null;
+}
+
+export const ALL_PERMISSIONS = [
+  { id: 'view_invoices', label: 'View Invoices', category: 'Invoices' },
+  { id: 'create_invoices', label: 'Create Invoices', category: 'Invoices' },
+  { id: 'edit_invoices', label: 'Edit Invoices', category: 'Invoices' },
+  { id: 'delete_invoices', label: 'Delete Invoices', category: 'Invoices' },
+  { id: 'approve_payments', label: 'Approve Payments', category: 'Finance' },
+  { id: 'manage_customers', label: 'Manage Customers', category: 'Contacts' },
+  { id: 'manage_vendors', label: 'Manage Vendors', category: 'Contacts' },
+  { id: 'view_reports', label: 'View Reports', category: 'Reporting' },
+  { id: 'export_data', label: 'Export Data', category: 'Reporting' },
+  { id: 'manage_users', label: 'Manage Users', category: 'Admin' },
+  { id: 'view_journals', label: 'View Journals', category: 'Accounting' },
+  { id: 'create_journals', label: 'Create Journals', category: 'Accounting' },
+  { id: 'manage_items', label: 'Manage Items', category: 'Inventory' },
+  { id: 'manage_billing', label: 'Manage Bills', category: 'Finance' },
+  { id: 'view_banking', label: 'View Banking', category: 'Banking' },
+];
