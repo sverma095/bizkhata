@@ -50,6 +50,142 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation }:
   ]);
   const [selectedReport, setSelectedReport] = useState<ReportItem | null>(null);
 
+  // ── Export state ──────────────────────────────────────────────────────────
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const exportMenuRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) setShowExportMenu(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const getTableData = (): { headers: string[]; rows: any[][] } => {
+    if (!selectedReport) return { headers: [], rows: [] };
+    const id = selectedReport.id;
+
+    if (id === "customer_ledger" || id === "vendor_ledger" || id === "ledger_statement") {
+      const headers = ["Date","Reference","Description","Account","Debit","Credit","Balance"];
+      const rows: any[][] = [];
+      let txRows: any[] = [];
+      db.invoices.filter((inv: any) => inRange(inv.date) && !inv.isProforma).forEach((inv: any) => {
+        if (id === "customer_ledger" && ledgerEntity && inv.customerId !== ledgerEntity) return;
+        txRows.push({ date: inv.date, ref: inv.invoiceNumber, desc: `Invoice to ${inv.customerName}`, account: "Accounts Receivable", debit: inv.total, credit: 0 });
+      });
+      db.payments.filter((p: any) => inRange(p.date)).forEach((p: any) => {
+        if (id === "customer_ledger" && ledgerEntity && p.customerId !== ledgerEntity) return;
+        txRows.push({ date: p.date, ref: p.receiptNumber || "", desc: `Payment from ${p.customerName}`, account: "Accounts Receivable", debit: 0, credit: p.amount });
+      });
+      db.bills.filter((b: any) => inRange(b.date)).forEach((b: any) => {
+        if (id === "vendor_ledger" && ledgerEntity && b.vendorId !== ledgerEntity) return;
+        txRows.push({ date: b.date, ref: b.billNumber, desc: `Bill from ${b.vendorName}`, account: "Accounts Payable", debit: 0, credit: b.total });
+      });
+      db.expenses.filter((e: any) => inRange(e.date)).forEach((e: any) => {
+        txRows.push({ date: e.date, ref: e.id?.substring(0,8)||"", desc: e.description, account: "Expenses", debit: e.amount, credit: 0 });
+      });
+      txRows.sort((a, b) => a.date.localeCompare(b.date));
+      let bal = 0;
+      txRows.forEach(r => { bal += r.debit - r.credit; rows.push([r.date, r.ref, r.desc, r.account, r.debit, r.credit, bal]); });
+      return { headers, rows };
+    }
+    if (id === "sales_by_customer") {
+      const headers = ["Customer","GSTIN","Invoices","Taxable Amount","GST","Total","Payments Received","Outstanding"];
+      const rows: any[][] = db.customers.map((c: any) => {
+        const invs = filteredInvoices.filter((i: any) => i.customerId === c.id);
+        if (!invs.length) return null;
+        const taxable = invs.reduce((s: number, i: any) => s + i.subtotal, 0);
+        const gst = invs.reduce((s: number, i: any) => s + i.totalGst, 0);
+        const total = invs.reduce((s: number, i: any) => s + i.total, 0);
+        const paid = filteredPayments.filter((p: any) => p.customerId === c.id).reduce((s: number, p: any) => s + p.amount, 0);
+        return [c.name, c.gstin||"Unregistered", invs.length, taxable, gst, total, paid, total-paid];
+      }).filter(Boolean) as any[][];
+      return { headers, rows };
+    }
+    if (id === "sales_by_item") {
+      const headers = ["Item Name","HSN/SAC","Qty Sold","Avg Rate","Taxable","GST","Total Revenue"];
+      const map: Record<string, any> = {};
+      filteredInvoices.forEach((inv: any) => inv.items?.forEach((li: any) => {
+        if (!map[li.name]) map[li.name] = { name: li.name, hsnSac: li.hsnSac||"", qty: 0, rateSum: 0, taxable: 0, gst: 0, total: 0, cnt: 0 };
+        map[li.name].qty += li.qty; map[li.name].rateSum += li.rate; map[li.name].taxable += li.amount;
+        map[li.name].gst += (li.cgst||0)+(li.sgst||0)+(li.igst||0);
+        map[li.name].total += li.amount+(li.cgst||0)+(li.sgst||0)+(li.igst||0); map[li.name].cnt++;
+      }));
+      const rows = Object.values(map).map((it: any) => [it.name, it.hsnSac, it.qty, it.cnt?it.rateSum/it.cnt:0, it.taxable, it.gst, it.total]);
+      return { headers, rows };
+    }
+    if (id === "purchase_by_vendor") {
+      const headers = ["Vendor","GSTIN","Bills","Taxable","GST","Total","Paid","Outstanding"];
+      const rows: any[][] = db.vendors.map((v: any) => {
+        const bills = filteredBills.filter((b: any) => b.vendorId === v.id);
+        if (!bills.length) return null;
+        const taxable = bills.reduce((s: number, b: any) => s+(b.subtotal||0), 0);
+        const gst = bills.reduce((s: number, b: any) => s+(b.totalGst||0), 0);
+        const total = bills.reduce((s: number, b: any) => s+b.total, 0);
+        const paid = bills.reduce((s: number, b: any) => s+(b.paymentPaid||0), 0);
+        return [v.name, v.gstin||"Unregistered", bills.length, taxable, gst, total, paid, total-paid];
+      }).filter(Boolean) as any[][];
+      return { headers, rows };
+    }
+    // Generic fallback
+    return { headers: ["Report", "Period"], rows: [[selectedReport.name, `${fromDate} to ${toDate}`]] };
+  };
+
+  const exportCSV = () => {
+    const { headers, rows } = getTableData();
+    const lines = [headers.join(","), ...rows.map(r => r.map((c: any) => `"${String(c).replace(/"/g, '""')}"`).join(","))];
+    const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+    a.download = `${selectedReport?.id || "report"}_${fromDate}_${toDate}.csv`; a.click();
+    setShowExportMenu(false);
+  };
+
+  const exportJSON = () => {
+    const { headers, rows } = getTableData();
+    const data = rows.map(r => Object.fromEntries(headers.map((h, i) => [h, r[i]])));
+    const blob = new Blob([JSON.stringify({ report: selectedReport?.name, period: { from: fromDate, to: toDate }, company: db.company.name, data }, null, 2)], { type: "application/json" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+    a.download = `${selectedReport?.id || "report"}_${fromDate}_${toDate}.json`; a.click();
+    setShowExportMenu(false);
+  };
+
+  const exportExcel = () => {
+    const { headers, rows } = getTableData();
+    // Build a simple HTML table that Excel can open
+    const tableRows = [
+      `<tr>${headers.map(h => `<th style="background:#f1f5f9;font-weight:bold;border:1px solid #ccc;padding:4px 8px">${h}</th>`).join("")}</tr>`,
+      ...rows.map(r => `<tr>${r.map((c: any, i: number) => {
+        const isNum = typeof c === "number";
+        return `<td style="border:1px solid #eee;padding:4px 8px;${isNum?"text-align:right;font-family:monospace":""}">${isNum ? c.toLocaleString("en-IN",{maximumFractionDigits:2}) : c}</td>`;
+      }).join("")}</tr>`)
+    ];
+    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"/><style>table{border-collapse:collapse}th,td{font-size:11px}</style></head><body><table>${tableRows.join("")}</table></body></html>`;
+    const blob = new Blob([html], { type: "application/vnd.ms-excel" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+    a.download = `${selectedReport?.id || "report"}_${fromDate}_${toDate}.xls`; a.click();
+    setShowExportMenu(false);
+  };
+
+  const exportPDF = () => {
+    // Open print dialog with clean print styles
+    const printStyle = document.createElement("style");
+    printStyle.id = "bk-print-style";
+    printStyle.textContent = `@media print { body > *:not(#bk-print-frame) { display: none !important; } #bk-print-frame { display: block !important; } @page { margin: 15mm; } }`;
+    document.head.appendChild(printStyle);
+    const { headers, rows } = getTableData();
+    const tableRows = [
+      `<tr>${headers.map(h=>`<th style="background:#f8fafc;font-weight:bold;border:1px solid #cbd5e1;padding:6px 10px;font-size:10px;text-transform:uppercase">${h}</th>`).join("")}</tr>`,
+      ...rows.map((r,idx) => `<tr style="background:${idx%2===0?"#fff":"#f8fafc"}">${r.map((c:any)=>{const isNum=typeof c==="number";return`<td style="border:1px solid #e2e8f0;padding:5px 10px;font-size:11px;${isNum?"text-align:right;font-family:monospace":""}">${isNum?c.toLocaleString("en-IN",{maximumFractionDigits:2}):c}</td>`}).join("")}</tr>`)
+    ];
+    const frame = document.createElement("div"); frame.id = "bk-print-frame";
+    frame.style.cssText = "display:none;font-family:sans-serif";
+    frame.innerHTML = `<div style="text-align:center;margin-bottom:20px"><h2 style="font-size:16px;font-weight:900;margin:0">${selectedReport?.name}</h2><p style="color:#64748b;font-size:11px;margin:4px 0">${db.company.name} | ${db.company.gstin} | Period: ${fromDate} to ${toDate}</p></div><table style="width:100%;border-collapse:collapse">${tableRows.join("")}</table><div style="margin-top:20px;font-size:10px;color:#94a3b8;text-align:right">Generated by BizKhata | ${new Date().toLocaleString("en-IN")}</div>`;
+    document.body.appendChild(frame);
+    window.print();
+    setTimeout(() => { document.body.removeChild(frame); document.head.removeChild(printStyle); }, 500);
+    setShowExportMenu(false);
+  };
+
   // ── Date Filter State ─────────────────────────────────────────────────────
   const currentYear = new Date().getFullYear();
   const [datePreset, setDatePreset] = useState<string>('this_fiscal');
@@ -691,11 +827,36 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation }:
                 <span className="text-[10px] px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 uppercase tracking-widest font-black rounded">
                   Live Data
                 </span>
-                <button 
-                  onClick={() => window.print()} 
+                {/* Export dropdown */}
+                <div className="relative" ref={exportMenuRef}>
+                  <button
+                    onClick={() => setShowExportMenu(v => !v)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl cursor-pointer transition shadow-sm"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                    Export ▾
+                  </button>
+                  {showExportMenu && (
+                    <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 w-44 overflow-hidden">
+                      {[
+                        { label: "📄 PDF (Print)", fn: exportPDF },
+                        { label: "📊 Excel (.xls)", fn: exportExcel },
+                        { label: "📋 CSV", fn: exportCSV },
+                        { label: "{ } JSON", fn: exportJSON },
+                      ].map(opt => (
+                        <button key={opt.label} onClick={opt.fn}
+                          className="w-full text-left px-4 py-2.5 text-xs text-slate-700 hover:bg-slate-50 transition font-medium border-b border-slate-100 last:border-0">
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => window.print()}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-[#FDFBF7] hover:bg-[#F5F2ED] border border-[#E5E1D8] rounded-xl text-[#8C867A] text-xs font-bold cursor-pointer transition shadow-xs"
                 >
-                  <Printer className="w-3.5 h-3.5" /> 
+                  <Printer className="w-3.5 h-3.5" />
                   <span>Print</span>
                 </button>
               </div>
@@ -1420,31 +1581,96 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation }:
                 <div className="space-y-4 animate-fade-in">
                   <div className="text-center border-b border-dashed border-slate-200 pb-4">
                     <h3 className="text-sm font-black uppercase tracking-widest">{selectedReport.name}</h3>
-                    <p className="text-[10px] text-slate-500">{db.company.name} | {fromDate} to {toDate}</p>
+                    <p className="text-[10px] text-slate-500">{db.company.name} | GSTIN: {db.company.gstin}</p>
                   </div>
-                  {/* Entity selector */}
-                  <div className="flex gap-3 flex-wrap">
-                    {selectedReport.id === "ledger_statement" && (
-                      <select value={ledgerAccount} onChange={e => setLedgerAccount(e.target.value)}
-                        className="border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400">
-                        <option value="">-- All Accounts --</option>
-                        {db.accounts.map((a: any) => <option key={a.code} value={a.code}>{a.name}</option>)}
-                      </select>
-                    )}
-                    {selectedReport.id === "customer_ledger" && (
-                      <select value={ledgerEntity} onChange={e => setLedgerEntity(e.target.value)}
-                        className="border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400">
-                        <option value="">-- All Customers --</option>
-                        {db.customers.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                      </select>
-                    )}
-                    {selectedReport.id === "vendor_ledger" && (
-                      <select value={ledgerEntity} onChange={e => setLedgerEntity(e.target.value)}
-                        className="border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400">
-                        <option value="">-- All Vendors --</option>
-                        {db.vendors.map((v: any) => <option key={v.id} value={v.id}>{v.name}</option>)}
-                      </select>
-                    )}
+
+                  {/* ── Filters bar: entity + date range ── */}
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-3">
+                    <div className="flex flex-wrap gap-3 items-center">
+                      {/* Entity selector */}
+                      {selectedReport.id === "ledger_statement" && (
+                        <div className="flex items-center gap-2">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">Account</label>
+                          <select value={ledgerAccount} onChange={e => setLedgerAccount(e.target.value)}
+                            className="border border-slate-200 bg-white rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-48">
+                            <option value="">All Accounts</option>
+                            {db.accounts.map((a: any) => <option key={a.code} value={a.code}>{a.name}</option>)}
+                          </select>
+                        </div>
+                      )}
+                      {selectedReport.id === "customer_ledger" && (
+                        <div className="flex items-center gap-2">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">Customer</label>
+                          <select value={ledgerEntity} onChange={e => setLedgerEntity(e.target.value)}
+                            className="border border-slate-200 bg-white rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-48">
+                            <option value="">All Customers</option>
+                            {db.customers.map((c: any) => (
+                              <option key={c.id} value={c.id}>{c.name} {c.gstin ? `(${c.gstin})` : ""}</option>
+                            ))}
+                          </select>
+                          {ledgerEntity && (() => {
+                            const c = db.customers.find((x: any) => x.id === ledgerEntity);
+                            return c ? (
+                              <div className="text-[10px] text-slate-500 bg-white border border-slate-200 rounded-lg px-2 py-1">
+                                {c.gstin && <span className="font-mono text-blue-700 mr-2">GSTIN: {c.gstin}</span>}
+                                {c.billingAddress && <span>{c.billingAddress}</span>}
+                              </div>
+                            ) : null;
+                          })()}
+                        </div>
+                      )}
+                      {selectedReport.id === "vendor_ledger" && (
+                        <div className="flex items-center gap-2">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">Vendor</label>
+                          <select value={ledgerEntity} onChange={e => setLedgerEntity(e.target.value)}
+                            className="border border-slate-200 bg-white rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-48">
+                            <option value="">All Vendors</option>
+                            {db.vendors.map((v: any) => (
+                              <option key={v.id} value={v.id}>{v.name} {v.gstin ? `(${v.gstin})` : ""}</option>
+                            ))}
+                          </select>
+                          {ledgerEntity && (() => {
+                            const v = db.vendors.find((x: any) => x.id === ledgerEntity);
+                            return v ? (
+                              <div className="text-[10px] text-slate-500 bg-white border border-slate-200 rounded-lg px-2 py-1">
+                                {v.gstin && <span className="font-mono text-amber-700 mr-2">GSTIN: {v.gstin}</span>}
+                              </div>
+                            ) : null;
+                          })()}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Date range row */}
+                    <div className="flex flex-wrap gap-1.5 items-center border-t border-slate-200 pt-3">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mr-1">Period</span>
+                      {[
+                        { key: "today", label: "Today" },
+                        { key: "this_month", label: "This Month" },
+                        { key: "last_month", label: "Last Month" },
+                        { key: "this_quarter", label: "This Quarter" },
+                        { key: "last_quarter", label: "Last Quarter" },
+                        { key: "this_fiscal", label: "This FY" },
+                        { key: "last_fiscal", label: "Last FY" },
+                        { key: "this_year", label: "This Year" },
+                        { key: "last_year", label: "Last Year" },
+                      ].map(p => (
+                        <button key={p.key} onClick={() => applyPreset(p.key)}
+                          className={`px-2 py-1 text-[10px] font-semibold rounded-lg border transition ${datePreset === p.key ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}>
+                          {p.label}
+                        </button>
+                      ))}
+                      <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2 py-1 ml-1">
+                        <input type="date" value={fromDate} onChange={e => { setFromDate(e.target.value); setDatePreset("custom"); }}
+                          className="text-[10px] bg-transparent border-none outline-none text-slate-600" />
+                        <span className="text-slate-400 text-[10px]">→</span>
+                        <input type="date" value={toDate} onChange={e => { setToDate(e.target.value); setDatePreset("custom"); }}
+                          className="text-[10px] bg-transparent border-none outline-none text-slate-600" />
+                      </div>
+                      <span className="text-[10px] text-slate-500 ml-1">
+                        Showing: <strong>{fromDate}</strong> to <strong>{toDate}</strong>
+                      </span>
+                    </div>
                   </div>
                   {/* Transactions table */}
                   <div className="overflow-auto">
