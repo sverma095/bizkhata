@@ -133,254 +133,6 @@ const superAdminGuard = (req: any, res: any, next: any) => {
   next();
 };
 
-// ── User Management API Routes ────────────────────────────────────────────────
-
-// Notifications
-app.get("/api/notifications", (req: any, res: any) => res.json(USER_DB.notifications));
-app.post("/api/notifications/clear", (req: any, res: any) => { USER_DB.notifications = []; res.json({ success: true }); });
-
-// Registration request
-app.post("/api/auth/register-request", (req: any, res: any) => {
-  const { companyName, gstNumber, adminName, email, mobileNumber, password, numberOfRequiredSeats } = req.body;
-  if (!companyName || !gstNumber || !adminName || !email || !mobileNumber || !password || !numberOfRequiredSeats) {
-    res.status(400).json({ error: "All registration fields are required." }); return;
-  }
-  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-  if (!passwordRegex.test(password)) { res.status(400).json({ error: "Password must be 8+ chars with upper, lower, number, special char." }); return; }
-  if (USER_DB.users.some((u: any) => u.email === email) || USER_DB.registrationRequests.some((r: any) => r.email === email && r.status !== "Rejected")) {
-    res.status(400).json({ error: "An account with this email already exists." }); return;
-  }
-  const newReg = { id: generateId("reg"), companyName, gstNumber, adminName, email, mobileNumber, numberOfRequiredSeats: Number(numberOfRequiredSeats), status: "Pending", createdAt: new Date().toISOString() };
-  USER_DB.registrationRequests.unshift(newReg);
-  USER_DB.notifications.unshift({ id: generateId("notif"), to: "svtiger543939@gmail.com", subject: "New Registration Request", body: `Company '${companyName}' registered by '${adminName}'.`, type: "Email", timestamp: new Date().toISOString() });
-  res.status(201).json(newReg);
-});
-
-// Login
-app.post("/api/auth/login", (req: any, res: any) => {
-  const { email, password } = req.body;
-  if (!email || !password) { res.status(400).json({ error: "Email and Password required." }); return; }
-  const user = USER_DB.users.find((u: any) => u.email === email);
-  if (!user) { res.status(401).json({ error: "Invalid credentials. User not found." }); return; }
-  if (user.status === "Disabled") { res.status(403).json({ error: "Account disabled. Contact administrator." }); return; }
-  if (user.password !== password) { res.status(401).json({ error: "Invalid credentials. Wrong password." }); return; }
-  let org = null;
-  if (user.organizationId) {
-    org = USER_DB.organizations.find((o: any) => o.id === user.organizationId) || null;
-    if (org && org.status === "Suspended") { res.status(403).json({ error: "Your organization is suspended. Contact BizKhata support." }); return; }
-  }
-  // 2FA disabled for now - direct login
-  // if (user.twoFactorEnabled && !user.twoFactorVerified) { ... }
-  user.lastLogin = new Date().toISOString();
-  addAuditLog(user.organizationId, user.fullName, user.role, "User Login", `Logged in from ${req.ip || "127.0.0.1"}.`);
-  res.json({ token: `TOKEN_${user.email}`, user, organization: org });
-});
-
-// Verify 2FA
-app.post("/api/auth/verify-2fa", (req: any, res: any) => {
-  const { email, otp } = req.body;
-  const user = USER_DB.users.find((u: any) => u.email === email);
-  if (!user) { res.status(404).json({ error: "User not found." }); return; }
-  if (user.activationCode !== otp) { res.status(400).json({ error: "Invalid OTP code." }); return; }
-  user.twoFactorVerified = true; user.activationCode = undefined; user.lastLogin = new Date().toISOString();
-  const org = user.organizationId ? USER_DB.organizations.find((o: any) => o.id === user.organizationId) || null : null;
-  addAuditLog(user.organizationId, user.fullName, user.role, "2FA Verified", "2FA OTP passed.");
-  res.json({ token: `TOKEN_${user.email}`, user, organization: org });
-});
-
-// Toggle 2FA
-app.post("/api/auth/toggle-2fa", authGuard, (req: any, res: any) => {
-  const user = req.user; const { enabled } = req.body;
-  user.twoFactorEnabled = !!enabled; user.twoFactorVerified = false;
-  addAuditLog(user.organizationId, user.fullName, user.role, "2FA Setting Updated", `2FA ${enabled ? "enabled" : "disabled"}.`);
-  res.json({ success: true, twoFactorEnabled: user.twoFactorEnabled });
-});
-
-// Forgot password
-app.post("/api/auth/forgot-password", (req: any, res: any) => {
-  const { email } = req.body;
-  const user = USER_DB.users.find((u: any) => u.email === email);
-  if (user) {
-    const resetCode = Math.floor(200000 + Math.random() * 800000).toString();
-    user.resetCode = resetCode;
-    USER_DB.notifications.unshift({ id: generateId("notif"), to: email, subject: "BizKhata Password Reset", body: `Reset OTP: ${resetCode}. Link: https://bizkhata-six.vercel.app/reset-password?code=${resetCode}&email=${email}`, type: "Email", code: resetCode, timestamp: new Date().toISOString() });
-    addAuditLog(user.organizationId, user.fullName, user.role, "Password Reset Requested", "Reset OTP generated.");
-  }
-  res.json({ success: true, message: "If email exists, a reset link has been sent." });
-});
-
-// Reset password
-app.post("/api/auth/reset-password", (req: any, res: any) => {
-  const { email, code, newPassword } = req.body;
-  const user = USER_DB.users.find((u: any) => u.email === email);
-  if (!user || user.resetCode !== code) { res.status(400).json({ error: "Invalid or expired reset code." }); return; }
-  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-  if (!passwordRegex.test(newPassword)) { res.status(400).json({ error: "Password must be 8+ chars with upper, lower, number, special char." }); return; }
-  user.password = newPassword; user.resetCode = undefined; user.status = "Active";
-  addAuditLog(user.organizationId, user.fullName, user.role, "Password Reset Complete", "Password reset successfully.");
-  res.json({ success: true });
-});
-
-// Get me
-app.get("/api/auth/me", (req: any, res: any) => {
-  const user = verifyTokenAndGetUser(req);
-  if (!user) { res.status(401).json({ error: "Unauthorized." }); return; }
-  const org = user.organizationId ? USER_DB.organizations.find((o: any) => o.id === user.organizationId) || null : null;
-  res.json({ user, organization: org });
-});
-
-// Terminate sessions
-app.post("/api/auth/terminate-sessions", authGuard, (req: any, res: any) => {
-  req.user.twoFactorVerified = false;
-  addAuditLog(req.user.organizationId, req.user.fullName, req.user.role, "Sessions Terminated", "All sessions force-ended.");
-  res.json({ success: true });
-});
-
-// Super Admin - Registrations
-app.get("/api/superadmin/registrations", authGuard, superAdminGuard, (req: any, res: any) => res.json(USER_DB.registrationRequests));
-app.post("/api/superadmin/registrations/:id/action", authGuard, superAdminGuard, (req: any, res: any) => {
-  const reg = USER_DB.registrationRequests.find((r: any) => r.id === req.params.id);
-  if (!reg) { res.status(404).json({ error: "Registration not found." }); return; }
-  const { action, feedback } = req.body;
-  if (action === "Approve") {
-    reg.status = "Approved";
-    const orgId = generateId("org");
-    USER_DB.organizations.push({ id: orgId, name: reg.companyName, gstNumber: reg.gstNumber, status: "Active", allocatedSeats: reg.numberOfRequiredSeats, usedSeats: 1, createdAt: new Date().toISOString() });
-    USER_DB.users.push({ id: generateId("user"), organizationId: orgId, fullName: reg.adminName, email: reg.email, mobileNumber: reg.mobileNumber, role: "Admin", status: "Active", password: "Admin@123", permissions: ALL_PERMISSIONS_LIST.map(p => p.id), twoFactorEnabled: false, createdAt: new Date().toISOString() });
-    USER_DB.notifications.unshift({ id: generateId("notif"), to: reg.email, subject: "BizKhata Account Approved", body: `Your account for ${reg.companyName} is approved. Login: ${reg.email} / Admin@123`, type: "Email", timestamp: new Date().toISOString() });
-    addAuditLog(null, req.user.fullName, req.user.role, "Approve Registration", `Approved '${reg.companyName}'.`);
-  } else if (action === "Reject") {
-    reg.status = "Rejected";
-    addAuditLog(null, req.user.fullName, req.user.role, "Reject Registration", `Rejected '${reg.companyName}'. Reason: ${feedback}`);
-  }
-  res.json({ success: true, reg });
-});
-
-// Super Admin - Organizations
-app.get("/api/superadmin/organizations", authGuard, superAdminGuard, (req: any, res: any) => res.json(USER_DB.organizations));
-app.put("/api/superadmin/organizations/:id", authGuard, superAdminGuard, (req: any, res: any) => {
-  const org = USER_DB.organizations.find((o: any) => o.id === req.params.id);
-  if (!org) { res.status(404).json({ error: "Organization not found." }); return; }
-  const { status, allocatedSeats } = req.body;
-  if (status) { org.status = status; if (status === "Suspended") USER_DB.users.forEach((u: any) => { if (u.organizationId === org.id) u.status = "Disabled"; }); }
-  if (allocatedSeats !== undefined) { const s = Number(allocatedSeats); if (s < org.usedSeats) { res.status(400).json({ error: `Cannot go below ${org.usedSeats} used seats.` }); return; } org.allocatedSeats = s; }
-  addAuditLog(null, req.user.fullName, req.user.role, "Update Organization", `Updated '${org.name}': status=${status}, seats=${allocatedSeats}`);
-  res.json(org);
-});
-
-// Users
-app.get("/api/users", authGuard, (req: any, res: any) => {
-  const user = req.user;
-  res.json(user.role === "Super Admin" ? USER_DB.users : USER_DB.users.filter((u: any) => u.organizationId === user.organizationId));
-});
-
-app.post("/api/users", authGuard, (req: any, res: any) => {
-  const activeUser = req.user;
-  if (activeUser.role !== "Admin" && activeUser.role !== "Super Admin") { res.status(403).json({ error: "Only Admins can create users." }); return; }
-  const { fullName, email, mobileNumber, department, designation, role, permissions } = req.body;
-  if (!fullName || !email || !mobileNumber || !role) { res.status(400).json({ error: "Name, email, mobile, role required." }); return; }
-  const targetOrgId = activeUser.role === "Super Admin" ? req.body.organizationId : activeUser.organizationId;
-  const org = USER_DB.organizations.find((o: any) => o.id === targetOrgId);
-  if (!org) { res.status(404).json({ error: "Organization not found." }); return; }
-  if (org.usedSeats >= org.allocatedSeats) { res.status(403).json({ error: `Seat limit reached (${org.usedSeats}/${org.allocatedSeats}). Request more seats.` }); return; }
-  if (USER_DB.users.some((u: any) => u.email === email)) { res.status(400).json({ error: "Email already registered." }); return; }
-  const tempPassword = `Temp@${Math.floor(1000 + Math.random() * 9000)}`;
-  const activationCode = Math.random().toString(36).substring(2, 10);
-  const newUser = { id: generateId("user"), organizationId: targetOrgId, fullName, email, mobileNumber, department, designation, role, status: "Pending Activation", password: tempPassword, permissions: permissions || ["view_invoices", "view_reports"], twoFactorEnabled: false, createdAt: new Date().toISOString(), activationCode };
-  USER_DB.users.push(newUser);
-  org.usedSeats = USER_DB.users.filter((u: any) => u.organizationId === targetOrgId && u.status !== "Disabled").length;
-  USER_DB.notifications.unshift({ id: generateId("notif"), to: email, subject: `Welcome to BizKhata - ${org.name}`, body: `Hello ${fullName},\n\nTemp Password: ${tempPassword}\nRole: ${role}\n\nActivate: https://bizkhata-six.vercel.app/activate?code=${activationCode}&email=${email}`, type: "Email", timestamp: new Date().toISOString() });
-  addAuditLog(targetOrgId, activeUser.fullName, activeUser.role, "User Created", `Created '${fullName}' as '${role}'.`);
-  res.status(201).json(newUser);
-});
-
-app.put("/api/users/:id", authGuard, (req: any, res: any) => {
-  const activeUser = req.user;
-  const targetUser = USER_DB.users.find((u: any) => u.id === req.params.id);
-  if (!targetUser) { res.status(404).json({ error: "User not found." }); return; }
-  if (activeUser.role !== "Super Admin" && targetUser.organizationId !== activeUser.organizationId) { res.status(403).json({ error: "Tenant isolation violation." }); return; }
-  const { fullName, mobileNumber, department, designation, role, status, permissions } = req.body;
-  if (fullName) targetUser.fullName = fullName;
-  if (mobileNumber) targetUser.mobileNumber = mobileNumber;
-  if (department) targetUser.department = department;
-  if (designation) targetUser.designation = designation;
-  if (activeUser.role === "Admin" || activeUser.role === "Super Admin") {
-    if (role && targetUser.role !== "Super Admin") targetUser.role = role;
-    if (permissions) targetUser.permissions = permissions;
-    if (status) { targetUser.status = status; const org = USER_DB.organizations.find((o: any) => o.id === targetUser.organizationId); if (org) org.usedSeats = USER_DB.users.filter((u: any) => u.organizationId === org.id && u.status !== "Disabled").length; }
-  }
-  addAuditLog(targetUser.organizationId, activeUser.fullName, activeUser.role, "User Updated", `Updated '${targetUser.email}'.`);
-  res.json(targetUser);
-});
-
-app.post("/api/users/:id/reset-password", authGuard, (req: any, res: any) => {
-  const activeUser = req.user;
-  if (activeUser.role !== "Admin" && activeUser.role !== "Super Admin") { res.status(403).json({ error: "Admin required." }); return; }
-  const targetUser = USER_DB.users.find((u: any) => u.id === req.params.id);
-  if (!targetUser) { res.status(404).json({ error: "User not found." }); return; }
-  if (activeUser.role !== "Super Admin" && targetUser.organizationId !== activeUser.organizationId) { res.status(403).json({ error: "Tenant violation." }); return; }
-  const tempPwd = `Temp@${Math.floor(1000 + Math.random() * 9000)}`;
-  targetUser.password = tempPwd; targetUser.status = "Pending Activation";
-  USER_DB.notifications.unshift({ id: generateId("notif"), to: targetUser.email, subject: "Password Reset by Admin", body: `New Temp Password: ${tempPwd}`, type: "Email", timestamp: new Date().toISOString() });
-  addAuditLog(targetUser.organizationId, activeUser.fullName, activeUser.role, "Password Reset", `Reset pwd for '${targetUser.email}'.`);
-  res.json({ success: true, tempPassword: tempPwd });
-});
-
-// Seat Requests
-app.get("/api/seat-requests", authGuard, (req: any, res: any) => {
-  const user = req.user;
-  res.json(user.role === "Super Admin" ? USER_DB.seatRequests : USER_DB.seatRequests.filter((s: any) => s.organizationId === user.organizationId));
-});
-app.post("/api/seat-requests", authGuard, (req: any, res: any) => {
-  const user = req.user;
-  if (user.role !== "Admin") { res.status(403).json({ error: "Only Admins can request seats." }); return; }
-  const { additionalSeatsRequested, reason } = req.body;
-  if (!additionalSeatsRequested || !reason) { res.status(400).json({ error: "Seats and reason required." }); return; }
-  const org = USER_DB.organizations.find((o: any) => o.id === user.organizationId);
-  if (!org) { res.status(404).json({ error: "Organization not found." }); return; }
-  const newReq = { id: generateId("req_seat"), organizationId: org.id, requestedBy: user.fullName, currentSeatCount: org.allocatedSeats, additionalSeatsRequested: Number(additionalSeatsRequested), reason, status: "Pending", createdAt: new Date().toISOString() };
-  USER_DB.seatRequests.unshift(newReq);
-  USER_DB.notifications.unshift({ id: generateId("notif"), to: "svtiger543939@gmail.com", subject: "Seat Request", body: `'${org.name}' needs ${additionalSeatsRequested} more seats. Reason: ${reason}`, type: "Email", timestamp: new Date().toISOString() });
-  addAuditLog(org.id, user.fullName, user.role, "Seat Request Submitted", `Requested ${additionalSeatsRequested} seats.`);
-  res.status(201).json(newReq);
-});
-app.post("/api/seat-requests/:id/action", authGuard, superAdminGuard, (req: any, res: any) => {
-  const ticket = USER_DB.seatRequests.find((t: any) => t.id === req.params.id);
-  if (!ticket) { res.status(404).json({ error: "Seat request not found." }); return; }
-  const org = USER_DB.organizations.find((o: any) => o.id === ticket.organizationId);
-  if (!org) { res.status(404).json({ error: "Org not found." }); return; }
-  const { action } = req.body;
-  if (action === "Approve") { ticket.status = "Approved"; org.allocatedSeats += ticket.additionalSeatsRequested; addAuditLog(null, req.user.fullName, req.user.role, "Seat Request Approved", `+${ticket.additionalSeatsRequested} for '${org.name}'.`); }
-  else { ticket.status = "Rejected"; addAuditLog(null, req.user.fullName, req.user.role, "Seat Request Rejected", `Denied for '${org.name}'.`); }
-  res.json(ticket);
-});
-
-// Audit Logs
-app.get("/api/audit-logs", authGuard, (req: any, res: any) => {
-  const user = req.user;
-  res.json(user.role === "Super Admin" ? USER_DB.auditLogs : USER_DB.auditLogs.filter((l: any) => l.organizationId === user.organizationId));
-});
-
-// Custom Roles
-app.get("/api/custom-roles", authGuard, (req: any, res: any) => {
-  const user = req.user;
-  res.json(user.role === "Super Admin" ? USER_DB.customRoles : USER_DB.customRoles.filter((r: any) => r.organizationId === user.organizationId));
-});
-app.post("/api/custom-roles", authGuard, (req: any, res: any) => {
-  const user = req.user;
-  if (user.role !== "Admin") { res.status(403).json({ error: "Admins only." }); return; }
-  const { name, description, permissions } = req.body;
-  if (!name || !description || !permissions) { res.status(400).json({ error: "Name, description, permissions required." }); return; }
-  const newRole = { id: generateId("role_custom"), organizationId: user.organizationId, name, description, permissions };
-  USER_DB.customRoles.push(newRole);
-  addAuditLog(user.organizationId, user.fullName, user.role, "Custom Role Created", `Created '${name}'.`);
-  res.status(201).json(newRole);
-});
-
-// ALL_PERMISSIONS endpoint
-app.get("/api/permissions", (req: any, res: any) => res.json(ALL_PERMISSIONS_LIST));
-
-// ── End User Management Routes ────────────────────────────────────────────────
 
 // Supabase credentials
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "https://zffkvwhvasavenqgkkcx.supabase.co";
@@ -1113,6 +865,255 @@ async function writeDB(state: DatabaseState): Promise<void> {
 }
 
 // REST Api Endpoints
+// ── User Management API Routes ────────────────────────────────────────────────
+
+// Notifications
+app.get("/api/notifications", (req: any, res: any) => res.json(USER_DB.notifications));
+app.post("/api/notifications/clear", (req: any, res: any) => { USER_DB.notifications = []; res.json({ success: true }); });
+
+// Registration request
+app.post("/api/auth/register-request", (req: any, res: any) => {
+  const { companyName, gstNumber, adminName, email, mobileNumber, password, numberOfRequiredSeats } = req.body;
+  if (!companyName || !gstNumber || !adminName || !email || !mobileNumber || !password || !numberOfRequiredSeats) {
+    res.status(400).json({ error: "All registration fields are required." }); return;
+  }
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+  if (!passwordRegex.test(password)) { res.status(400).json({ error: "Password must be 8+ chars with upper, lower, number, special char." }); return; }
+  if (USER_DB.users.some((u: any) => u.email === email) || USER_DB.registrationRequests.some((r: any) => r.email === email && r.status !== "Rejected")) {
+    res.status(400).json({ error: "An account with this email already exists." }); return;
+  }
+  const newReg = { id: generateId("reg"), companyName, gstNumber, adminName, email, mobileNumber, numberOfRequiredSeats: Number(numberOfRequiredSeats), status: "Pending", createdAt: new Date().toISOString() };
+  USER_DB.registrationRequests.unshift(newReg);
+  USER_DB.notifications.unshift({ id: generateId("notif"), to: "svtiger543939@gmail.com", subject: "New Registration Request", body: `Company '${companyName}' registered by '${adminName}'.`, type: "Email", timestamp: new Date().toISOString() });
+  res.status(201).json(newReg);
+});
+
+// Login
+app.post("/api/auth/login", (req: any, res: any) => {
+  const { email, password } = req.body;
+  if (!email || !password) { res.status(400).json({ error: "Email and Password required." }); return; }
+  const user = USER_DB.users.find((u: any) => u.email === email);
+  if (!user) { res.status(401).json({ error: "Invalid credentials. User not found." }); return; }
+  if (user.status === "Disabled") { res.status(403).json({ error: "Account disabled. Contact administrator." }); return; }
+  if (user.password !== password) { res.status(401).json({ error: "Invalid credentials. Wrong password." }); return; }
+  let org = null;
+  if (user.organizationId) {
+    org = USER_DB.organizations.find((o: any) => o.id === user.organizationId) || null;
+    if (org && org.status === "Suspended") { res.status(403).json({ error: "Your organization is suspended. Contact BizKhata support." }); return; }
+  }
+  // 2FA disabled for now - direct login
+  // if (user.twoFactorEnabled && !user.twoFactorVerified) { ... }
+  user.lastLogin = new Date().toISOString();
+  addAuditLog(user.organizationId, user.fullName, user.role, "User Login", `Logged in from ${req.ip || "127.0.0.1"}.`);
+  res.json({ token: `TOKEN_${user.email}`, user, organization: org });
+});
+
+// Verify 2FA
+app.post("/api/auth/verify-2fa", (req: any, res: any) => {
+  const { email, otp } = req.body;
+  const user = USER_DB.users.find((u: any) => u.email === email);
+  if (!user) { res.status(404).json({ error: "User not found." }); return; }
+  if (user.activationCode !== otp) { res.status(400).json({ error: "Invalid OTP code." }); return; }
+  user.twoFactorVerified = true; user.activationCode = undefined; user.lastLogin = new Date().toISOString();
+  const org = user.organizationId ? USER_DB.organizations.find((o: any) => o.id === user.organizationId) || null : null;
+  addAuditLog(user.organizationId, user.fullName, user.role, "2FA Verified", "2FA OTP passed.");
+  res.json({ token: `TOKEN_${user.email}`, user, organization: org });
+});
+
+// Toggle 2FA
+app.post("/api/auth/toggle-2fa", authGuard, (req: any, res: any) => {
+  const user = req.user; const { enabled } = req.body;
+  user.twoFactorEnabled = !!enabled; user.twoFactorVerified = false;
+  addAuditLog(user.organizationId, user.fullName, user.role, "2FA Setting Updated", `2FA ${enabled ? "enabled" : "disabled"}.`);
+  res.json({ success: true, twoFactorEnabled: user.twoFactorEnabled });
+});
+
+// Forgot password
+app.post("/api/auth/forgot-password", (req: any, res: any) => {
+  const { email } = req.body;
+  const user = USER_DB.users.find((u: any) => u.email === email);
+  if (user) {
+    const resetCode = Math.floor(200000 + Math.random() * 800000).toString();
+    user.resetCode = resetCode;
+    USER_DB.notifications.unshift({ id: generateId("notif"), to: email, subject: "BizKhata Password Reset", body: `Reset OTP: ${resetCode}. Link: https://bizkhata-six.vercel.app/reset-password?code=${resetCode}&email=${email}`, type: "Email", code: resetCode, timestamp: new Date().toISOString() });
+    addAuditLog(user.organizationId, user.fullName, user.role, "Password Reset Requested", "Reset OTP generated.");
+  }
+  res.json({ success: true, message: "If email exists, a reset link has been sent." });
+});
+
+// Reset password
+app.post("/api/auth/reset-password", (req: any, res: any) => {
+  const { email, code, newPassword } = req.body;
+  const user = USER_DB.users.find((u: any) => u.email === email);
+  if (!user || user.resetCode !== code) { res.status(400).json({ error: "Invalid or expired reset code." }); return; }
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+  if (!passwordRegex.test(newPassword)) { res.status(400).json({ error: "Password must be 8+ chars with upper, lower, number, special char." }); return; }
+  user.password = newPassword; user.resetCode = undefined; user.status = "Active";
+  addAuditLog(user.organizationId, user.fullName, user.role, "Password Reset Complete", "Password reset successfully.");
+  res.json({ success: true });
+});
+
+// Get me
+app.get("/api/auth/me", (req: any, res: any) => {
+  const user = verifyTokenAndGetUser(req);
+  if (!user) { res.status(401).json({ error: "Unauthorized." }); return; }
+  const org = user.organizationId ? USER_DB.organizations.find((o: any) => o.id === user.organizationId) || null : null;
+  res.json({ user, organization: org });
+});
+
+// Terminate sessions
+app.post("/api/auth/terminate-sessions", authGuard, (req: any, res: any) => {
+  req.user.twoFactorVerified = false;
+  addAuditLog(req.user.organizationId, req.user.fullName, req.user.role, "Sessions Terminated", "All sessions force-ended.");
+  res.json({ success: true });
+});
+
+// Super Admin - Registrations
+app.get("/api/superadmin/registrations", authGuard, superAdminGuard, (req: any, res: any) => res.json(USER_DB.registrationRequests));
+app.post("/api/superadmin/registrations/:id/action", authGuard, superAdminGuard, (req: any, res: any) => {
+  const reg = USER_DB.registrationRequests.find((r: any) => r.id === req.params.id);
+  if (!reg) { res.status(404).json({ error: "Registration not found." }); return; }
+  const { action, feedback } = req.body;
+  if (action === "Approve") {
+    reg.status = "Approved";
+    const orgId = generateId("org");
+    USER_DB.organizations.push({ id: orgId, name: reg.companyName, gstNumber: reg.gstNumber, status: "Active", allocatedSeats: reg.numberOfRequiredSeats, usedSeats: 1, createdAt: new Date().toISOString() });
+    USER_DB.users.push({ id: generateId("user"), organizationId: orgId, fullName: reg.adminName, email: reg.email, mobileNumber: reg.mobileNumber, role: "Admin", status: "Active", password: "Admin@123", permissions: ALL_PERMISSIONS_LIST.map(p => p.id), twoFactorEnabled: false, createdAt: new Date().toISOString() });
+    USER_DB.notifications.unshift({ id: generateId("notif"), to: reg.email, subject: "BizKhata Account Approved", body: `Your account for ${reg.companyName} is approved. Login: ${reg.email} / Admin@123`, type: "Email", timestamp: new Date().toISOString() });
+    addAuditLog(null, req.user.fullName, req.user.role, "Approve Registration", `Approved '${reg.companyName}'.`);
+  } else if (action === "Reject") {
+    reg.status = "Rejected";
+    addAuditLog(null, req.user.fullName, req.user.role, "Reject Registration", `Rejected '${reg.companyName}'. Reason: ${feedback}`);
+  }
+  res.json({ success: true, reg });
+});
+
+// Super Admin - Organizations
+app.get("/api/superadmin/organizations", authGuard, superAdminGuard, (req: any, res: any) => res.json(USER_DB.organizations));
+app.put("/api/superadmin/organizations/:id", authGuard, superAdminGuard, (req: any, res: any) => {
+  const org = USER_DB.organizations.find((o: any) => o.id === req.params.id);
+  if (!org) { res.status(404).json({ error: "Organization not found." }); return; }
+  const { status, allocatedSeats } = req.body;
+  if (status) { org.status = status; if (status === "Suspended") USER_DB.users.forEach((u: any) => { if (u.organizationId === org.id) u.status = "Disabled"; }); }
+  if (allocatedSeats !== undefined) { const s = Number(allocatedSeats); if (s < org.usedSeats) { res.status(400).json({ error: `Cannot go below ${org.usedSeats} used seats.` }); return; } org.allocatedSeats = s; }
+  addAuditLog(null, req.user.fullName, req.user.role, "Update Organization", `Updated '${org.name}': status=${status}, seats=${allocatedSeats}`);
+  res.json(org);
+});
+
+// Users
+app.get("/api/users", authGuard, (req: any, res: any) => {
+  const user = req.user;
+  res.json(user.role === "Super Admin" ? USER_DB.users : USER_DB.users.filter((u: any) => u.organizationId === user.organizationId));
+});
+
+app.post("/api/users", authGuard, (req: any, res: any) => {
+  const activeUser = req.user;
+  if (activeUser.role !== "Admin" && activeUser.role !== "Super Admin") { res.status(403).json({ error: "Only Admins can create users." }); return; }
+  const { fullName, email, mobileNumber, department, designation, role, permissions } = req.body;
+  if (!fullName || !email || !mobileNumber || !role) { res.status(400).json({ error: "Name, email, mobile, role required." }); return; }
+  const targetOrgId = activeUser.role === "Super Admin" ? req.body.organizationId : activeUser.organizationId;
+  const org = USER_DB.organizations.find((o: any) => o.id === targetOrgId);
+  if (!org) { res.status(404).json({ error: "Organization not found." }); return; }
+  if (org.usedSeats >= org.allocatedSeats) { res.status(403).json({ error: `Seat limit reached (${org.usedSeats}/${org.allocatedSeats}). Request more seats.` }); return; }
+  if (USER_DB.users.some((u: any) => u.email === email)) { res.status(400).json({ error: "Email already registered." }); return; }
+  const tempPassword = `Temp@${Math.floor(1000 + Math.random() * 9000)}`;
+  const activationCode = Math.random().toString(36).substring(2, 10);
+  const newUser = { id: generateId("user"), organizationId: targetOrgId, fullName, email, mobileNumber, department, designation, role, status: "Pending Activation", password: tempPassword, permissions: permissions || ["view_invoices", "view_reports"], twoFactorEnabled: false, createdAt: new Date().toISOString(), activationCode };
+  USER_DB.users.push(newUser);
+  org.usedSeats = USER_DB.users.filter((u: any) => u.organizationId === targetOrgId && u.status !== "Disabled").length;
+  USER_DB.notifications.unshift({ id: generateId("notif"), to: email, subject: `Welcome to BizKhata - ${org.name}`, body: `Hello ${fullName},\n\nTemp Password: ${tempPassword}\nRole: ${role}\n\nActivate: https://bizkhata-six.vercel.app/activate?code=${activationCode}&email=${email}`, type: "Email", timestamp: new Date().toISOString() });
+  addAuditLog(targetOrgId, activeUser.fullName, activeUser.role, "User Created", `Created '${fullName}' as '${role}'.`);
+  res.status(201).json(newUser);
+});
+
+app.put("/api/users/:id", authGuard, (req: any, res: any) => {
+  const activeUser = req.user;
+  const targetUser = USER_DB.users.find((u: any) => u.id === req.params.id);
+  if (!targetUser) { res.status(404).json({ error: "User not found." }); return; }
+  if (activeUser.role !== "Super Admin" && targetUser.organizationId !== activeUser.organizationId) { res.status(403).json({ error: "Tenant isolation violation." }); return; }
+  const { fullName, mobileNumber, department, designation, role, status, permissions } = req.body;
+  if (fullName) targetUser.fullName = fullName;
+  if (mobileNumber) targetUser.mobileNumber = mobileNumber;
+  if (department) targetUser.department = department;
+  if (designation) targetUser.designation = designation;
+  if (activeUser.role === "Admin" || activeUser.role === "Super Admin") {
+    if (role && targetUser.role !== "Super Admin") targetUser.role = role;
+    if (permissions) targetUser.permissions = permissions;
+    if (status) { targetUser.status = status; const org = USER_DB.organizations.find((o: any) => o.id === targetUser.organizationId); if (org) org.usedSeats = USER_DB.users.filter((u: any) => u.organizationId === org.id && u.status !== "Disabled").length; }
+  }
+  addAuditLog(targetUser.organizationId, activeUser.fullName, activeUser.role, "User Updated", `Updated '${targetUser.email}'.`);
+  res.json(targetUser);
+});
+
+app.post("/api/users/:id/reset-password", authGuard, (req: any, res: any) => {
+  const activeUser = req.user;
+  if (activeUser.role !== "Admin" && activeUser.role !== "Super Admin") { res.status(403).json({ error: "Admin required." }); return; }
+  const targetUser = USER_DB.users.find((u: any) => u.id === req.params.id);
+  if (!targetUser) { res.status(404).json({ error: "User not found." }); return; }
+  if (activeUser.role !== "Super Admin" && targetUser.organizationId !== activeUser.organizationId) { res.status(403).json({ error: "Tenant violation." }); return; }
+  const tempPwd = `Temp@${Math.floor(1000 + Math.random() * 9000)}`;
+  targetUser.password = tempPwd; targetUser.status = "Pending Activation";
+  USER_DB.notifications.unshift({ id: generateId("notif"), to: targetUser.email, subject: "Password Reset by Admin", body: `New Temp Password: ${tempPwd}`, type: "Email", timestamp: new Date().toISOString() });
+  addAuditLog(targetUser.organizationId, activeUser.fullName, activeUser.role, "Password Reset", `Reset pwd for '${targetUser.email}'.`);
+  res.json({ success: true, tempPassword: tempPwd });
+});
+
+// Seat Requests
+app.get("/api/seat-requests", authGuard, (req: any, res: any) => {
+  const user = req.user;
+  res.json(user.role === "Super Admin" ? USER_DB.seatRequests : USER_DB.seatRequests.filter((s: any) => s.organizationId === user.organizationId));
+});
+app.post("/api/seat-requests", authGuard, (req: any, res: any) => {
+  const user = req.user;
+  if (user.role !== "Admin") { res.status(403).json({ error: "Only Admins can request seats." }); return; }
+  const { additionalSeatsRequested, reason } = req.body;
+  if (!additionalSeatsRequested || !reason) { res.status(400).json({ error: "Seats and reason required." }); return; }
+  const org = USER_DB.organizations.find((o: any) => o.id === user.organizationId);
+  if (!org) { res.status(404).json({ error: "Organization not found." }); return; }
+  const newReq = { id: generateId("req_seat"), organizationId: org.id, requestedBy: user.fullName, currentSeatCount: org.allocatedSeats, additionalSeatsRequested: Number(additionalSeatsRequested), reason, status: "Pending", createdAt: new Date().toISOString() };
+  USER_DB.seatRequests.unshift(newReq);
+  USER_DB.notifications.unshift({ id: generateId("notif"), to: "svtiger543939@gmail.com", subject: "Seat Request", body: `'${org.name}' needs ${additionalSeatsRequested} more seats. Reason: ${reason}`, type: "Email", timestamp: new Date().toISOString() });
+  addAuditLog(org.id, user.fullName, user.role, "Seat Request Submitted", `Requested ${additionalSeatsRequested} seats.`);
+  res.status(201).json(newReq);
+});
+app.post("/api/seat-requests/:id/action", authGuard, superAdminGuard, (req: any, res: any) => {
+  const ticket = USER_DB.seatRequests.find((t: any) => t.id === req.params.id);
+  if (!ticket) { res.status(404).json({ error: "Seat request not found." }); return; }
+  const org = USER_DB.organizations.find((o: any) => o.id === ticket.organizationId);
+  if (!org) { res.status(404).json({ error: "Org not found." }); return; }
+  const { action } = req.body;
+  if (action === "Approve") { ticket.status = "Approved"; org.allocatedSeats += ticket.additionalSeatsRequested; addAuditLog(null, req.user.fullName, req.user.role, "Seat Request Approved", `+${ticket.additionalSeatsRequested} for '${org.name}'.`); }
+  else { ticket.status = "Rejected"; addAuditLog(null, req.user.fullName, req.user.role, "Seat Request Rejected", `Denied for '${org.name}'.`); }
+  res.json(ticket);
+});
+
+// Audit Logs
+app.get("/api/audit-logs", authGuard, (req: any, res: any) => {
+  const user = req.user;
+  res.json(user.role === "Super Admin" ? USER_DB.auditLogs : USER_DB.auditLogs.filter((l: any) => l.organizationId === user.organizationId));
+});
+
+// Custom Roles
+app.get("/api/custom-roles", authGuard, (req: any, res: any) => {
+  const user = req.user;
+  res.json(user.role === "Super Admin" ? USER_DB.customRoles : USER_DB.customRoles.filter((r: any) => r.organizationId === user.organizationId));
+});
+app.post("/api/custom-roles", authGuard, (req: any, res: any) => {
+  const user = req.user;
+  if (user.role !== "Admin") { res.status(403).json({ error: "Admins only." }); return; }
+  const { name, description, permissions } = req.body;
+  if (!name || !description || !permissions) { res.status(400).json({ error: "Name, description, permissions required." }); return; }
+  const newRole = { id: generateId("role_custom"), organizationId: user.organizationId, name, description, permissions };
+  USER_DB.customRoles.push(newRole);
+  addAuditLog(user.organizationId, user.fullName, user.role, "Custom Role Created", `Created '${name}'.`);
+  res.status(201).json(newRole);
+});
+
+// ALL_PERMISSIONS endpoint
+app.get("/api/permissions", (req: any, res: any) => res.json(ALL_PERMISSIONS_LIST));
+
+// ── End User Management Routes ────────────────────────────────────────────────
+
 
 app.get("/api/db", async (req, res) => {
   const db = await readDB();
