@@ -80,8 +80,8 @@ const seedUserDB = () => {
     {
       id: "user_superadmin",
       organizationId: null,
-      fullName: "Siddharth Verma",
-      email: "superadmin@bizkhata.com",
+      fullName: "Sudhanshu Verma",
+      email: "svtiger543939@gmail.com",
       mobileNumber: "+919876543210",
       role: "Super Admin",
       status: "Active",
@@ -152,7 +152,7 @@ app.post("/api/auth/register-request", (req: any, res: any) => {
   }
   const newReg = { id: generateId("reg"), companyName, gstNumber, adminName, email, mobileNumber, numberOfRequiredSeats: Number(numberOfRequiredSeats), status: "Pending", createdAt: new Date().toISOString() };
   USER_DB.registrationRequests.unshift(newReg);
-  USER_DB.notifications.unshift({ id: generateId("notif"), to: "superadmin@bizkhata.com", subject: "New Registration Request", body: `Company '${companyName}' registered by '${adminName}'.`, type: "Email", timestamp: new Date().toISOString() });
+  USER_DB.notifications.unshift({ id: generateId("notif"), to: "svtiger543939@gmail.com", subject: "New Registration Request", body: `Company '${companyName}' registered by '${adminName}'.`, type: "Email", timestamp: new Date().toISOString() });
   res.status(201).json(newReg);
 });
 
@@ -169,12 +169,8 @@ app.post("/api/auth/login", (req: any, res: any) => {
     org = USER_DB.organizations.find((o: any) => o.id === user.organizationId) || null;
     if (org && org.status === "Suspended") { res.status(403).json({ error: "Your organization is suspended. Contact BizKhata support." }); return; }
   }
-  if (user.twoFactorEnabled && !user.twoFactorVerified) {
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    user.activationCode = otp;
-    USER_DB.notifications.unshift({ id: generateId("notif"), to: user.email, subject: "BizKhata 2FA OTP", body: `Your OTP: ${otp}`, type: "OTP", code: otp, timestamp: new Date().toISOString() });
-    res.json({ twoFactorRequired: true, email: user.email, message: "OTP sent to your email." }); return;
-  }
+  // 2FA disabled for now - direct login
+  // if (user.twoFactorEnabled && !user.twoFactorVerified) { ... }
   user.lastLogin = new Date().toISOString();
   addAuditLog(user.organizationId, user.fullName, user.role, "User Login", `Logged in from ${req.ip || "127.0.0.1"}.`);
   res.json({ token: `TOKEN_${user.email}`, user, organization: org });
@@ -344,7 +340,7 @@ app.post("/api/seat-requests", authGuard, (req: any, res: any) => {
   if (!org) { res.status(404).json({ error: "Organization not found." }); return; }
   const newReq = { id: generateId("req_seat"), organizationId: org.id, requestedBy: user.fullName, currentSeatCount: org.allocatedSeats, additionalSeatsRequested: Number(additionalSeatsRequested), reason, status: "Pending", createdAt: new Date().toISOString() };
   USER_DB.seatRequests.unshift(newReq);
-  USER_DB.notifications.unshift({ id: generateId("notif"), to: "superadmin@bizkhata.com", subject: "Seat Request", body: `'${org.name}' needs ${additionalSeatsRequested} more seats. Reason: ${reason}`, type: "Email", timestamp: new Date().toISOString() });
+  USER_DB.notifications.unshift({ id: generateId("notif"), to: "svtiger543939@gmail.com", subject: "Seat Request", body: `'${org.name}' needs ${additionalSeatsRequested} more seats. Reason: ${reason}`, type: "Email", timestamp: new Date().toISOString() });
   addAuditLog(org.id, user.fullName, user.role, "Seat Request Submitted", `Requested ${additionalSeatsRequested} seats.`);
   res.status(201).json(newReq);
 });

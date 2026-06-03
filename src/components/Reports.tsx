@@ -50,6 +50,37 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation }:
   ]);
   const [selectedReport, setSelectedReport] = useState<ReportItem | null>(null);
 
+  // ── Date Filter State ─────────────────────────────────────────────────────
+  const currentYear = new Date().getFullYear();
+  const [datePreset, setDatePreset] = useState<string>('this_fiscal');
+  const [fromDate, setFromDate] = useState<string>(`${currentYear}-04-01`);
+  const [toDate, setToDate] = useState<string>(`${currentYear + 1}-03-31`);
+  const [ledgerAccount, setLedgerAccount] = useState<string>('');
+  const [ledgerEntity, setLedgerEntity] = useState<string>('');
+
+  const applyPreset = (preset: string) => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth(); // 0-indexed
+    setDatePreset(preset);
+    const fmt = (d: Date) => d.toISOString().split('T')[0];
+    switch(preset) {
+      case 'today': setFromDate(fmt(now)); setToDate(fmt(now)); break;
+      case 'this_week': { const d = new Date(now); d.setDate(d.getDate() - d.getDay()); setFromDate(fmt(d)); setToDate(fmt(now)); } break;
+      case 'this_month': setFromDate(`${y}-${String(m+1).padStart(2,'0')}-01`); setToDate(fmt(now)); break;
+      case 'last_month': { const lm = m === 0 ? 12 : m; const ly = m === 0 ? y-1 : y; const lastDay = new Date(ly, lm, 0).getDate(); setFromDate(`${ly}-${String(lm).padStart(2,'0')}-01`); setToDate(`${ly}-${String(lm).padStart(2,'0')}-${lastDay}`); } break;
+      case 'this_quarter': { const q = Math.floor(m/3); const qm = q*3; setFromDate(`${y}-${String(qm+1).padStart(2,'0')}-01`); setToDate(fmt(now)); } break;
+      case 'last_quarter': { const q = Math.floor(m/3) - 1; const lqy = q < 0 ? y-1 : y; const lq = q < 0 ? 3 : q; const qm = lq*3; const lastDay = new Date(lqy, qm+3, 0).getDate(); setFromDate(`${lqy}-${String(qm+1).padStart(2,'0')}-01`); setToDate(`${lqy}-${String(qm+3).padStart(2,'0')}-${lastDay}`); } break;
+      case 'this_fiscal': { const fy = m >= 3 ? y : y-1; setFromDate(`${fy}-04-01`); setToDate(`${fy+1}-03-31`); } break;
+      case 'last_fiscal': { const lfy = m >= 3 ? y-1 : y-2; setFromDate(`${lfy}-04-01`); setToDate(`${lfy+1}-03-31`); } break;
+      case 'this_year': setFromDate(`${y}-01-01`); setToDate(`${y}-12-31`); break;
+      case 'last_year': setFromDate(`${y-1}-01-01`); setToDate(`${y-1}-12-31`); break;
+    }
+  };
+
+  // Filter transactions by date range
+  const inRange = (date: string) => (!fromDate || date >= fromDate) && (!toDate || date <= toDate);
+
   // 15 Corporate Accounting Categories
   const CATEGORIES = [
     { id: "all", name: "All Reports" },
@@ -81,6 +112,10 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation }:
     { id: "bs", name: "Balance Sheet", category: "Business Overview", categoryId: "business_overview", createdBy: "System Generated", lastVisited: "05 May 2026 05:05 PM" },
     { id: "bs_horiz", name: "Horizontal Balance Sheet", category: "Business Overview", categoryId: "business_overview", createdBy: "System Generated", lastVisited: "-" },
     { id: "bs_sched3", name: "Balance Sheet (Schedule III)", category: "Business Overview", categoryId: "business_overview", createdBy: "System Generated", lastVisited: "03 Feb 2026 10:47 AM" },
+    { id: "sales_by_customer", name: "Sales by Customer", category: "Sales", categoryId: "sales", createdBy: "System Generated", lastVisited: "-" },
+    { id: "sales_by_item", name: "Sales by Item", category: "Sales", categoryId: "sales", createdBy: "System Generated", lastVisited: "-" },
+    { id: "purchase_by_vendor", name: "Purchase by Vendor", category: "Purchases", categoryId: "purchases", createdBy: "System Generated", lastVisited: "-" },
+    { id: "tax_liability", name: "Tax Liability Report", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "-" },
     { id: "biz_ratios", name: "Business Performance Ratios", category: "Business Overview", categoryId: "business_overview", createdBy: "System Generated", lastVisited: "24 Mar 2026 01:24 PM" },
     { id: "equity_movement", name: "Movement of Equity", category: "Business Overview", categoryId: "business_overview", createdBy: "System Generated", lastVisited: "-" },
 
@@ -169,6 +204,9 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation }:
     { id: "account_type_sum", name: "Account Type Summary", category: "Accountant", categoryId: "accountant", createdBy: "System Generated", lastVisited: "-" },
     { id: "account_type_tx", name: "Account Type Transactions", category: "Accountant", categoryId: "accountant", createdBy: "System Generated", lastVisited: "-" },
     { id: "day_book", name: "Day Book", category: "Accountant", categoryId: "accountant", createdBy: "System Generated", lastVisited: "-" },
+    { id: "ledger_statement", name: "Ledger Statement", category: "Accountant", categoryId: "accountant", createdBy: "System Generated", lastVisited: "-" },
+    { id: "customer_ledger", name: "Customer Ledger Statement", category: "Receivables", categoryId: "receivables", createdBy: "System Generated", lastVisited: "-" },
+    { id: "vendor_ledger", name: "Vendor Ledger Statement", category: "Payables", categoryId: "payables", createdBy: "System Generated", lastVisited: "-" },
     { id: "general_ledger", name: "General Ledger", category: "Accountant", categoryId: "accountant", createdBy: "System Generated", lastVisited: "-" },
     { id: "detailed_ledger", name: "Detailed General Ledger", category: "Accountant", categoryId: "accountant", createdBy: "System Generated", lastVisited: "-" },
     { id: "journal_report", name: "Journal Report", category: "Accountant", categoryId: "accountant", createdBy: "System Generated", lastVisited: "-" },
@@ -236,6 +274,20 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation }:
   };
 
   // Profit Loss calculations
+  // Date-filtered transaction calculations
+  const filteredInvoices = db.invoices.filter((inv: any) => !inv.isProforma && inRange(inv.date));
+  const filteredPayments = db.payments.filter((p: any) => inRange(p.date));
+  const filteredBills = db.bills.filter((b: any) => inRange(b.date));
+  const filteredExpenses = db.expenses.filter((e: any) => inRange(e.date));
+
+  // Revenue from filtered invoices (date-aware)
+  const filteredSalesRevenue = filteredInvoices.reduce((s: number, inv: any) => s + inv.subtotal, 0);
+  const filteredGstCollected = filteredInvoices.reduce((s: number, inv: any) => s + inv.totalGst, 0);
+  const filteredPaymentsReceived = filteredPayments.reduce((s: number, p: any) => s + p.amount, 0);
+  const filteredBillsTotal = filteredBills.reduce((s: number, b: any) => s + b.total, 0);
+  const filteredExpensesTotal = filteredExpenses.reduce((s: number, e: any) => s + e.amount, 0);
+  const filteredNetProfit = filteredSalesRevenue - filteredExpensesTotal;
+
   const salesIncome = getAccountBalance("sales_income");
   const serviceIncome = getAccountBalance("service_income");
   const totalRevenue = salesIncome + serviceIncome;
@@ -607,16 +659,44 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation }:
                 <span>Go Back to Reports List</span>
               </button>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Date preset buttons */}
+                <div className="flex flex-wrap gap-1">
+                  {[
+                    { key: 'today', label: 'Today' },
+                    { key: 'this_month', label: 'This Month' },
+                    { key: 'last_month', label: 'Last Month' },
+                    { key: 'this_quarter', label: 'This Qtr' },
+                    { key: 'last_quarter', label: 'Last Qtr' },
+                    { key: 'this_fiscal', label: 'This FY' },
+                    { key: 'last_fiscal', label: 'Last FY' },
+                    { key: 'this_year', label: 'This Year' },
+                    { key: 'last_year', label: 'Last Year' },
+                    { key: 'custom', label: 'Custom' },
+                  ].map(p => (
+                    <button key={p.key} onClick={() => applyPreset(p.key)}
+                      className={`px-2 py-1 text-[10px] font-semibold rounded-lg border transition ${datePreset === p.key ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+                {/* Custom date range */}
+                <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1">
+                  <input type="date" value={fromDate} onChange={e => { setFromDate(e.target.value); setDatePreset('custom'); }}
+                    className="text-[10px] bg-transparent border-none outline-none text-slate-600" />
+                  <span className="text-slate-400 text-[10px]">→</span>
+                  <input type="date" value={toDate} onChange={e => { setToDate(e.target.value); setDatePreset('custom'); }}
+                    className="text-[10px] bg-transparent border-none outline-none text-slate-600" />
+                </div>
                 <span className="text-[10px] px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 uppercase tracking-widest font-black rounded">
-                  Live Account Data
+                  Live Data
                 </span>
                 <button 
                   onClick={() => window.print()} 
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-[#FDFBF7] hover:bg-[#F5F2ED] border border-[#E5E1D8] rounded-xl text-[#8C867A] text-xs font-bold cursor-pointer transition shadow-xs"
                 >
                   <Printer className="w-3.5 h-3.5" /> 
-                  <span>Print Sheet</span>
+                  <span>Print</span>
                 </button>
               </div>
             </div>
@@ -632,7 +712,8 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation }:
                   <div className="text-center space-y-1 mb-6 border-b border-dashed border-[#E5E1D8] pb-4">
                     <span className="text-[10px] font-mono font-bold tracking-widest text-blue-800 uppercase bg-blue-50 px-2 py-0.5 rounded">Standard AS Model</span>
                     <h3 className="text-sm font-black uppercase tracking-widest mt-1">Operating Statement of Income</h3>
-                    <p className="text-[10.5px] text-[#8C867A] font-sans">Company: {db.company.name} | Financial Year: {db.company.financialYear} | Base Currency: INR</p>
+                    <p className="text-[10.5px] text-[#8C867A] font-sans">Company: {db.company.name} | Period: {fromDate} to {toDate} | Currency: INR</p>
+                    <p className="text-[10px] text-blue-600 font-semibold">{filteredInvoices.length} invoices · {filteredExpenses.length} expenses in selected period</p>
                   </div>
 
                   <div className="space-y-4 font-sans">
@@ -1334,6 +1415,114 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation }:
               )}
 
               {/* SECTION J: AUDITABLE GENERAL LEDGER */}
+              {/* ── LEDGER STATEMENT (date-filtered, entity-filtered) ── */}
+              {(selectedReport.id === "ledger_statement" || selectedReport.id === "customer_ledger" || selectedReport.id === "vendor_ledger") && (
+                <div className="space-y-4 animate-fade-in">
+                  <div className="text-center border-b border-dashed border-slate-200 pb-4">
+                    <h3 className="text-sm font-black uppercase tracking-widest">{selectedReport.name}</h3>
+                    <p className="text-[10px] text-slate-500">{db.company.name} | {fromDate} to {toDate}</p>
+                  </div>
+                  {/* Entity selector */}
+                  <div className="flex gap-3 flex-wrap">
+                    {selectedReport.id === "ledger_statement" && (
+                      <select value={ledgerAccount} onChange={e => setLedgerAccount(e.target.value)}
+                        className="border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400">
+                        <option value="">-- All Accounts --</option>
+                        {db.accounts.map((a: any) => <option key={a.code} value={a.code}>{a.name}</option>)}
+                      </select>
+                    )}
+                    {selectedReport.id === "customer_ledger" && (
+                      <select value={ledgerEntity} onChange={e => setLedgerEntity(e.target.value)}
+                        className="border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400">
+                        <option value="">-- All Customers --</option>
+                        {db.customers.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                    )}
+                    {selectedReport.id === "vendor_ledger" && (
+                      <select value={ledgerEntity} onChange={e => setLedgerEntity(e.target.value)}
+                        className="border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400">
+                        <option value="">-- All Vendors --</option>
+                        {db.vendors.map((v: any) => <option key={v.id} value={v.id}>{v.name}</option>)}
+                      </select>
+                    )}
+                  </div>
+                  {/* Transactions table */}
+                  <div className="overflow-auto">
+                    <table className="w-full text-xs border-collapse">
+                      <thead className="bg-slate-50">
+                        <tr>{["Date","Reference","Description","Account","Debit (₹)","Credit (₹)","Balance (₹)"].map(h=>(
+                          <th key={h} className="border border-slate-200 px-3 py-2 text-left font-bold text-slate-600 text-[10px] uppercase">{h}</th>
+                        ))}</tr>
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          let rows: any[] = [];
+                          // Invoices → Accounts Receivable debit
+                          db.invoices.filter((inv: any) => inRange(inv.date) && !inv.isProforma)
+                            .forEach((inv: any) => {
+                              if (selectedReport.id === "customer_ledger" && ledgerEntity && inv.customerId !== ledgerEntity) return;
+                              rows.push({ date: inv.date, ref: inv.invoiceNumber, desc: `Invoice to ${inv.customerName}`, account: "Accounts Receivable", debit: inv.total, credit: 0 });
+                            });
+                          // Payments → AR credit
+                          db.payments.filter((p: any) => inRange(p.date))
+                            .forEach((p: any) => {
+                              if (selectedReport.id === "customer_ledger" && ledgerEntity && p.customerId !== ledgerEntity) return;
+                              rows.push({ date: p.date, ref: p.receiptNumber, desc: `Payment from ${p.customerName}`, account: "Accounts Receivable", debit: 0, credit: p.amount });
+                            });
+                          // Bills → AP credit
+                          db.bills.filter((b: any) => inRange(b.date))
+                            .forEach((b: any) => {
+                              if (selectedReport.id === "vendor_ledger" && ledgerEntity && b.vendorId !== ledgerEntity) return;
+                              rows.push({ date: b.date, ref: b.billNumber, desc: `Bill from ${b.vendorName}`, account: "Accounts Payable", debit: 0, credit: b.total });
+                            });
+                          // Expenses → Expense debit
+                          db.expenses.filter((ex: any) => inRange(ex.date))
+                            .forEach((ex: any) => {
+                              rows.push({ date: ex.date, ref: ex.id?.substring(0,8)||'', desc: ex.description, account: ex.accountCode || "Expenses", debit: ex.amount, credit: 0 });
+                            });
+                          // Journal entries
+                          db.journals.filter((j: any) => inRange(j.date))
+                            .forEach((j: any) => j.lines?.forEach((l: any) => {
+                              if (selectedReport.id === "ledger_statement" && ledgerAccount && l.accountCode !== ledgerAccount) return;
+                              rows.push({ date: j.date, ref: j.reference, desc: j.description, account: l.accountName, debit: l.debit, credit: l.credit });
+                            }));
+                          rows.sort((a,b) => a.date.localeCompare(b.date));
+                          let balance = 0;
+                          return rows.length === 0
+                            ? <tr><td colSpan={7} className="text-center py-8 text-slate-400">No transactions in selected date range.</td></tr>
+                            : rows.map((r, i) => {
+                                balance += r.debit - r.credit;
+                                return (
+                                  <tr key={i} className={i%2===0?"bg-white":"bg-slate-50/50"}>
+                                    <td className="border border-slate-100 px-3 py-1.5 font-mono">{r.date}</td>
+                                    <td className="border border-slate-100 px-3 py-1.5 font-mono text-blue-700">{r.ref}</td>
+                                    <td className="border border-slate-100 px-3 py-1.5">{r.desc}</td>
+                                    <td className="border border-slate-100 px-3 py-1.5 text-slate-500">{r.account}</td>
+                                    <td className="border border-slate-100 px-3 py-1.5 text-right font-mono text-emerald-700">{r.debit > 0 ? `₹${r.debit.toLocaleString('en-IN',{maximumFractionDigits:2})}` : '-'}</td>
+                                    <td className="border border-slate-100 px-3 py-1.5 text-right font-mono text-red-600">{r.credit > 0 ? `₹${r.credit.toLocaleString('en-IN',{maximumFractionDigits:2})}` : '-'}</td>
+                                    <td className={`border border-slate-100 px-3 py-1.5 text-right font-mono font-bold ${balance>=0?'text-emerald-700':'text-red-600'}`}>₹{Math.abs(balance).toLocaleString('en-IN',{maximumFractionDigits:2})} {balance>=0?'Dr':'Cr'}</td>
+                                  </tr>
+                                );
+                              });
+                        })()}
+                      </tbody>
+                      <tfoot className="bg-slate-100 font-bold">
+                        <tr>
+                          <td colSpan={4} className="border border-slate-200 px-3 py-2 text-right">Totals</td>
+                          <td className="border border-slate-200 px-3 py-2 text-right font-mono text-emerald-700">
+                            ₹{(() => { let t=0; db.invoices.filter((i:any)=>inRange(i.date)&&!i.isProforma).forEach((i:any)=>t+=i.total); return t.toLocaleString('en-IN',{maximumFractionDigits:0}); })()}
+                          </td>
+                          <td className="border border-slate-200 px-3 py-2 text-right font-mono text-red-600">
+                            ₹{(() => { let t=0; db.payments.filter((p:any)=>inRange(p.date)).forEach((p:any)=>t+=p.amount); return t.toLocaleString('en-IN',{maximumFractionDigits:0}); })()}
+                          </td>
+                          <td className="border border-slate-200 px-3 py-2"></td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              )}
+
               {(selectedReport.id === "general_ledger" || selectedReport.id === "detailed_ledger" || selectedReport.id === "day_book" || selectedReport.id === "account_tx") && (
                 <div id="stat-journal" className="space-y-6 animate-fade-in text-[#2C2C24]">
                   <div className="text-center space-y-1 mb-6 border-b border-dashed border-[#E5E1D8] pb-4 font-sans">
@@ -1397,6 +1586,204 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation }:
               )}
 
               {/* SECTION K: BUSINESS PERFORMANCE COMPREHENSIVE RATIOS */}
+              {/* ── SALES BY CUSTOMER ── */}
+              {selectedReport.id === "sales_by_customer" && (
+                <div className="space-y-4 animate-fade-in">
+                  <div className="text-center border-b border-dashed border-slate-200 pb-4">
+                    <h3 className="text-sm font-black uppercase tracking-widest">Sales by Customer</h3>
+                    <p className="text-[10px] text-slate-500">{db.company.name} | {fromDate} to {toDate}</p>
+                  </div>
+                  <table className="w-full text-xs">
+                    <thead className="bg-slate-50">
+                      <tr>{["Customer","GSTIN","Invoices","Taxable Amount","GST","Total","Payments Received","Outstanding"].map(h=>(
+                        <th key={h} className="border border-slate-200 px-3 py-2 text-left text-[10px] font-bold text-slate-600 uppercase">{h}</th>
+                      ))}</tr>
+                    </thead>
+                    <tbody>
+                      {db.customers.map((cust: any) => {
+                        const custInvs = filteredInvoices.filter((inv: any) => inv.customerId === cust.id);
+                        if (custInvs.length === 0) return null;
+                        const taxable = custInvs.reduce((s: number, i: any) => s + i.subtotal, 0);
+                        const gst = custInvs.reduce((s: number, i: any) => s + i.totalGst, 0);
+                        const total = custInvs.reduce((s: number, i: any) => s + i.total, 0);
+                        const paid = filteredPayments.filter((p: any) => p.customerId === cust.id).reduce((s: number, p: any) => s + p.amount, 0);
+                        return (
+                          <tr key={cust.id} className="hover:bg-slate-50 border-t border-slate-100">
+                            <td className="px-3 py-2 font-semibold text-slate-800">{cust.name}</td>
+                            <td className="px-3 py-2 font-mono text-slate-500 text-[10px]">{cust.gstin || "Unreg"}</td>
+                            <td className="px-3 py-2 text-center">{custInvs.length}</td>
+                            <td className="px-3 py-2 text-right font-mono">₹{taxable.toLocaleString("en-IN",{maximumFractionDigits:0})}</td>
+                            <td className="px-3 py-2 text-right font-mono text-blue-600">₹{gst.toLocaleString("en-IN",{maximumFractionDigits:0})}</td>
+                            <td className="px-3 py-2 text-right font-mono font-bold">₹{total.toLocaleString("en-IN",{maximumFractionDigits:0})}</td>
+                            <td className="px-3 py-2 text-right font-mono text-emerald-600">₹{paid.toLocaleString("en-IN",{maximumFractionDigits:0})}</td>
+                            <td className="px-3 py-2 text-right font-mono text-red-600">₹{(total-paid).toLocaleString("en-IN",{maximumFractionDigits:0})}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot className="bg-slate-100 font-bold text-xs border-t-2 border-slate-300">
+                      <tr>
+                        <td colSpan={3} className="px-3 py-2">TOTAL</td>
+                        <td className="px-3 py-2 text-right font-mono">₹{filteredInvoices.reduce((s: number, i: any)=>s+i.subtotal,0).toLocaleString("en-IN",{maximumFractionDigits:0})}</td>
+                        <td className="px-3 py-2 text-right font-mono text-blue-700">₹{filteredInvoices.reduce((s: number, i: any)=>s+i.totalGst,0).toLocaleString("en-IN",{maximumFractionDigits:0})}</td>
+                        <td className="px-3 py-2 text-right font-mono">₹{filteredInvoices.reduce((s: number, i: any)=>s+i.total,0).toLocaleString("en-IN",{maximumFractionDigits:0})}</td>
+                        <td className="px-3 py-2 text-right font-mono text-emerald-700">₹{filteredPayments.reduce((s: number, p: any)=>s+p.amount,0).toLocaleString("en-IN",{maximumFractionDigits:0})}</td>
+                        <td className="px-3 py-2 text-right font-mono text-red-700">₹{(filteredInvoices.reduce((s: number, i: any)=>s+i.total,0)-filteredPayments.reduce((s: number, p: any)=>s+p.amount,0)).toLocaleString("en-IN",{maximumFractionDigits:0})}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+
+              {/* ── SALES BY ITEM ── */}
+              {selectedReport.id === "sales_by_item" && (
+                <div className="space-y-4 animate-fade-in">
+                  <div className="text-center border-b border-dashed border-slate-200 pb-4">
+                    <h3 className="text-sm font-black uppercase tracking-widest">Sales by Item</h3>
+                    <p className="text-[10px] text-slate-500">{db.company.name} | {fromDate} to {toDate}</p>
+                  </div>
+                  <table className="w-full text-xs">
+                    <thead className="bg-slate-50">
+                      <tr>{["Item Name","HSN/SAC","Qty Sold","Rate (Avg)","Taxable","GST","Total Revenue"].map(h=>(
+                        <th key={h} className="border border-slate-200 px-3 py-2 text-left text-[10px] font-bold text-slate-600 uppercase">{h}</th>
+                      ))}</tr>
+                    </thead>
+                    <tbody>
+                      {(() => {
+                        const itemMap: Record<string, any> = {};
+                        filteredInvoices.forEach((inv: any) => inv.items?.forEach((li: any) => {
+                          if (!itemMap[li.name]) itemMap[li.name] = { name: li.name, hsnSac: li.hsnSac||'', qty: 0, totalRate: 0, taxable: 0, gst: 0, total: 0, count: 0 };
+                          itemMap[li.name].qty += li.qty;
+                          itemMap[li.name].totalRate += li.rate;
+                          itemMap[li.name].taxable += li.amount;
+                          itemMap[li.name].gst += (li.cgst||0)+(li.sgst||0)+(li.igst||0);
+                          itemMap[li.name].total += li.amount + (li.cgst||0)+(li.sgst||0)+(li.igst||0);
+                          itemMap[li.name].count++;
+                        }));
+                        return Object.values(itemMap).sort((a: any, b: any) => b.total - a.total).map((it: any, idx: number) => (
+                          <tr key={idx} className="hover:bg-slate-50 border-t border-slate-100">
+                            <td className="px-3 py-2 font-semibold">{it.name}</td>
+                            <td className="px-3 py-2 font-mono text-slate-500">{it.hsnSac}</td>
+                            <td className="px-3 py-2 text-center font-mono">{it.qty}</td>
+                            <td className="px-3 py-2 text-right font-mono">₹{it.count > 0 ? (it.totalRate/it.count).toLocaleString("en-IN",{maximumFractionDigits:2}) : 0}</td>
+                            <td className="px-3 py-2 text-right font-mono">₹{it.taxable.toLocaleString("en-IN",{maximumFractionDigits:0})}</td>
+                            <td className="px-3 py-2 text-right font-mono text-blue-600">₹{it.gst.toLocaleString("en-IN",{maximumFractionDigits:0})}</td>
+                            <td className="px-3 py-2 text-right font-mono font-bold text-emerald-700">₹{it.total.toLocaleString("en-IN",{maximumFractionDigits:0})}</td>
+                          </tr>
+                        ));
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* ── PURCHASE BY VENDOR ── */}
+              {selectedReport.id === "purchase_by_vendor" && (
+                <div className="space-y-4 animate-fade-in">
+                  <div className="text-center border-b border-dashed border-slate-200 pb-4">
+                    <h3 className="text-sm font-black uppercase tracking-widest">Purchase by Vendor</h3>
+                    <p className="text-[10px] text-slate-500">{db.company.name} | {fromDate} to {toDate}</p>
+                  </div>
+                  <table className="w-full text-xs">
+                    <thead className="bg-slate-50">
+                      <tr>{["Vendor","GSTIN","Bills","Taxable","GST","Total","Paid","Outstanding"].map(h=>(
+                        <th key={h} className="border border-slate-200 px-3 py-2 text-left text-[10px] font-bold text-slate-600 uppercase">{h}</th>
+                      ))}</tr>
+                    </thead>
+                    <tbody>
+                      {db.vendors.map((v: any) => {
+                        const vBills = filteredBills.filter((b: any) => b.vendorId === v.id);
+                        if (vBills.length === 0) return null;
+                        const taxable = vBills.reduce((s: number, b: any) => s + (b.subtotal||0), 0);
+                        const gst = vBills.reduce((s: number, b: any) => s + (b.totalGst||0), 0);
+                        const total = vBills.reduce((s: number, b: any) => s + b.total, 0);
+                        const paid = vBills.reduce((s: number, b: any) => s + (b.paymentPaid||0), 0);
+                        return (
+                          <tr key={v.id} className="hover:bg-slate-50 border-t border-slate-100">
+                            <td className="px-3 py-2 font-semibold">{v.name}</td>
+                            <td className="px-3 py-2 font-mono text-slate-500 text-[10px]">{v.gstin||"Unreg"}</td>
+                            <td className="px-3 py-2 text-center">{vBills.length}</td>
+                            <td className="px-3 py-2 text-right font-mono">₹{taxable.toLocaleString("en-IN",{maximumFractionDigits:0})}</td>
+                            <td className="px-3 py-2 text-right font-mono text-blue-600">₹{gst.toLocaleString("en-IN",{maximumFractionDigits:0})}</td>
+                            <td className="px-3 py-2 text-right font-mono font-bold">₹{total.toLocaleString("en-IN",{maximumFractionDigits:0})}</td>
+                            <td className="px-3 py-2 text-right font-mono text-emerald-600">₹{paid.toLocaleString("en-IN",{maximumFractionDigits:0})}</td>
+                            <td className="px-3 py-2 text-right font-mono text-red-600">₹{(total-paid).toLocaleString("en-IN",{maximumFractionDigits:0})}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* ── TAX LIABILITY REPORT ── */}
+              {selectedReport.id === "tax_liability" && (
+                <div className="space-y-4 animate-fade-in">
+                  <div className="text-center border-b border-dashed border-slate-200 pb-4">
+                    <h3 className="text-sm font-black uppercase tracking-widest">Tax Liability Summary</h3>
+                    <p className="text-[10px] text-slate-500">{db.company.name} | GSTIN: {db.company.gstin} | {fromDate} to {toDate}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="border border-slate-200 rounded-xl p-4 space-y-3">
+                      <div className="font-bold text-slate-700 text-xs uppercase tracking-wide">Output Tax (Sales)</div>
+                      {[
+                        { label: "Total Taxable Sales", value: filteredInvoices.reduce((s:number,i:any)=>s+i.subtotal,0) },
+                        { label: "CGST Collected", value: filteredInvoices.reduce((s:number,i:any)=>s+i.totalCgst,0), color: "text-blue-700" },
+                        { label: "SGST Collected", value: filteredInvoices.reduce((s:number,i:any)=>s+i.totalSgst,0), color: "text-blue-700" },
+                        { label: "IGST Collected", value: filteredInvoices.reduce((s:number,i:any)=>s+i.totalIgst,0), color: "text-purple-700" },
+                        { label: "Total Output Tax", value: filteredInvoices.reduce((s:number,i:any)=>s+i.totalGst,0), bold: true, color: "text-emerald-700" },
+                      ].map(r => (
+                        <div key={r.label} className={`flex justify-between text-xs ${r.bold ? "font-bold border-t pt-2 mt-2" : ""}`}>
+                          <span className="text-slate-600">{r.label}</span>
+                          <span className={`font-mono ${r.color || "text-slate-800"}`}>₹{r.value.toLocaleString("en-IN",{maximumFractionDigits:0})}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="border border-slate-200 rounded-xl p-4 space-y-3">
+                      <div className="font-bold text-slate-700 text-xs uppercase tracking-wide">Input Tax Credit (Purchases)</div>
+                      {[
+                        { label: "Total Taxable Purchases", value: filteredBills.reduce((s:number,b:any)=>s+(b.subtotal||0),0) },
+                        { label: "CGST Paid (ITC)", value: filteredBills.reduce((s:number,b:any)=>s+(b.totalCgst||0),0), color: "text-blue-700" },
+                        { label: "SGST Paid (ITC)", value: filteredBills.reduce((s:number,b:any)=>s+(b.totalSgst||0),0), color: "text-blue-700" },
+                        { label: "IGST Paid (ITC)", value: filteredBills.reduce((s:number,b:any)=>s+(b.totalIgst||0),0), color: "text-purple-700" },
+                        { label: "Total ITC Available", value: filteredBills.reduce((s:number,b:any)=>s+(b.totalGst||0),0), bold: true, color: "text-emerald-700" },
+                      ].map(r => (
+                        <div key={r.label} className={`flex justify-between text-xs ${r.bold ? "font-bold border-t pt-2 mt-2" : ""}`}>
+                          <span className="text-slate-600">{r.label}</span>
+                          <span className={`font-mono ${r.color || "text-slate-800"}`}>₹{r.value.toLocaleString("en-IN",{maximumFractionDigits:0})}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                    <div className="font-bold text-amber-800 text-xs mb-2">NET TAX PAYABLE TO GOVERNMENT</div>
+                    {(() => {
+                      const outCgst = filteredInvoices.reduce((s:number,i:any)=>s+i.totalCgst,0);
+                      const outSgst = filteredInvoices.reduce((s:number,i:any)=>s+i.totalSgst,0);
+                      const outIgst = filteredInvoices.reduce((s:number,i:any)=>s+i.totalIgst,0);
+                      const inCgst = filteredBills.reduce((s:number,b:any)=>s+(b.totalCgst||0),0);
+                      const inSgst = filteredBills.reduce((s:number,b:any)=>s+(b.totalSgst||0),0);
+                      const inIgst = filteredBills.reduce((s:number,b:any)=>s+(b.totalIgst||0),0);
+                      const netCgst = Math.max(0, outCgst - inCgst);
+                      const netSgst = Math.max(0, outSgst - inSgst);
+                      const netIgst = Math.max(0, outIgst - inIgst);
+                      const netTotal = netCgst + netSgst + netIgst;
+                      return (
+                        <div className="space-y-1 text-xs">
+                          <div className="flex justify-between"><span>Net CGST</span><span className="font-mono font-bold">₹{netCgst.toLocaleString("en-IN",{maximumFractionDigits:0})}</span></div>
+                          <div className="flex justify-between"><span>Net SGST</span><span className="font-mono font-bold">₹{netSgst.toLocaleString("en-IN",{maximumFractionDigits:0})}</span></div>
+                          <div className="flex justify-between"><span>Net IGST</span><span className="font-mono font-bold">₹{netIgst.toLocaleString("en-IN",{maximumFractionDigits:0})}</span></div>
+                          <div className="flex justify-between font-bold text-amber-900 border-t border-amber-300 pt-2 mt-2 text-sm">
+                            <span>TOTAL TAX PAYABLE</span>
+                            <span className="font-mono">₹{netTotal.toLocaleString("en-IN",{maximumFractionDigits:0})}</span>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
+
               {selectedReport.id === "biz_ratios" && (
                 <div id="stat-ratios" className="space-y-6 animate-fade-in font-sans">
                   <div className="text-center space-y-1 mb-6 border-b border-dashed border-[#E5E1D8] pb-4">
