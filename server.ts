@@ -147,7 +147,7 @@ if (SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL !== "MY_SUPABASE_URL") {
       auth: { persistSession: false, autoRefreshToken: false },
       global: { fetch: (url: any, opts: any) => {
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 12000);
+        const timer = setTimeout(() => controller.abort(), 6000);
         return fetch(url, { ...opts, signal: controller.signal }).finally(() => clearTimeout(timer));
       }}
     });
@@ -183,7 +183,7 @@ app.get("/api/test-supabase", async (req: any, res: any) => {
   try {
     const r = await fetch(url, {
       headers: { apikey: key, Authorization: `Bearer ${key}` },
-      signal: AbortSignal.timeout(12000)
+      signal: AbortSignal.timeout(6000)
     });
     const text = await r.text();
     res.json({ status: r.status, ok: r.ok, body: text.substring(0, 500) });
@@ -687,7 +687,7 @@ async function supabaseREST(method: string, body?: any): Promise<any> {
     "Prefer": "return=representation,resolution=merge-duplicates"
   };
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 15000);
+  const timer = setTimeout(() => controller.abort(), 6000);
   try {
     const endpoint = method === "GET" ? `${url}?id=eq.default_ledger&select=state` : url;
     const res = await fetch(endpoint, {
@@ -734,7 +734,7 @@ async function readDB(): Promise<DatabaseState> {
           try {
             const patchUrl = `${SUPABASE_URL}/rest/v1/bizkhata_state?id=eq.default_ledger`;
             const controller = new AbortController();
-            setTimeout(() => controller.abort(), 12000);
+            setTimeout(() => controller.abort(), 6000);
             const r = await fetch(patchUrl, {
               method: "PATCH",
               headers: {
@@ -820,44 +820,22 @@ async function writeDB(state: DatabaseState): Promise<void> {
       // Ignore read-only errors on serverless deploys
     }
 
-    // Push state to Supabase via direct REST PATCH (upsert)
+    // Push state to Supabase asynchronously (fire-and-forget, non-blocking)
     if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-      try {
-        console.log("Pushing state to Supabase REST API...");
-        await supabaseREST("POST", { id: "default_ledger", state });
-        supabaseStatus.connected = true;
-        supabaseStatus.error = null;
-        console.log("State synced to Supabase successfully.");
-      } catch (err: any) {
-        // Try PATCH as fallback
-        try {
-          const patchUrl = `${SUPABASE_URL}/rest/v1/bizkhata_state?id=eq.default_ledger`;
-          const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 15000);
-          const res = await fetch(patchUrl, {
+      supabaseREST("POST", { id: "default_ledger", state })
+        .then(() => { supabaseStatus.connected = true; supabaseStatus.error = null; })
+        .catch(() => {
+          const patchUrl = SUPABASE_URL + "/rest/v1/bizkhata_state?id=eq.default_ledger";
+          const ctrl = new AbortController();
+          setTimeout(() => ctrl.abort(), 6000);
+          fetch(patchUrl, {
             method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-              "apikey": SUPABASE_ANON_KEY,
-              "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-              "Prefer": "return=minimal"
-            },
+            headers: { "Content-Type": "application/json", "apikey": SUPABASE_ANON_KEY!, "Authorization": "Bearer " + SUPABASE_ANON_KEY, "Prefer": "return=minimal" },
             body: JSON.stringify({ state }),
-            signal: controller.signal
-          });
-          clearTimeout(timer);
-          if (res.ok || res.status === 204) {
-            supabaseStatus.connected = true;
-            supabaseStatus.error = null;
-          } else {
-            throw new Error(`PATCH failed: ${res.status}`);
-          }
-        } catch (patchErr: any) {
-          supabaseStatus.connected = false;
-          supabaseStatus.error = { message: patchErr?.message || String(patchErr) };
-          console.error("Supabase write failed:", patchErr);
-        }
-      }
+            signal: ctrl.signal
+          }).then(r => { if (r.ok || r.status === 204) { supabaseStatus.connected = true; supabaseStatus.error = null; } })
+            .catch(e => { supabaseStatus.connected = false; supabaseStatus.error = { message: e?.message }; });
+        });
     }
   } catch (err) {
     console.error("Error writing db.json inside writeDB:", err);
