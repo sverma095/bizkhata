@@ -134,6 +134,19 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
 
   const [showForm, setShowForm] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
+  const [sortField, setSortField] = useState<string>('date');
+  const [sortDir, setSortDir] = useState<'asc'|'desc'>('desc');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [statusFilter, setStatusFilter] = useState<string>('All');
+  const [searchInvoice, setSearchInvoice] = useState('');
+
+  const handleSort = (field: string) => {
+    if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortField(field); setSortDir('asc'); }
+  };
+  const SortIcon = ({ field }: { field: string }) => (
+    <span className="ml-1 text-slate-400">{sortField === field ? (sortDir === 'asc' ? '↑' : '↓') : '⇅'}</span>
+  );
   const [showViewModal, setShowViewModal] = useState<Invoice | null>(null);
   const [showCreditForm, setShowCreditForm] = useState<Invoice | null>(null);
 
@@ -985,57 +998,107 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
 
       {/* INVOICES LIST TREE */}
       {!showForm && activeTab !== "customers" && (
-        <div id="billing-ledger-table-panel" className="bg-white border border-[#E5E1D8] rounded-2xl overflow-hidden p-6 shadow-sm">
-          <h3 id="lbl-billing-list" className="text-sm font-bold text-[#2C2C24] mb-4 border-b border-[#E5E1D8] pb-3">
-            {activeTab === "tax" ? "Tax Invoices Master Register" : activeTab === "proforma" ? "Draft Proforma Invoices" : "Outstanding Credit Notes"}
-          </h3>
+        <div id="billing-ledger-table-panel" className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+          {/* ── Zoho-style list header with filters + actions ── */}
+          <div className="px-5 py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* Status filter tabs */}
+              {activeTab === "tax" && (
+                <div className="flex gap-1">
+                  {["All","Draft","Sent","Approved","E-Invoiced","Paid","Cancelled"].map(s => (
+                    <button key={s} onClick={() => setStatusFilter(s)}
+                      className={`px-3 py-1 text-[10px] font-semibold rounded-lg transition ${statusFilter===s?"bg-blue-600 text-white":"bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {/* Search */}
+              <input value={searchInvoice} onChange={e => setSearchInvoice(e.target.value)} placeholder="Search by customer / invoice #..."
+                className="border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 w-52" />
+            </div>
+            <div className="flex items-center gap-2">
+              {selectedIds.size > 0 && (
+                <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5">
+                  <span className="text-xs font-bold text-blue-700">{selectedIds.size} selected</span>
+                  <button onClick={() => setSelectedIds(new Set())} className="text-[10px] text-blue-600 hover:underline">Clear</button>
+                </div>
+              )}
+            </div>
+          </div>
 
           <div className="overflow-x-auto">
-            {activeTab === "tax" && (
+            {activeTab === "tax" && (() => {
+              const filtered = taxInvoices
+                .filter(inv => statusFilter==="All" || inv.status===statusFilter)
+                .filter(inv => !searchInvoice || inv.invoiceNumber?.toLowerCase().includes(searchInvoice.toLowerCase()) || inv.customerName?.toLowerCase().includes(searchInvoice.toLowerCase()))
+                .sort((a,b) => {
+                  const av = (a as any)[sortField]||""; const bv = (b as any)[sortField]||"";
+                  return sortDir==="asc" ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
+                });
+              const allSelected = filtered.length > 0 && filtered.every(inv => selectedIds.has(inv.id));
+              return (
               <table className="w-full text-left font-sans text-xs">
-                <thead>
-                  <tr className="border-b border-[#E5E1D8] text-[10px] uppercase font-bold text-[#8C867A] tracking-wider">
-                    <th className="py-3 px-3">Invoice Code</th>
-                    <th className="py-3 px-3">Customer Entity</th>
-                    <th className="py-3 px-3">Invoiced Date</th>
-                    <th className="py-3 px-3">Due Limit</th>
-                    <th className="py-3 px-3 text-right">Tax Basis (Subtotal)</th>
-                    <th className="py-3 px-3 text-right">Invoice Sum</th>
-                    <th className="py-3 px-3 text-center">Receipt Status</th>
-                    <th className="py-3 px-3 text-center">Action</th>
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                    <th className="py-3 px-3 w-8">
+                      <input type="checkbox" checked={allSelected} onChange={e => setSelectedIds(e.target.checked ? new Set(filtered.map(i=>i.id)) : new Set())} className="accent-blue-600 cursor-pointer" />
+                    </th>
+                    <th className="py-3 px-3 cursor-pointer hover:text-slate-800 select-none" onClick={() => handleSort('invoiceNumber')}>Invoice # <SortIcon field="invoiceNumber" /></th>
+                    <th className="py-3 px-3 cursor-pointer hover:text-slate-800 select-none" onClick={() => handleSort('customerName')}>Customer <SortIcon field="customerName" /></th>
+                    <th className="py-3 px-3 cursor-pointer hover:text-slate-800 select-none" onClick={() => handleSort('date')}>Date <SortIcon field="date" /></th>
+                    <th className="py-3 px-3 cursor-pointer hover:text-slate-800 select-none" onClick={() => handleSort('dueDate')}>Due Date <SortIcon field="dueDate" /></th>
+                    <th className="py-3 px-3 text-right cursor-pointer hover:text-slate-800 select-none" onClick={() => handleSort('total')}>Amount <SortIcon field="total" /></th>
+                    <th className="py-3 px-3 text-right">Balance Due</th>
+                    <th className="py-3 px-3 text-center">Status</th>
+                    <th className="py-3 px-3 text-center">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#E5E1D8]/40">
-                  {taxInvoices.map(inv => {
+                <tbody className="divide-y divide-slate-100">
+                  {filtered.length === 0 && (
+                    <tr><td colSpan={9} className="py-12 text-center text-slate-400">
+                      <div className="text-2xl mb-2">📄</div>
+                      <div className="font-semibold">No invoices found</div>
+                      <div className="text-[10px] mt-1">Try changing your filters or create a new invoice</div>
+                    </td></tr>
+                  )}
+                  {filtered.map(inv => {
                     const balanceDue = inv.total - (inv.paymentReceived || 0);
+                    const isOverdue = balanceDue > 0 && inv.dueDate < new Date().toISOString().split('T')[0] && inv.status !== 'Paid';
                     return (
-                      <tr key={inv.id} id={`row-tax-inv-${inv.id}`} className="hover:bg-[#F5F2ED]/40 text-[#2C2C24] transition-all">
-                        <td className="py-3 px-3 font-mono font-semibold text-[#5A5A40] text-xs">{inv.invoiceNumber}</td>
-                        <td className="py-3 px-3 font-semibold text-[#2C2C24]">{inv.customerName}</td>
-                        <td className="py-3 px-3 text-[#8C867A]">{inv.date}</td>
-                        <td className="py-3 px-3 text-[#8C867A]">{inv.dueDate}</td>
-                        <td className="py-3 px-3 text-right font-mono font-medium">₹{inv.subtotal.toLocaleString('en-IN')}</td>
-                        <td className="py-3 px-3 text-right font-mono font-bold text-[#2C2C24]">₹{inv.total.toLocaleString('en-IN')}</td>
+                      <tr key={inv.id} className={`hover:bg-blue-50/30 transition-all cursor-pointer ${selectedIds.has(inv.id)?'bg-blue-50':''} ${isOverdue?'border-l-2 border-red-400':''}`}
+                        onClick={() => setShowViewModal(inv)}>
+                        <td className="py-3 px-3" onClick={e => e.stopPropagation()}>
+                          <input type="checkbox" checked={selectedIds.has(inv.id)} onChange={e => {
+                            const s = new Set(selectedIds);
+                            e.target.checked ? s.add(inv.id) : s.delete(inv.id); setSelectedIds(s);
+                          }} className="accent-blue-600 cursor-pointer" />
+                        </td>
+                        <td className="py-3 px-3 font-mono font-bold text-blue-700 text-xs">{inv.invoiceNumber}</td>
+                        <td className="py-3 px-3">
+                          <div className="font-semibold text-slate-800">{inv.customerName}</div>
+                          <div className="text-[10px] text-slate-400">{db.customers.find(c=>c.id===inv.customerId)?.gstin || 'Unregistered'}</div>
+                        </td>
+                        <td className="py-3 px-3 text-slate-600">{inv.date}</td>
+                        <td className={`py-3 px-3 ${isOverdue?'text-red-600 font-semibold':' text-slate-600'}`}>{inv.dueDate}{isOverdue&&<span className="ml-1 text-[9px] bg-red-100 text-red-600 px-1 rounded">OVERDUE</span>}</td>
+                        <td className="py-3 px-3 text-right font-mono font-bold text-slate-900">₹{inv.total.toLocaleString('en-IN')}</td>
+                        <td className={`py-3 px-3 text-right font-mono font-bold ${balanceDue>0?'text-red-600':'text-emerald-600'}`}>
+                          {balanceDue > 0 ? `₹${balanceDue.toLocaleString('en-IN')}` : '✓ Paid'}
+                        </td>
                         <td className="py-3 px-3 text-center">
-                          <span className={`inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded border font-bold ${
-                            inv.status === "Paid" 
-                              ? "bg-emerald-50 text-emerald-800 border-emerald-200" 
-                              : inv.status === "Sent"
-                              ? "bg-sky-50 text-sky-800 border-sky-200"
-                              : inv.status === "Approved"
-                              ? "bg-blue-50 text-blue-800 border-blue-200" 
-                              : inv.status === "Digitally Signed"
-                              ? "bg-indigo-50 text-indigo-800 border-indigo-200"
-                              : inv.status === "E-Invoiced"
-                              ? "bg-amber-50 text-amber-800 border-amber-200"
-                              : "bg-slate-100 text-slate-700 border-slate-300"
-                          }`}>
-                            {inv.status === "E-Invoiced" && "⚡ "}
-                            {inv.status === "Digitally Signed" && "✍️ "}
-                            {inv.status}
+                          <span className={`inline-flex items-center text-[9px] px-2 py-0.5 rounded-full font-bold border ${
+                            inv.status === "Paid" ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                            : inv.status === "Sent" ? "bg-sky-50 text-sky-700 border-sky-200"
+                            : inv.status === "Approved" ? "bg-blue-50 text-blue-700 border-blue-200"
+                            : inv.status === "Digitally Signed" ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                            : inv.status === "E-Invoiced" ? "bg-amber-50 text-amber-700 border-amber-200"
+                            : inv.status === "Cancelled" ? "bg-red-50 text-red-600 border-red-200"
+                            : "bg-slate-100 text-slate-600 border-slate-200"}`}>
+                            {inv.status === "E-Invoiced" && "⚡ "}{inv.status}
                           </span>
                         </td>
-                        <td className="py-3 px-3 text-center flex justify-center items-center gap-1.5 flex-wrap">
+                        <td className="py-3 px-3" onClick={e => e.stopPropagation()}>
+                          <div className="flex justify-center items-center gap-1 flex-wrap">
                           <button 
                             id={`btn-view-invoice-${inv.id}`}
                             onClick={() => setShowViewModal(inv)}
@@ -1119,21 +1182,36 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                           )}
 
                           {balanceDue > 0 && inv.status !== "Draft" && inv.status !== "E-Invoiced" && inv.status !== "Digitally Signed" && (
-                            <button 
-                              id={`btn-issue-cn-${inv.id}`}
+                            <button
                               onClick={() => { setShowCreditForm(inv); setCreditReason(""); setCreditSubtotal(0); }}
-                              className="p-1 px-2 border border-red-200 hover:border-red-300 bg-red-50 text-[10px] text-red-700 font-semibold rounded transition cursor-pointer hover:bg-red-100 shadow-sm"
-                            >
-                              Credit Adj
+                              className="p-1 px-1.5 border border-red-200 bg-red-50 text-[9px] text-red-700 font-semibold rounded hover:bg-red-100 transition">
+                              CN
                             </button>
                           )}
+                          {/* Duplicate invoice */}
+                          <button
+                            onClick={() => {
+                              setEditingInvoice(null);
+                              setCustomerId(inv.customerId);
+                              setDate(new Date().toISOString().split('T')[0]);
+                              setDueDate(inv.dueDate);
+                              setIsProforma(inv.isProforma);
+                              setFormItems(inv.items.map((it: any) => ({ itemId: it.itemId, name: it.name, hsnSac: it.hsnSac||'', qty: it.qty, rate: it.rate, gstRate: it.gstRate, discount: 0 })));
+                              setShowForm(true);
+                            }}
+                            title="Duplicate Invoice"
+                            className="p-1 px-1.5 border border-slate-200 bg-slate-50 text-[9px] text-slate-600 font-semibold rounded hover:bg-slate-100 transition">
+                            ⧉
+                          </button>
+                        </div>
                         </td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
-            )}
+              );
+            })()}
 
             {activeTab === "proforma" && (
               <table className="w-full text-left font-sans text-xs">
@@ -2098,189 +2176,314 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
       {/* VIEW / PRINT INVOICE MODAL CLIENT PREVIEW */}
       {showViewModal && (
         <div id="invoice-view-sheet" className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white text-slate-850 w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-100 flex flex-col max-h-[90vh]">
+          <div className="bg-white text-slate-800 w-full max-w-3xl rounded-2xl shadow-2xl border border-slate-200 flex flex-col max-h-[95vh]">
             
-            {/* Modal header */}
-            <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-slate-900 text-white rounded-t-2xl">
-              <span className="text-xs font-bold tracking-wider uppercase">Indian GST Invoice Preview</span>
+            {/* Modal header - clean action bar */}
+            <div className="flex justify-between items-center px-5 py-3 border-b border-slate-200 bg-white rounded-t-2xl sticky top-0 z-10">
+              <div className="flex items-center gap-2">
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${showViewModal.isProforma ? 'bg-purple-100 text-purple-700' : showViewModal.status === 'Paid' ? 'bg-emerald-100 text-emerald-700' : showViewModal.status === 'Draft' ? 'bg-slate-100 text-slate-600' : 'bg-blue-100 text-blue-700'}`}>{showViewModal.status}</span>
+                <span className="text-xs font-bold text-slate-700">{showViewModal.isProforma ? "Proforma Invoice" : "Tax Invoice"} — {showViewModal.invoiceNumber}</span>
+              </div>
               <div className="flex gap-2">
-                <button 
-                  id="btn-trigger-reminder-ai"
-                  onClick={() => onTriggerAI("generate-reminder", showViewModal)}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold px-3 py-1.5 rounded flex items-center gap-1 transition cursor-pointer"
-                >
-                  <Sparkles className="w-3 h-3 text-amber-300" />
-                  AI Payment Reminder Letter
+                <button onClick={() => onTriggerAI("generate-reminder", showViewModal)}
+                  className="bg-violet-600 hover:bg-violet-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 transition cursor-pointer">
+                  <Sparkles className="w-3 h-3 text-amber-300" /> AI Reminder
                 </button>
-                <button 
-                  onClick={() => window.print()} 
-                  className="bg-slate-800 hover:bg-slate-700 text-white text-[10px] px-3 py-1.5 rounded flex items-center gap-1 transition"
-                >
-                  <Printer className="w-3 h-3" /> Print
+                <button onClick={() => handleEditInvoice(showViewModal)}
+                  className="bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 transition border border-blue-200">
+                  Edit
                 </button>
-                <button 
-                  onClick={() => setShowViewModal(null)} 
-                  className="text-slate-400 hover:text-white p-1"
-                >
+                <button onClick={() => window.print()}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 transition">
+                  <Printer className="w-3 h-3" /> Print / PDF
+                </button>
+                <button onClick={() => setShowViewModal(null)} className="text-slate-400 hover:text-slate-700 p-1.5 hover:bg-slate-100 rounded-lg">
                   <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
-            {/* Print Sheet content - elegant layout */}
-            <div id="print-sheet-content" className="p-8 space-y-6 flex-1 overflow-y-auto text-[11px] leading-relaxed select-text">
-              <div className="flex justify-between items-start">
-                <div className="space-y-1">
-                  <h2 className="text-base font-bold text-slate-900 tracking-tight">{db.company.name}</h2>
-                  <p className="text-slate-500">{db.company.address}</p>
-                  <p className="text-slate-500 font-mono">GSTIN: {db.company.gstin} | PAN: {db.company.pan}</p>
-                </div>
-                <div className="text-right">
-                  <h3 className="text-base font-extrabold uppercase text-indigo-600 tracking-wider">
-                    {showViewModal.isProforma ? "PROFORMA INVOICE" : "TAX INVOICE"}
-                  </h3>
-                  <p className="font-mono text-slate-800 font-bold mt-1">#{showViewModal.isProforma ? "PRO-" + showViewModal.id.substring(4,9).toUpperCase() : showViewModal.invoiceNumber}</p>
-                </div>
-              </div>
+            {/* ── ZOHO-LEVEL A4 INVOICE BODY ── */}
+            <div id="print-sheet-content" className="flex-1 overflow-y-auto bg-white">
+              {/* A4 paper wrapper */}
+              <div className="max-w-[800px] mx-auto p-8 space-y-0 text-[11px] text-slate-800 print:p-6">
 
-              <div className="grid grid-cols-2 gap-4 border-t border-b border-slate-100 py-4">
-                <div className="space-y-0.5">
-                  <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Billed To:</span>
+                {/* ── HEADER: Company + Invoice Title ── */}
+                <div className="flex justify-between items-start pb-5 border-b-2 border-slate-800">
+                  <div className="space-y-1 flex-1">
+                    {db.company.logoUrl && <img src={db.company.logoUrl} alt="logo" className="h-12 mb-2 object-contain" />}
+                    <div className="text-lg font-black text-slate-900 leading-tight">{db.company.name}</div>
+                    <div className="text-[10px] text-slate-500 font-medium">{db.company.legalName}</div>
+                    <div className="text-[10px] text-slate-600 whitespace-pre-line leading-relaxed">{db.company.address}</div>
+                    <div className="text-[10px] font-mono text-slate-600">
+                      {db.company.gstin && <span className="mr-3"><span className="font-semibold">GSTIN:</span> {db.company.gstin}</span>}
+                      {db.company.pan && <span><span className="font-semibold">PAN:</span> {db.company.pan}</span>}
+                    </div>
+                    {(db.company as any).phone && <div className="text-[10px] text-slate-500">📞 {(db.company as any).phone} {(db.company as any).email && `| ✉ ${(db.company as any).email}`}</div>}
+                  </div>
+                  <div className="text-right pl-6 shrink-0">
+                    <div className={`text-xl font-black uppercase tracking-widest mb-1 ${showViewModal.isProforma ? 'text-purple-700' : 'text-slate-900'}`}>
+                      {showViewModal.isProforma ? "PROFORMA INVOICE" : "TAX INVOICE"}
+                    </div>
+                    <div className="text-[10px] text-slate-500 mb-3">Original for Recipient</div>
+                    <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-left space-y-1.5 min-w-48">
+                      <div className="flex justify-between gap-6">
+                        <span className="text-slate-500 text-[10px]">Invoice No.</span>
+                        <span className="font-mono font-bold text-slate-900 text-[10px]">{showViewModal.invoiceNumber || ("PRO-" + showViewModal.id?.substring(4,9)?.toUpperCase())}</span>
+                      </div>
+                      <div className="flex justify-between gap-6">
+                        <span className="text-slate-500 text-[10px]">Invoice Date</span>
+                        <span className="font-semibold text-[10px]">{showViewModal.date}</span>
+                      </div>
+                      <div className="flex justify-between gap-6">
+                        <span className="text-slate-500 text-[10px]">Due Date</span>
+                        <span className="font-semibold text-[10px]">{showViewModal.dueDate}</span>
+                      </div>
+                      {showViewModal.status && (
+                        <div className="flex justify-between gap-6">
+                          <span className="text-slate-500 text-[10px]">Status</span>
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${showViewModal.status === 'Paid' ? 'bg-emerald-100 text-emerald-700' : showViewModal.status === 'Draft' ? 'bg-slate-100 text-slate-600' : 'bg-blue-100 text-blue-700'}`}>{showViewModal.status}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── BILLED TO / SHIP TO ── */}
+                <div className="grid grid-cols-2 gap-6 py-5 border-b border-slate-200">
                   {(() => {
                     const cust = db.customers.find(c => c.id === showViewModal.customerId);
                     return (
-                      <div className="space-y-0.5 mt-1">
-                        <div className="font-bold text-slate-800">{cust?.legalName || showViewModal.customerName}</div>
-                        {cust?.name && cust.name !== cust.legalName && <div className="text-slate-500 text-[10px]">({cust.name})</div>}
-                        {cust?.billingAddress && <div className="text-slate-500 text-[10px] whitespace-pre-line">{cust.billingAddress}</div>}
-                        {cust?.gstin ? <div className="font-mono text-slate-600 text-[10px] font-semibold">GSTIN: {cust.gstin}</div> : <div className="text-slate-400 text-[10px]">Unregistered / Consumer</div>}
-                        {cust?.pan && <div className="font-mono text-slate-500 text-[10px]">PAN: {cust.pan}</div>}
-                        {cust?.email && <div className="text-slate-500 text-[10px]">✉ {cust.email}</div>}
-                        {cust?.phone && <div className="text-slate-500 text-[10px]">📞 {cust.phone}</div>}
-                      </div>
+                      <>
+                        <div>
+                          <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Bill To</div>
+                          <div className="font-bold text-slate-900 text-[12px]">{cust?.legalName || showViewModal.customerName}</div>
+                          {cust?.name && cust.name !== cust.legalName && <div className="text-slate-500 text-[10px]">{cust.name}</div>}
+                          {cust?.billingAddress && <div className="text-slate-600 text-[10px] whitespace-pre-line leading-relaxed mt-1">{cust.billingAddress}</div>}
+                          <div className="mt-1.5 space-y-0.5">
+                            {cust?.gstin ? <div className="font-mono text-[10px] font-bold text-slate-700">GSTIN: {cust.gstin}</div> : <div className="text-[10px] text-amber-600 font-semibold">Unregistered (B2C)</div>}
+                            {cust?.pan && <div className="font-mono text-[10px] text-slate-500">PAN: {cust.pan}</div>}
+                            {cust?.email && <div className="text-[10px] text-slate-500">✉ {cust.email}</div>}
+                            {cust?.phone && <div className="text-[10px] text-slate-500">📞 {cust.phone}</div>}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Ship To</div>
+                          {cust?.billingAddress ? (
+                            <div className="text-slate-600 text-[10px] whitespace-pre-line leading-relaxed">{cust.billingAddress}</div>
+                          ) : (
+                            <div className="text-slate-400 text-[10px] italic">Same as billing address</div>
+                          )}
+                          <div className="mt-2 text-[10px] text-slate-500">
+                            <div>Place of Supply: <span className="font-semibold text-slate-700">{cust?.state || db.company.state}</span></div>
+                          </div>
+                          {/* IRN details */}
+                          {showViewModal.irn && (
+                            <div className="mt-2 p-2 bg-indigo-50 border border-indigo-100 rounded-lg">
+                              <div className="text-[8px] font-black uppercase text-indigo-500 tracking-widest">e-Invoice IRN</div>
+                              <div className="font-mono text-[8px] text-indigo-700 break-all mt-0.5">{showViewModal.irn}</div>
+                              {showViewModal.ackNo && <div className="text-[8px] text-indigo-500 mt-0.5">Ack No: {showViewModal.ackNo} | Date: {showViewModal.ackDate}</div>}
+                            </div>
+                          )}
+                        </div>
+                      </>
                     );
                   })()}
                 </div>
-                <div className="text-right space-y-1">
-                  <div>
-                    <span className="text-slate-500 mr-2">Invoice Date:</span>
-                    <span className="font-semibold text-slate-800">{showViewModal.date}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 mr-2">Due Date:</span>
-                    <span className="font-semibold text-slate-800">{showViewModal.dueDate}</span>
-                  </div>
-                  {showViewModal.irn && (
-                    <div className="mt-2 text-right">
-                      <div className="text-[9px] text-slate-400 uppercase font-bold">IRN</div>
-                      <div className="font-mono text-[9px] text-indigo-700 break-all">{showViewModal.irn}</div>
-                      {showViewModal.ackNo && <div className="text-[9px] text-slate-500">Ack: {showViewModal.ackNo} | {showViewModal.ackDate}</div>}
-                    </div>
-                  )}
-                </div>
-              </div>
 
-              {/* Items Breakdown lines Table */}
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-200 text-slate-500 text-[10px] font-bold uppercase tracking-widest">
-                    <th className="py-2">Item Description & HSN</th>
-                    <th className="py-2 text-center">Qty</th>
-                    <th className="py-2 text-right">Taxable Value</th>
-                    <th className="py-2 text-right">GST Rate</th>
-                    <th className="py-2 text-right">Net Sum</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-700">
-                  {showViewModal.items.map((line) => (
-                    <tr key={line.id}>
-                      <td className="py-3">
-                        <div className="font-bold text-slate-850">{line.name}</div>
-                        <div className="text-[9px] text-slate-400 font-mono">HSN/SAC: {line.hsnSac || "-"}</div>
-                      </td>
-                      <td className="py-3 text-center font-mono">{line.qty}</td>
-                      <td className="py-3 text-right font-mono">₹{line.rate.toLocaleString('en-IN')}</td>
-                      <td className="py-3 text-right font-mono">{line.gstRate}%</td>
-                      <td className="py-3 text-right font-mono font-bold">₹{line.amount.toLocaleString('en-IN')}</td>
+                {/* ── LINE ITEMS TABLE ── */}
+                <table className="w-full text-left border-collapse mt-4">
+                  <thead>
+                    <tr className="bg-slate-800 text-white text-[9px] uppercase tracking-widest">
+                      <th className="py-2 px-3 text-center w-8">#</th>
+                      <th className="py-2 px-3">Item & Description</th>
+                      <th className="py-2 px-3 text-center w-16">HSN/SAC</th>
+                      <th className="py-2 px-3 text-center w-12">Qty</th>
+                      <th className="py-2 px-3 text-right w-24">Rate (₹)</th>
+                      <th className="py-2 px-3 text-right w-20">Disc%</th>
+                      <th className="py-2 px-3 text-right w-24">Taxable (₹)</th>
+                      <th className="py-2 px-3 text-center w-16">GST%</th>
+                      <th className="py-2 px-3 text-right w-24">Tax (₹)</th>
+                      <th className="py-2 px-3 text-right w-24">Amount (₹)</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {showViewModal.items.map((line, idx) => {
+                      const taxAmt = (line.cgst||0)+(line.sgst||0)+(line.igst||0);
+                      const total = line.amount + taxAmt;
+                      return (
+                        <tr key={line.id} className={idx%2===0?"bg-white":"bg-slate-50/50"}>
+                          <td className="py-2.5 px-3 text-center text-slate-400 font-mono text-[10px]">{idx+1}</td>
+                          <td className="py-2.5 px-3">
+                            <div className="font-semibold text-slate-900 text-[11px]">{line.name}</div>
+                          </td>
+                          <td className="py-2.5 px-3 text-center font-mono text-[10px] text-slate-500">{line.hsnSac || "—"}</td>
+                          <td className="py-2.5 px-3 text-center font-mono text-[10px]">{line.qty}</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-[10px]">{line.rate.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+                          <td className="py-2.5 px-3 text-right text-[10px] text-emerald-600">{line.gstRate > 0 ? "—" : "—"}</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-[10px]">{line.amount.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+                          <td className="py-2.5 px-3 text-center text-[10px]">{line.gstRate}%</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-[10px] text-blue-700">{taxAmt.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+                          <td className="py-2.5 px-3 text-right font-mono font-bold text-[10px]">{total.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
 
-              {/* India GST breakdown computations */}
-              <div className="grid grid-cols-2 pt-4">
-                <div className="p-4 bg-slate-50 rounded-xl max-w-xs space-y-1.5 select-all border border-slate-200">
-                  <div className="font-bold text-slate-800 uppercase text-[9px] tracking-wider mb-1">State GST Compliance Breakdown:</div>
-                  {showViewModal.totalCgst > 0 ? (
-                    <>
-                      <div className="flex justify-between text-slate-500">
-                        <span>CGST (Central Tax 9%):</span>
-                        <span className="font-mono">₹{showViewModal.totalCgst.toLocaleString('en-IN')}</span>
+                {/* ── HSN-WISE GST SUMMARY TABLE (legally required) ── */}
+                <div className="mt-5 border border-slate-200 rounded-lg overflow-hidden">
+                  <div className="bg-slate-100 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-slate-600">HSN/SAC Wise Tax Summary</div>
+                  <table className="w-full text-[10px]">
+                    <thead className="bg-slate-50">
+                      <tr className="text-[9px] text-slate-500 font-bold uppercase">
+                        <th className="py-1.5 px-3 text-left">HSN/SAC</th>
+                        <th className="py-1.5 px-3 text-right">Taxable Value</th>
+                        <th className="py-1.5 px-3 text-right">CGST Rate</th>
+                        <th className="py-1.5 px-3 text-right">CGST Amt</th>
+                        <th className="py-1.5 px-3 text-right">SGST Rate</th>
+                        <th className="py-1.5 px-3 text-right">SGST Amt</th>
+                        <th className="py-1.5 px-3 text-right">IGST Rate</th>
+                        <th className="py-1.5 px-3 text-right">IGST Amt</th>
+                        <th className="py-1.5 px-3 text-right">Total Tax</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(() => {
+                        const hsnMap: Record<string, any> = {};
+                        showViewModal.items.forEach(li => {
+                          const key = li.hsnSac || "—";
+                          if (!hsnMap[key]) hsnMap[key] = { hsn: key, taxable: 0, cgst: 0, sgst: 0, igst: 0, rate: li.gstRate };
+                          hsnMap[key].taxable += li.amount;
+                          hsnMap[key].cgst += li.cgst || 0;
+                          hsnMap[key].sgst += li.sgst || 0;
+                          hsnMap[key].igst += li.igst || 0;
+                        });
+                        return Object.values(hsnMap).map((row: any, i: number) => (
+                          <tr key={i} className="border-t border-slate-100">
+                            <td className="py-1.5 px-3 font-mono font-bold">{row.hsn}</td>
+                            <td className="py-1.5 px-3 text-right font-mono">{row.taxable.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+                            <td className="py-1.5 px-3 text-right">{row.cgst>0?row.rate/2+"%":"—"}</td>
+                            <td className="py-1.5 px-3 text-right font-mono">{row.cgst>0?row.cgst.toLocaleString('en-IN',{minimumFractionDigits:2}):"—"}</td>
+                            <td className="py-1.5 px-3 text-right">{row.sgst>0?row.rate/2+"%":"—"}</td>
+                            <td className="py-1.5 px-3 text-right font-mono">{row.sgst>0?row.sgst.toLocaleString('en-IN',{minimumFractionDigits:2}):"—"}</td>
+                            <td className="py-1.5 px-3 text-right">{row.igst>0?row.rate+"%":"—"}</td>
+                            <td className="py-1.5 px-3 text-right font-mono">{row.igst>0?row.igst.toLocaleString('en-IN',{minimumFractionDigits:2}):"—"}</td>
+                            <td className="py-1.5 px-3 text-right font-mono font-bold text-blue-700">{(row.cgst+row.sgst+row.igst).toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+                          </tr>
+                        ));
+                      })()}
+                      <tr className="border-t-2 border-slate-300 bg-slate-50 font-bold text-[10px]">
+                        <td className="py-1.5 px-3">Total</td>
+                        <td className="py-1.5 px-3 text-right font-mono">{showViewModal.subtotal.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+                        <td className="py-1.5 px-3"></td>
+                        <td className="py-1.5 px-3 text-right font-mono">{showViewModal.totalCgst.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+                        <td className="py-1.5 px-3"></td>
+                        <td className="py-1.5 px-3 text-right font-mono">{showViewModal.totalSgst.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+                        <td className="py-1.5 px-3"></td>
+                        <td className="py-1.5 px-3 text-right font-mono">{showViewModal.totalIgst.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+                        <td className="py-1.5 px-3 text-right font-mono text-blue-700">{showViewModal.totalGst.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* ── TOTALS + AMOUNT IN WORDS ── */}
+                <div className="grid grid-cols-2 gap-6 mt-5">
+                  <div className="space-y-3">
+                    {/* Amount in words */}
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                      <div className="text-[9px] font-black uppercase tracking-widest text-amber-700 mb-1">Amount in Words</div>
+                      <div className="text-[11px] font-bold text-slate-800 italic">
+                        {(() => {
+                          const n = Math.round(showViewModal.total);
+                          const ones = ["","One","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten","Eleven","Twelve","Thirteen","Fourteen","Fifteen","Sixteen","Seventeen","Eighteen","Nineteen"];
+                          const tens = ["","","Twenty","Thirty","Forty","Fifty","Sixty","Seventy","Eighty","Ninety"];
+                          const toWords = (num: number): string => {
+                            if (num === 0) return "";
+                            if (num < 20) return ones[num] + " ";
+                            if (num < 100) return tens[Math.floor(num/10)] + " " + (ones[num%10] ? ones[num%10]+" " : "");
+                            if (num < 1000) return ones[Math.floor(num/100)] + " Hundred " + toWords(num%100);
+                            if (num < 100000) return toWords(Math.floor(num/1000)) + "Thousand " + toWords(num%1000);
+                            if (num < 10000000) return toWords(Math.floor(num/100000)) + "Lakh " + toWords(num%100000);
+                            return toWords(Math.floor(num/10000000)) + "Crore " + toWords(n%10000000);
+                          };
+                          return "Rupees " + toWords(n).trim() + " Only";
+                        })()}
                       </div>
-                      <div className="flex justify-between text-slate-500">
-                        <span>SGST (State Tax 9%):</span>
-                        <span className="font-mono">₹{showViewModal.totalSgst.toLocaleString('en-IN')}</span>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="flex justify-between text-slate-500">
-                      <span>IGST (Integrated Tax 18%):</span>
-                      <span className="font-mono text-indigo-600 font-semibold">₹{showViewModal.totalIgst.toLocaleString('en-IN')}</span>
                     </div>
-                  )}
-                  <div className="flex justify-between font-bold text-slate-700 border-t border-slate-200/60 pt-1">
-                    <span>GST Net Liability:</span>
-                    <span className="font-mono">₹{showViewModal.totalGst.toLocaleString('en-IN')}</span>
+                    {/* Bank details */}
+                    {(db.company.bankName || db.company.bankAccount) && (
+                      <div className="border border-slate-200 rounded-lg p-3 text-[10px] space-y-1">
+                        <div className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1">Bank Payment Details</div>
+                        {db.company.bankName && <div>Bank: <span className="font-bold">{db.company.bankName}</span></div>}
+                        {db.company.bankAccount && <div className="font-mono">A/C: <span className="font-bold">{db.company.bankAccount}</span></div>}
+                        {db.company.bankIfsc && <div className="font-mono">IFSC: <span className="font-bold">{db.company.bankIfsc}</span></div>}
+                      </div>
+                    )}
+                    {/* Notes */}
+                    {showViewModal.notes && (
+                      <div className="text-[10px]">
+                        <div className="font-bold text-slate-600 mb-1">Notes:</div>
+                        <div className="text-slate-500">{showViewModal.notes}</div>
+                      </div>
+                    )}
+                  </div>
+                  {/* Totals */}
+                  <div className="space-y-1.5 text-[11px]">
+                    {[
+                      { label: "Subtotal (Taxable)", value: showViewModal.subtotal },
+                      showViewModal.totalCgst > 0 ? { label: `CGST @ ${(showViewModal.totalCgst/showViewModal.subtotal*100).toFixed(1)}%`, value: showViewModal.totalCgst } : null,
+                      showViewModal.totalSgst > 0 ? { label: `SGST @ ${(showViewModal.totalSgst/showViewModal.subtotal*100).toFixed(1)}%`, value: showViewModal.totalSgst } : null,
+                      showViewModal.totalIgst > 0 ? { label: `IGST @ ${(showViewModal.totalIgst/showViewModal.subtotal*100).toFixed(1)}%`, value: showViewModal.totalIgst } : null,
+                    ].filter(Boolean).map((row: any, i) => (
+                      <div key={i} className="flex justify-between text-slate-600 border-b border-slate-100 pb-1">
+                        <span>{row.label}</span>
+                        <span className="font-mono">₹{row.value.toLocaleString('en-IN',{minimumFractionDigits:2})}</span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between font-black text-slate-900 text-sm border-t-2 border-slate-800 pt-2 mt-2">
+                      <span>Grand Total</span>
+                      <span className="font-mono text-emerald-700">₹{showViewModal.total.toLocaleString('en-IN',{minimumFractionDigits:2})}</span>
+                    </div>
+                    {showViewModal.paymentReceived > 0 && (
+                      <div className="flex justify-between text-emerald-600 font-semibold">
+                        <span>Payment Received</span>
+                        <span className="font-mono">-₹{showViewModal.paymentReceived.toLocaleString('en-IN',{minimumFractionDigits:2})}</span>
+                      </div>
+                    )}
+                    {showViewModal.paymentReceived > 0 && (
+                      <div className="flex justify-between font-black text-red-700 border-t border-dashed border-red-200 pt-1">
+                        <span>Balance Due</span>
+                        <span className="font-mono">₹{(showViewModal.total - showViewModal.paymentReceived).toLocaleString('en-IN',{minimumFractionDigits:2})}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                <div className="space-y-2 text-right ml-auto max-w-xs text-xs">
-                  <div className="flex justify-between text-slate-550 gap-6">
-                    <span>Taxable Subtotal:</span>
-                    <span className="font-mono font-semibold text-slate-800 text-right">₹{showViewModal.subtotal.toLocaleString('en-IN')}</span>
+                {/* ── T&C + SIGNATURE ── */}
+                <div className="mt-6 grid grid-cols-2 gap-6 border-t border-slate-200 pt-5">
+                  <div>
+                    {showViewModal.termsAndConditions && (
+                      <>
+                        <div className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1">Terms & Conditions</div>
+                        <div className="text-[10px] text-slate-500 leading-relaxed">{showViewModal.termsAndConditions}</div>
+                      </>
+                    )}
                   </div>
-                  <div className="flex justify-between text-slate-550 gap-6">
-                    <span>GSTR Combined levies:</span>
-                    <span className="font-mono text-slate-850 text-right">₹{showViewModal.totalGst.toLocaleString('en-IN')}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-900 border-t border-slate-200 pt-2 font-black text-sm">
-                    <span>Invoiced Grand Total:</span>
-                    <span className="font-mono text-indigo-600">₹{showViewModal.total.toLocaleString('en-IN')}</span>
+                  <div className="text-right">
+                    <div className="text-[9px] text-slate-500 mb-8">For <span className="font-bold text-slate-800">{db.company.name}</span></div>
+                    <div className="border-t border-slate-400 pt-1 inline-block min-w-40">
+                      <div className="text-[9px] text-slate-500">Authorised Signatory</div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-            
-            {/* Bank Payment Details */}
-            {(db.company.bankName || db.company.bankAccount) && (
-              <div className="px-8 pb-4">
-                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-[10px] space-y-1">
-                  <div className="font-bold text-slate-700 uppercase tracking-wide text-[9px]">Bank Payment Details</div>
-                  {db.company.bankName && <div className="text-slate-600">Bank: <span className="font-semibold">{db.company.bankName}</span></div>}
-                  {db.company.bankAccount && <div className="text-slate-600 font-mono">Account No: <span className="font-semibold">{db.company.bankAccount}</span></div>}
-                  {db.company.bankIfsc && <div className="text-slate-600 font-mono">IFSC: <span className="font-semibold">{db.company.bankIfsc}</span></div>}
+
+                {/* ── FOOTER ── */}
+                <div className="mt-6 pt-3 border-t border-slate-200 text-center text-[9px] text-slate-400">
+                  This is a computer-generated invoice and does not require a physical signature. | BizKhata Enterprise Accounting
                 </div>
               </div>
-            )}
-            {/* Notes + Terms */}
-            {(showViewModal.notes || showViewModal.termsAndConditions) && (
-              <div className="px-8 pb-4 grid grid-cols-2 gap-4 text-[10px]">
-                {showViewModal.notes && (
-                  <div>
-                    <div className="font-bold text-slate-600 mb-1">Notes:</div>
-                    <div className="text-slate-500 whitespace-pre-line">{showViewModal.notes}</div>
-                  </div>
-                )}
-                {showViewModal.termsAndConditions && (
-                  <div>
-                    <div className="font-bold text-slate-600 mb-1">Terms & Conditions:</div>
-                    <div className="text-slate-500 whitespace-pre-line">{showViewModal.termsAndConditions}</div>
-                  </div>
-                )}
-              </div>
-            )}
-            <div className="p-4 border-t border-slate-100 bg-slate-50 text-right text-[10px] text-slate-500 rounded-b-2xl font-mono">
-              Double-entry audit hash: dr. Accounts Receivable | cr. Taxable Income
             </div>
           </div>
         </div>
