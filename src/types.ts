@@ -62,12 +62,19 @@ export interface Item {
   id: string;
   name: string;
   hsnSac: string;
-  gstRate: number; // e.g., 18 (representing 18%)
+  gstRate: number;
   unit: string;
   salesRate: number;
   purchaseRate: number;
-  incomeAccount: string; // Chart of Account code, e.g. "sales_income"
-  expenseAccount: string; // Chart of Account code, e.g. "contractor_expense"
+  incomeAccount: string;
+  expenseAccount: string;
+  // Stock tracking
+  trackInventory?: boolean;
+  openingStock?: number;
+  currentStock?: number;
+  reorderLevel?: number;
+  reorderQty?: number;
+  warehouseLocation?: string;
 }
 
 export interface Account {
@@ -292,6 +299,12 @@ export interface DatabaseState {
   vendorCredits?: VendorCredit[];
   priceLists?: PriceList[];
   budgets?: Budget[];
+  bankAccounts?: BankAccount[];
+  bankTransactions?: BankTransaction[];
+  stockMovements?: StockMovement[];
+  fixedAssets?: FixedAsset[];
+  openingBalanceDate?: string;
+  openingBalancesSet?: boolean;
 }
 
 export interface EInvoicePortalConfig {
@@ -385,6 +398,75 @@ export interface Budget {
   name: string;
   fiscalYear: string;
   accounts: Array<{ accountCode: string; accountName: string; budgetedAmount: number }>;
+}
+
+
+// ── Bank Account ──────────────────────────────────────────────────────────────
+export interface BankAccount {
+  id: string;
+  name: string;
+  bankName: string;
+  accountNumber: string;
+  ifsc: string;
+  type: 'Current' | 'Savings' | 'OD' | 'CC';
+  openingBalance: number;
+  currentBalance: number;
+  currency: string;
+  isDefault?: boolean;
+}
+
+// ── Bank Transaction ─────────────────────────────────────────────────────────
+export interface BankTransaction {
+  id: string;
+  bankAccountId: string;
+  date: string;
+  description: string;
+  reference?: string;
+  debit: number;
+  credit: number;
+  balance: number;
+  status: 'Unreconciled' | 'Reconciled' | 'Excluded';
+  matchedId?: string; // matched invoice/bill/journal id
+  source: 'import' | 'manual' | 'system';
+}
+
+// ── Stock Movement ────────────────────────────────────────────────────────────
+export interface StockMovement {
+  id: string;
+  itemId: string;
+  itemName: string;
+  date: string;
+  type: 'Opening' | 'Purchase' | 'Sale' | 'Adjustment' | 'Transfer';
+  qty: number; // positive = in, negative = out
+  rate: number;
+  value: number;
+  referenceId?: string;
+  referenceType?: 'invoice' | 'bill' | 'adjustment';
+  notes?: string;
+}
+
+// ── Fixed Asset ───────────────────────────────────────────────────────────────
+export interface FixedAsset {
+  id: string;
+  name: string;
+  category: string;
+  purchaseDate: string;
+  cost: number;
+  depreciationMethod: 'SLM' | 'WDV';
+  usefulLife: number; // years
+  salvageValue: number;
+  currentValue: number;
+  accumulatedDepreciation: number;
+  status: 'Active' | 'Disposed' | 'Fully Depreciated';
+  invoiceRef?: string;
+}
+
+// ── Opening Balance Entry ─────────────────────────────────────────────────────
+export interface OpeningBalanceEntry {
+  accountCode: string;
+  accountName: string;
+  debit: number;
+  credit: number;
 }
 
 // ── User Management Types ─────────────────────────────────────────────────────

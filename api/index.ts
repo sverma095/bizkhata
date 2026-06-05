@@ -2268,6 +2268,163 @@ app.post("/api/vendor-credits", async (req: any, res: any) => {
 });
 
 
+// ── Delivery Challans API ────────────────────────────────────────────────────
+app.post("/api/delivery-challans", async (req: any, res: any) => {
+  try {
+    const db = await readDB();
+    const payload = req.body;
+    if (!db.deliveryChallans) db.deliveryChallans = [];
+    if (payload.id) {
+      const idx = db.deliveryChallans.findIndex((c: any) => c.id === payload.id);
+      if (idx >= 0) db.deliveryChallans[idx] = { ...db.deliveryChallans[idx], ...payload };
+      else db.deliveryChallans.push(payload);
+    } else {
+      const num = db.deliveryChallans.length + 1;
+      db.deliveryChallans.push({ ...payload, id: "dc_" + Date.now(), challanNumber: "DC-" + new Date().getFullYear() + "-" + String(num).padStart(3, "0") });
+    }
+    await writeDB(db);
+    res.json({ success: true });
+  } catch(e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Bank Accounts API ────────────────────────────────────────────────────────
+app.post("/api/bank-accounts", async (req: any, res: any) => {
+  try {
+    const db = await readDB();
+    const payload = req.body;
+    if (!(db as any).bankAccounts) (db as any).bankAccounts = [];
+    if (payload.id) {
+      const idx = (db as any).bankAccounts.findIndex((a: any) => a.id === payload.id);
+      if (idx >= 0) (db as any).bankAccounts[idx] = { ...(db as any).bankAccounts[idx], ...payload };
+    } else {
+      (db as any).bankAccounts.push({ ...payload, id: "ba_" + Date.now() });
+    }
+    await writeDB(db);
+    res.json({ success: true });
+  } catch(e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Bank Transactions API ────────────────────────────────────────────────────
+app.post("/api/bank-transactions", async (req: any, res: any) => {
+  try {
+    const db = await readDB();
+    const payload = req.body;
+    if (!(db as any).bankTransactions) (db as any).bankTransactions = [];
+    if (payload.id) {
+      const idx = (db as any).bankTransactions.findIndex((t: any) => t.id === payload.id);
+      if (idx >= 0) (db as any).bankTransactions[idx] = { ...(db as any).bankTransactions[idx], ...payload };
+      else (db as any).bankTransactions.push(payload);
+    } else {
+      (db as any).bankTransactions.push({ ...payload, id: "bt_" + Date.now() });
+    }
+    await writeDB(db);
+    res.json({ success: true });
+  } catch(e: any) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/api/bank-transactions/match", async (req: any, res: any) => {
+  try {
+    const db = await readDB();
+    const { txId, matchedId, matchedType } = req.body;
+    const txns = (db as any).bankTransactions || [];
+    const tx = txns.find((t: any) => t.id === txId);
+    if (!tx) { res.status(404).json({ error: "Transaction not found" }); return; }
+    tx.status = "Reconciled"; tx.matchedId = matchedId;
+    // Mark invoice/bill as paid
+    if (matchedType === "invoice") {
+      const inv = db.invoices.find((i: any) => i.id === matchedId);
+      if (inv) { inv.status = "Paid"; inv.paymentReceived = inv.total; }
+    } else if (matchedType === "bill") {
+      const bill = db.bills.find((b: any) => b.id === matchedId);
+      if (bill) { bill.status = "Paid"; bill.paymentPaid = bill.total; }
+    }
+    await writeDB(db);
+    res.json({ success: true });
+  } catch(e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Opening Balances API ─────────────────────────────────────────────────────
+app.post("/api/opening-balances", async (req: any, res: any) => {
+  try {
+    const db = await readDB();
+    const { entries, date } = req.body;
+    // Update account balances
+    entries.forEach((entry: any) => {
+      const acc = db.accounts.find((a: any) => a.code === entry.accountCode);
+      if (acc) {
+        acc.balance = entry.debit > 0 ? entry.debit : entry.credit;
+      }
+    });
+    (db as any).openingBalanceDate = date;
+    (db as any).openingBalancesSet = true;
+    // Post a journal entry for opening balances
+    const openingJournal = {
+      id: "j_opening_" + Date.now(),
+      date,
+      reference: "OB-" + new Date().getFullYear(),
+      description: "Opening Balances Entry",
+      lines: entries.filter((e: any) => e.debit > 0 || e.credit > 0).map((e: any, i: number) => ({
+        id: "obl_" + i,
+        accountCode: e.accountCode,
+        accountName: e.accountName,
+        debit: e.debit,
+        credit: e.credit
+      }))
+    };
+    db.journals.push(openingJournal);
+    await writeDB(db);
+    res.json({ success: true });
+  } catch(e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Chart of Accounts CRUD ───────────────────────────────────────────────────
+app.post("/api/accounts", async (req: any, res: any) => {
+  try {
+    const db = await readDB();
+    const { code, name, type, balance } = req.body;
+    if (!code || !name) { res.status(400).json({ error: "Code and name required." }); return; }
+    const existing = db.accounts.findIndex((a: any) => a.code === code);
+    if (existing >= 0) {
+      db.accounts[existing] = { ...db.accounts[existing], name, type, balance: balance || 0 };
+    } else {
+      db.accounts.push({ code, name, type, balance: balance || 0 });
+    }
+    await writeDB(db);
+    res.json({ success: true });
+  } catch(e: any) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete("/api/accounts/:code", async (req: any, res: any) => {
+  try {
+    const db = await readDB();
+    const code = req.params.code;
+    const usedInJournals = db.journals.some((j: any) => j.lines?.some((l: any) => l.accountCode === code));
+    if (usedInJournals) { res.status(400).json({ error: "Cannot delete account used in journal entries." }); return; }
+    db.accounts = db.accounts.filter((a: any) => a.code !== code);
+    await writeDB(db);
+    res.json({ success: true });
+  } catch(e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Fixed Assets API ─────────────────────────────────────────────────────────
+app.post("/api/fixed-assets", async (req: any, res: any) => {
+  try {
+    const db = await readDB();
+    const payload = req.body;
+    if (!(db as any).fixedAssets) (db as any).fixedAssets = [];
+    if (payload.id) {
+      const idx = (db as any).fixedAssets.findIndex((a: any) => a.id === payload.id);
+      if (idx >= 0) (db as any).fixedAssets[idx] = { ...(db as any).fixedAssets[idx], ...payload };
+      else (db as any).fixedAssets.push(payload);
+    } else {
+      (db as any).fixedAssets.push({ ...payload, id: "fa_" + Date.now() });
+    }
+    await writeDB(db);
+    res.json({ success: true });
+  } catch(e: any) { res.status(500).json({ error: e.message }); }
+});
+
+
 if (process.env.VERCEL !== "1") {
   (async () => {
     // Pre-prime the server memory cache asynchronously so the server starts up instantly

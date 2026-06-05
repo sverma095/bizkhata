@@ -18,6 +18,11 @@ import { SessionInfo, AppUserFull } from "./types.js";
 import SalesOrders from "./components/SalesOrders.jsx";
 import PurchaseOrders from "./components/PurchaseOrders.jsx";
 import VendorCredits from "./components/VendorCredits.jsx";
+import DeliveryChallans from "./components/DeliveryChallans.jsx";
+import BankReconciliation from "./components/BankReconciliation.jsx";
+import OpeningBalances from "./components/OpeningBalances.jsx";
+import ChartOfAccountsCRUD from "./components/ChartOfAccountsCRUD.jsx";
+import FixedAssets from "./components/FixedAssets.jsx";
 import CompanySetup from "./components/CompanySetup.jsx";
 
 // Lucide Icons
@@ -179,7 +184,7 @@ export default function App() {
   // Sub-tabs routing configurations
   const [saleSubTab, setSaleSubTab] = useState<"tax" | "proforma" | "notes" | "customers">("tax");
   const [purchasesSubTab, setPurchasesSubTab] = useState<"vendors" | "expenses" | "bills">("vendors");
-  const [accountingSubTab, setAccountingSubTab] = useState<"accounts" | "journals">("accounts");
+  const [accountingSubTab, setAccountingSubTab] = useState<"accounts" | "journals" | "opening" | "fixedassets">("accounts");
 
   // Sidebar fold configurations
   const [salesExpanded, setSalesExpanded] = useState(true);
@@ -974,6 +979,48 @@ export default function App() {
   // Vendor Credits
   const handleSaveVC = async (payload: any) => {
     const r = await fetch("/api/vendor-credits", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (r.ok) await fetchDB(); else { const e = await r.json(); throw new Error(e.error || "Failed"); }
+  };
+
+  // Delivery Challans
+  const handleSaveChallan = async (payload: any) => {
+    const r = await fetch("/api/delivery-challans", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (r.ok) await fetchDB(); else { const e = await r.json(); throw new Error(e.error || "Failed"); }
+  };
+
+  // Bank Accounts
+  const handleSaveBankAccount = async (payload: any) => {
+    const r = await fetch("/api/bank-accounts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (r.ok) await fetchDB(); else { const e = await r.json(); throw new Error(e.error || "Failed"); }
+  };
+  const handleSaveBankTransaction = async (payload: any) => {
+    const r = await fetch("/api/bank-transactions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (r.ok) await fetchDB(); else { const e = await r.json(); throw new Error(e.error || "Failed"); }
+  };
+  const handleMatchTransaction = async (txId: string, matchedId: string, matchedType: string) => {
+    const r = await fetch("/api/bank-transactions/match", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ txId, matchedId, matchedType }) });
+    if (r.ok) await fetchDB(); else { const e = await r.json(); throw new Error(e.error || "Failed"); }
+  };
+
+  // Opening Balances
+  const handleSaveOpeningBalances = async (entries: any[], date: string) => {
+    const r = await fetch("/api/opening-balances", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ entries, date }) });
+    if (r.ok) await fetchDB(); else { const e = await r.json(); throw new Error(e.error || "Failed"); }
+  };
+
+  // Chart of Accounts CRUD
+  const handleSaveAccount = async (acc: any) => {
+    const r = await fetch("/api/accounts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(acc) });
+    if (r.ok) await fetchDB(); else { const e = await r.json(); throw new Error(e.error || "Failed"); }
+  };
+  const handleDeleteAccount = async (code: string) => {
+    const r = await fetch("/api/accounts/" + code, { method: "DELETE" });
+    if (r.ok) await fetchDB(); else { const e = await r.json(); throw new Error(e.error || "Failed"); }
+  };
+
+  // Fixed Assets
+  const handleSaveFixedAsset = async (payload: any) => {
+    const r = await fetch("/api/fixed-assets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     if (r.ok) await fetchDB(); else { const e = await r.json(); throw new Error(e.error || "Failed"); }
   };
 
@@ -1891,6 +1938,17 @@ export default function App() {
                       Estimates
                     </button>
 
+                    {/* Delivery Challans */}
+                    <button
+                      onClick={() => { setActiveTab("sales"); setSaleSubTab("challans" as any); }}
+                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${
+                        activeTab === "sales" && (saleSubTab as any) === "challans"
+                          ? "text-teal-600 font-bold bg-teal-50"
+                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"
+                      }`}
+                    >
+                      Delivery Challans
+                    </button>
                     {/* Sales Orders */}
                     <button
                       onClick={() => { setActiveTab("sales"); setSaleSubTab("salesorders" as any); }}
@@ -2060,7 +2118,7 @@ export default function App() {
                 }`}
               >
                 <CreditCard className="w-4 h-4 text-slate-500" />
-                <span>Banking Passbook</span>
+                <span>Banking & Reconciliation</span>
               </button>
 
               {/* ----------------- Accountant Folder Accordion ----------------- */}
@@ -2101,6 +2159,26 @@ export default function App() {
                       }`}
                     >
                       Manual Journals
+                    </button>
+                    <button
+                      onClick={() => { setActiveTab("accounting"); setAccountingSubTab("opening"); }}
+                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${
+                        activeTab === "accounting" && accountingSubTab === "opening"
+                          ? "text-blue-600 font-bold bg-[#E2EAFC]/80"
+                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"
+                      }`}
+                    >
+                      Opening Balances
+                    </button>
+                    <button
+                      onClick={() => { setActiveTab("accounting"); setAccountingSubTab("fixedassets"); }}
+                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${
+                        activeTab === "accounting" && accountingSubTab === "fixedassets"
+                          ? "text-blue-600 font-bold bg-[#E2EAFC]/80"
+                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"
+                      }`}
+                    >
+                      Fixed Assets
                     </button>
                     
                   </div>
@@ -2284,6 +2362,12 @@ export default function App() {
                 onConvertToInvoice={handleConvertSOToInvoice}
               />
             )}
+            {activeTab === "sales" && (saleSubTab as any) === "challans" && (
+              <DeliveryChallans
+                db={db}
+                onSaveChallan={handleSaveChallan}
+              />
+            )}
 
             {/* Purchases bills & supplier spend tracking */}
             {activeTab === "purchases" && purchasesSubTab2 !== "purchaseorders" && purchasesSubTab2 !== "vendorcredits" && (
@@ -2320,12 +2404,33 @@ export default function App() {
             )}
 
             {/* double entry charts audits */}
-            {activeTab === "accounting" && (
+            {activeTab === "accounting" && accountingSubTab !== "opening" && accountingSubTab !== "fixedassets" && accountingSubTab !== "coa" && (
               <Accounting 
                 db={db} 
                 defaultTab={accountingSubTab}
                 onAddManualJournal={handlePassManualJournal}
                 userRole={activeRole}
+              />
+            )}
+            {activeTab === "accounting" && accountingSubTab === "accounts" && (
+              <div className="mt-6">
+                <ChartOfAccountsCRUD
+                  db={db}
+                  onSaveAccount={handleSaveAccount}
+                  onDeleteAccount={handleDeleteAccount}
+                />
+              </div>
+            )}
+            {activeTab === "accounting" && accountingSubTab === "opening" && (
+              <OpeningBalances
+                db={db}
+                onSaveOpeningBalances={handleSaveOpeningBalances}
+              />
+            )}
+            {activeTab === "accounting" && accountingSubTab === "fixedassets" && (
+              <FixedAssets
+                db={db}
+                onSaveAsset={handleSaveFixedAsset}
               />
             )}
 
@@ -2437,8 +2542,18 @@ export default function App() {
               </div>
             )}
 
-            {/* ----- CUSTOM TAB 2: Banking statement ----- */}
+            {/* ----- CUSTOM TAB 2: Banking & Reconciliation ----- */}
             {activeTab === "banking" && (
+              <div className="space-y-6">
+                <BankReconciliation
+                  db={db}
+                  onSaveBankAccount={handleSaveBankAccount}
+                  onSaveBankTransaction={handleSaveBankTransaction}
+                  onMatchTransaction={handleMatchTransaction}
+                />
+              </div>
+            )}
+            {activeTab === "banking_old_passbook" && (
               <div className="space-y-6 animate-fade-in">
                 <div className="flex justify-between items-center pb-4 border-b border-slate-200">
                   <div>
