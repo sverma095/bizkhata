@@ -1098,7 +1098,20 @@ app.get("/api/db", async (req, res) => {
   res.json(db);
 });
 
-app.get("/api/supabase-status", (req, res) => {
+app.get("/api/supabase-status", async (req, res) => {
+  // Always do a live probe to get accurate status
+  if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+    try {
+      const rows = await supabaseREST("GET");
+      const connected = Array.isArray(rows);
+      supabaseStatus.configured = true;
+      supabaseStatus.connected = connected;
+      supabaseStatus.error = connected ? null : { message: "Empty response from Supabase" };
+    } catch (e: any) {
+      supabaseStatus.connected = false;
+      supabaseStatus.error = { message: e?.message || String(e) };
+    }
+  }
   res.json(supabaseStatus);
 });
 

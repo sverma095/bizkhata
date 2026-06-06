@@ -377,6 +377,8 @@ export default function App() {
         const data = await r.json();
         setDb(data);
         localStorage.setItem("bizkhata_cached_db", JSON.stringify(data));
+        // After successful DB load, refresh supabase status
+        fetchSupabaseStatus();
       } else {
         console.warn("Backend API returned non-ok status. Attempting client-side local cache fallback...");
         loadClientFallback();
@@ -392,6 +394,9 @@ export default function App() {
   useEffect(() => {
     fetchDB();
     fetchSupabaseStatus();
+    // Re-check supabase status every 30s
+    const interval = setInterval(fetchSupabaseStatus, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   // Update localized seats slider threshold on fresh database load
@@ -2289,34 +2294,34 @@ export default function App() {
           {/* Actual content section */}
           <div id="zoho-viewport-content" className="p-6 md:p-8 flex-1 max-w-7xl mx-auto w-full">
             
-            {/* Supabase Status Banner */}
+            {/* Supabase Status Banner - only show if truly offline, not just slow */}
             {supabaseStatus && supabaseStatus.configured && !supabaseStatus.connected && (
-              <div className="mb-6 bg-amber-50/70 border border-amber-300 rounded-xl p-5 space-y-3 shadow-xs font-sans">
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1 p-1 px-1.5 bg-amber-100/80 rounded text-amber-800 font-bold text-[9.5px] uppercase font-mono border border-amber-250">
-                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-                    <span>Supabase Sync Offline</span>
+              <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start justify-between gap-4 font-sans">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <div className="font-bold text-amber-900 text-sm">
+                      {supabaseStatus.error?.message?.includes("aborted") || supabaseStatus.error?.message?.includes("timeout")
+                        ? "⏳ Supabase connection timed out — data saved locally"
+                        : supabaseStatus.error?.message?.includes("fetch failed")
+                        ? "🔌 Cannot reach Supabase server"
+                        : "⚠️ Supabase sync offline — using local storage"}
+                    </div>
+                    <div className="text-xs text-amber-700">
+                      {supabaseStatus.error?.message
+                        ? <span>Error: <code className="bg-amber-100 px-1 rounded">{supabaseStatus.error.message}</code></span>
+                        : "Your data is saved locally. Changes will sync when connection is restored."}
+                    </div>
+                    <div className="text-[10px] text-amber-600 mt-1">
+                      Supabase URL: <code className="bg-amber-100 px-1 rounded">{supabaseStatus.supabaseUrl || "not set"}</code>
+                      {" · "}
+                      <button onClick={fetchSupabaseStatus} className="underline hover:text-amber-800 font-semibold">Retry connection</button>
+                    </div>
                   </div>
-                  <h3 className="text-xs font-bold text-amber-900">
-                    Database State Mirroring Table "bizkhata_state" Not Initialized
-                  </h3>
                 </div>
-                <p className="text-[11.5px] text-amber-800 leading-relaxed">
-                  You have configured real-time Database connection parameters for <strong>Supabase PostgreSQL Cloud</strong>. However, the system is falling back to safe local session storage because the necessary database table is missing or restricted by default Row-Level Security rules.
-                </p>
-                <div className="bg-slate-900 text-slate-100 rounded-lg p-3.5 space-y-2.5 mt-2 shadow-inner">
-                  <p className="font-mono text-[10.5px] font-bold text-amber-400">⚡ How to complete your Backend Deployment (in 30 seconds):</p>
-                  <ol className="list-decimal list-inside text-[10.5px] space-y-1.5 text-slate-300">
-                    <li>Open your <a href="https://supabase.com" target="_blank" rel="noreferrer" className="underline text-sky-400 font-bold hover:text-sky-300">Supabase Project Console</a>.</li>
-                    <li>Click on the <strong>SQL Editor</strong> tab on the left sidebar, and select "New query".</li>
-                    <li>Open the file <span className="font-mono text-amber-300">/supabase_schema.sql</span> (Option A) from your source code repository, copy the SQL scripts, paste them into the code field and click <strong>"Run"</strong>.</li>
-                  </ol>
-                </div>
-                {supabaseStatus.error && (
-                  <div className="bg-amber-100/40 p-2.5 rounded border border-amber-200 font-mono text-[10px] text-amber-900 overflow-x-auto max-h-[80px]">
-                    <strong>API Diagnostics Error Object:</strong> {JSON.stringify(supabaseStatus.error)}
-                  </div>
-                )}
+                <button onClick={fetchSupabaseStatus} className="shrink-0 text-[10px] font-bold bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-1.5 rounded-lg border border-amber-200 transition">
+                  🔄 Retry
+                </button>
               </div>
             )}
 
