@@ -23,6 +23,7 @@ import BankReconciliation from "./components/BankReconciliation.jsx";
 import OpeningBalances from "./components/OpeningBalances.jsx";
 import ChartOfAccountsCRUD from "./components/ChartOfAccountsCRUD.jsx";
 import FixedAssets from "./components/FixedAssets.jsx";
+import BizKhataCompleteUpgrade from "./components/BizKhataCompleteUpgrade.jsx";
 import CompanySetup from "./components/CompanySetup.jsx";
 
 // Lucide Icons
@@ -138,7 +139,7 @@ export default function App() {
 
   // ── Ledger DB state ───────────────────────────────────────────────────────
   const [db, setDb] = useState<DatabaseState | null>(null);
-  const [activeTab, setActiveTab] = useState<"dashboard" | "items" | "sales" | "purchases" | "payments" | "accounting" | "reports" | "ai" | "settings" | "banking" | "timetracking" | "users">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "items" | "sales" | "purchases" | "payments" | "accounting" | "reports" | "ai" | "settings" | "banking" | "timetracking" | "users" | "advanced">("dashboard");
   const [salesSubTab, setSalesSubTab] = useState<"tax" | "proforma" | "salesorders" | "notes" | "customers">("tax");
   const [purchasesSubTab2, setPurchasesSubTab2] = useState<"vendors" | "expenses" | "bills" | "purchaseorders" | "vendorcredits">("bills");
   const [loading, setLoading] = useState(true);
@@ -2229,6 +2230,18 @@ export default function App() {
               {/* Zoho Multi-User Seat Registry */}
               <button
                 id="sidebar-users"
+                onClick={() => { setActiveTab("advanced"); }}
+                className={`flex items-center gap-3 w-full text-left py-2 px-3 rounded-xl transition-all cursor-pointer select-none group ${
+                  activeTab === "advanced"
+                    ? "bg-gradient-to-r from-purple-50 to-violet-50 text-purple-700 font-bold shadow-sm border border-purple-200"
+                    : "text-[#5A5A40] hover:bg-[#F5F2ED] hover:text-[#2C2C24]"
+                }`}
+              >
+                <span className="text-base">🚀</span>
+                <span className="font-semibold">Advanced Modules</span>
+                <span className="ml-auto text-[9px] font-black px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700">30</span>
+              </button>
+              <button
                 onClick={() => { setActiveTab("users"); }}
                 className={`w-full flex items-center justify-between px-4 py-2 text-xs font-semibold leading-relaxed transition-all cursor-pointer ${
                   activeTab === "users"
@@ -2437,6 +2450,13 @@ export default function App() {
                 db={db}
                 onSaveAsset={handleSaveFixedAsset}
               />
+            )}
+
+            {/* Advanced Modules - 30 Zoho parity features */}
+            {activeTab === "advanced" && (
+              <div className="-m-6 md:-m-8">
+                <BizKhataCompleteUpgrade />
+              </div>
             )}
 
             {/* static MIS charts & dynamic summaries audits */}
