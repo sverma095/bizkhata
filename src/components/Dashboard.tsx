@@ -130,7 +130,7 @@ export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProp
           </div>
           <div className="space-y-1">
             <h1 id="bizkhata-hello-title" className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-              Hello, Sudhanshu
+              Hello, {db.company.name || "Welcome"}
             </h1>
             <div className="flex items-center text-xs text-slate-500 font-medium hover:text-blue-650 cursor-pointer">
               <span>{db.company.legalName || "Thrymr Software Private Limited"} • All Locations</span>
@@ -142,8 +142,8 @@ export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProp
         {/* Helpline information on right side of header */}
         <div id="bizkhata-books-helpline-info" className="text-right border-l-0 md:border-l border-slate-200 pl-0 md:pl-6 space-y-1">
           <div className="flex flex-wrap items-center justify-end gap-1.5 text-xs">
-            <span className="font-semibold text-slate-900">Bizkhata Enterprise Helpline:</span>
-            <span className="font-bold text-blue-600 font-mono text-sm">1800-203-0192</span>
+            <span className="font-semibold text-slate-900">BizKhata Support</span>
+            <span className="font-bold text-blue-600 font-mono text-sm">bizkhata.com</span>
           </div>
           <p className="text-[10px] text-slate-500 font-medium">Mon - Fri • 9:00 AM - 7:00 PM • Toll Free</p>
           <p className="text-[10px] text-slate-400 font-sans tracking-tight">

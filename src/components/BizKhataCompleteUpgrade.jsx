@@ -65,11 +65,7 @@ const TDS_RATES = [
 // ── MODULE 1: TDS ──────────────────────────────────────────────
 function TDSModule() {
   const [tab, setTab] = useState("deductions");
-  const [txns, setTxns] = useState([
-    { id: 1, ven: "Sharma Consulting", pan: "ABCPS1234D", sec: "393(1)(c)", tax: 85000, rate: 10, tds: 8500, date: "2025-05-15", status: "deposited" },
-    { id: 2, ven: "Raj Contractors", pan: "XYZPR5678E", sec: "393(1)(b)", tax: 120000, rate: 1, tds: 1200, date: "2025-05-20", status: "pending" },
-    { id: 3, ven: "Office Rent", pan: "MNOPG9012F", sec: "393(1)(f)", tax: 25000, rate: 10, tds: 2500, date: "2025-06-01", status: "pending" },
-  ]);
+  const [txns, setTxns] = useState([]);
   const [form, setForm] = useState({ ven: "", pan: "", sec: "393(1)(c)", amt: "", date: new Date().toISOString().split("T")[0] });
   const pending = txns.filter(t => t.status === "pending").reduce((s, t) => s + t.tds, 0);
   const deposited = txns.filter(t => t.status === "deposited").reduce((s, t) => s + t.tds, 0);
@@ -162,12 +158,7 @@ function TDSModule() {
 
 // ── MODULE 2: WORKFLOW AUTOMATION ───────────────────────────────
 function WorkflowAutomation() {
-  const [rules, setRules] = useState([
-    { id: 1, name: "Overdue Invoice Reminder", mod: "invoices", trigger: "3 days after due date", actions: ["send_email"], on: true, runs: 142 },
-    { id: 2, name: "Large Invoice Approval", mod: "invoices", trigger: "amount > ₹50,000", actions: ["require_approval"], on: true, runs: 28 },
-    { id: 3, name: "Payment Thank-you Email", mod: "payments", trigger: "status = received", actions: ["send_email"], on: false, runs: 56 },
-    { id: 4, name: "Low Stock Alert", mod: "inventory", trigger: "stock < reorder level", actions: ["notify", "email"], on: true, runs: 14 },
-  ]);
+  const [rules, setRules] = useState([]);
   const actionLabels = { send_email: "✉ Email", require_approval: "✅ Approval", notify: "🔔 Notify", email: "✉ Email" };
   return (
     <div className="space-y-4">

@@ -296,10 +296,10 @@ export default function App() {
   const createClientFallbackState = (): DatabaseState => {
     return {
       company: {
-        name: "Bizkhata Pvt Ltd",
-        legalName: "Bizkhata Solutions Private Limited",
+        name: "",
+        legalName: "",
         gstin: "29AAAAA0000A1Z1", // Karnataka GSTIN
-        pan: "AAAAA1111A",
+        pan: "",
         address: "102 tech Hub, Double Road, Indiranagar, Bengaluru",
         state: "Karnataka",
         currency: "INR",
@@ -361,7 +361,7 @@ export default function App() {
         { id: "audit_init", timestamp: new Date().toISOString(), user: "svtiger543939@gmail.com", action: "DATABASE_INITIALIZATION", details: "Client-side fallback initialized safely" }
       ],
       users: [
-        { id: "usr_default_admin", name: "System Administrator (MCA)", email: "svtiger543939@gmail.com", mobile: "8707401846", role: UserRole.Owner, password: "Admin@123" }
+        { id: "usr_default_admin", name: "System Administrator", email: "admin@company.com", mobile: "", role: UserRole.Owner, password: "Admin@123" }
       ],
       userSeatsLimit: 5,
       mailLogs: []
@@ -476,7 +476,7 @@ export default function App() {
   };
 
   const handleAutofillAdmin = () => {
-    setLoginEmail("svtiger543939@gmail.com");
+    // setLoginEmail("");
     setLoginPassword("Admin@123");
     setLoginStep(2);
     setAuthView("signin");
@@ -503,7 +503,7 @@ export default function App() {
       setLoginEmail("");
       setLoginPassword("");
       setLoginStep(1);
-    } else if (loginEmail.trim().toLowerCase() === "svtiger543939@gmail.com" && loginPassword.trim() === "Admin@123") {
+    } else if (false) { // legacy SSO check removed
       // Immediate Admin fail-safe credentials
       const adminObj = {
         id: "usr_default_admin",
@@ -1175,7 +1175,7 @@ export default function App() {
   };
 
   const activeRole = currentUser?.role || db?.role || UserRole.Owner;
-  const activeUserEmail = currentUser?.email || "svtiger543939@gmail.com";
+  const activeUserEmail = currentUser?.email || session?.user?.email || "";
   const activeUserName = currentUser?.name || "System Administrator";
 
   const isTabBlockedForRole = (tabName: string) => {
@@ -1699,9 +1699,9 @@ export default function App() {
               <div className="border-t border-slate-200 p-4 bg-amber-500/5 text-xs text-amber-900 space-y-2.5 flex flex-col font-sans animate-fade-in leading-relaxed">
                 <span className="font-bold text-amber-800 uppercase tracking-wider text-[9px]">🔑 Standard Administrative Access (Copy/Direct Autofill):</span>
                 <div className="grid grid-cols-1 gap-1.5 font-mono text-[11px] text-amber-905 bg-white p-3 border border-[#FFDDAA] rounded-xl shadow-3xs">
-                  <div>Email: <span className="text-slate-900 font-bold select-all bg-amber-500/10 px-1.5 py-0.5 rounded border border-[#FFDDAA]/40">svtiger543939@gmail.com</span></div>
+                  <div>Email: <span className="text-slate-900 font-bold select-all bg-amber-500/10 px-1.5 py-0.5 rounded border border-[#FFDDAA]/40">{session?.user?.email || activeUserEmail}</span></div>
                   <div>Password: <span className="text-slate-900 font-bold select-all bg-amber-500/10 px-1.5 py-0.5 rounded border border-[#FFDDAA]/40">Admin@123</span></div>
-                  <div>Registered Mobile: <span className="text-slate-900 font-bold select-all bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-200">8707401846</span></div>
+                  <div>Registered Mobile: <span className="text-slate-900 font-bold select-all bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-200">{session?.user?.mobileNumber || "—"}</span></div>
                 </div>
                 
                 <p className="text-[10px] text-slate-500 leading-normal">
@@ -2312,7 +2312,7 @@ export default function App() {
             <p className="font-mono text-slate-800 font-bold uppercase truncate">{db.company.name}</p>
             <div className="flex items-center gap-1.5 text-emerald-600 font-bold text-[10px] mt-1">
               <Check className="w-3 h-3 text-emerald-600" />
-              <span>GSTR BALANCED G-TRAC</span>
+              <span>GSTR COMPLIANT</span>
             </div>
             
             {supabaseStatus && supabaseStatus.configured && (
@@ -3083,7 +3083,7 @@ export default function App() {
                       </thead>
                       <tbody className="divide-y divide-slate-100 font-sans">
                         {(db?.users || [
-                          { id: "usr_default_admin", name: "System Administrator (MCA)", email: "svtiger543939@gmail.com", mobile: "8707401846", role: UserRole.Owner, password: "Admin@123" }
+                          { id: "usr_default_admin", name: "System Administrator", email: "admin@company.com", mobile: "", role: UserRole.Owner, password: "Admin@123" }
                         ]).map((u) => (
                           <tr key={u.id} className="hover:bg-slate-50/70 transition-colors">
                             <td className="p-3.5 font-bold text-slate-800">{u.name}</td>
@@ -3117,7 +3117,7 @@ export default function App() {
                               </span>
                             </td>
                             <td className="p-3.5 text-right font-sans">
-                              {u.email !== "svtiger543939@gmail.com" && !u.isOwner ? (
+                              {!u.isOwner ? (
                                 <button
                                   type="button"
                                   onClick={() => handleDeleteUser(u.id)}

@@ -68,8 +68,8 @@ const seedUserDB = () => {
   const orgId = "org_bizkhata_default";
   USER_DB.organizations.push({
     id: orgId,
-    name: "Bizkhata Solutions Private Limited",
-    gstNumber: "29AAAAA0000A1Z1",
+    name: "My Organization",
+    gstNumber: "",
     status: "Active",
     allocatedSeats: 25,
     usedSeats: 2,
@@ -94,11 +94,11 @@ const seedUserDB = () => {
     {
       id: "user_admin_default",
       organizationId: orgId,
-      fullName: "Sudhanshu Verma",
-      email: "aman@bizkhata.com",
-      mobileNumber: "+919112233445",
+      fullName: "Admin User",
+      email: "admin@bizkhata.com",
+      mobileNumber: "+919000000000",
       department: "Management",
-      designation: "Managing Director",
+      designation: "Administrator",
       role: "Admin",
       status: "Active",
       password: "Admin@123",
@@ -285,387 +285,46 @@ const DEFAULT_ACCOUNTS: Account[] = [
 // Helper to generate a random id
 const uuid = () => Math.random().toString(36).substring(2, 11);
 
-// Default starting Database State with mock data to look complete
+// Clean initial state for go-live — no demo data
 const getInitialState = (): DatabaseState => {
-  const companyId = "co_main";
-  const initialJournals: JournalEntry[] = [
-    {
-      id: "j_init",
-      date: "2026-04-01",
-      reference: "Opening Balance",
-      description: "Initial capital contribution in bank account",
-      lines: [
-        { id: uuid(), accountCode: "bank_account", accountName: "Bank Account", debit: 500000, credit: 0 },
-        { id: uuid(), accountCode: "capital", accountName: "Capital", debit: 0, credit: 500000 }
-      ]
-    }
-  ];
-
   return {
     company: {
-      name: "Bizkhata Pvt Ltd",
-      legalName: "Bizkhata Solutions Private Limited",
-      gstin: "29AAAAA0000A1Z1", // Karnataka GSTIN
-      pan: "AAAAA1111A",
-      address: "102 tech Hub, Double Road, Indiranagar, Bengaluru",
+      name: "Your Company Name",
+      legalName: "Your Company Legal Name",
+      gstin: "",
+      pan: "",
+      address: "",
       state: "Karnataka",
       currency: "INR",
       financialYear: "2026-2027"
     },
     role: UserRole.Owner,
-    customers: [
-      {
-        id: "cust_1",
-        name: "Rajesh Khanna & Sons",
-        legalName: "Rajesh Khanna Enterprises Ltd",
-        gstin: "27BBBBB1111B1Z2", // Maharashtra GSTIN - Interstate
-        pan: "BBBBB1111B",
-        email: "finance@rajeshkhanna.com",
-        phone: "+91-9876543210",
-        billingAddress: "402 Marine Drive, Mumbai",
-        state: "Maharashtra",
-        paymentTerms: "Net 30",
-        openingBalance: 0
-      },
-      {
-        id: "cust_2",
-        name: "Zenith Software Hub",
-        legalName: "Zenith Tech Labs Karnataka Pvt Ltd",
-        gstin: "29CCCCC2222C1Z4", // Karnataka GSTIN - Intrastate
-        pan: "CCCCC2222C",
-        email: "accounts@zenithhub.co.in",
-        phone: "+91-9123456789",
-        billingAddress: "80 Feet Road, Koramangala, Bengaluru",
-        state: "Karnataka",
-        paymentTerms: "Due on Receipt",
-        openingBalance: 0
-      }
-    ],
-    vendors: [
-      {
-        id: "vend_1",
-        name: "Acme Office Supplies",
-        gstin: "29DDDDD3333D1Z5", // Karnataka Local Vendor
-        pan: "DDDDD3333D",
-        msmeStatus: "Micro",
-        email: "sales@acmeofficesupplies.in",
-        phone: "+91-8888777766",
-        address: "55 Infantry Road, Bengaluru, Karnataka",
-        openingBalance: 0
-      },
-      {
-        id: "vend_2",
-        name: "CloudScale Systems LLC",
-        gstin: "", // Unregistered/Overseas
-        pan: "EEEEE4444E",
-        msmeStatus: "Non-MSME",
-        email: "billing@cloudscale.net",
-        phone: "+1-415-555-0199",
-        address: "101 California St, San Francisco, CA, USA",
-        openingBalance: 0
-      }
-    ],
-    items: [
-      {
-        id: "item_1",
-        name: "Premium Software Architecture Consulting",
-        hsnSac: "998314", // IT Consulting SAC
-        gstRate: 18,
-        unit: "Hours",
-        salesRate: 5000,
-        purchaseRate: 0,
-        incomeAccount: "service_income",
-        expenseAccount: "contractor_expense"
-      },
-      {
-        id: "item_2",
-        name: "Paper Reams & Office Stationery Bundles",
-        hsnSac: "4802", // Paper Products HSN
-        gstRate: 12,
-        unit: "Boxes",
-        salesRate: 800,
-        purchaseRate: 550,
-        incomeAccount: "sales_income",
-        expenseAccount: "office_stationery" // will map to salary/purchases or general expense
-      }
-    ],
+    customers: [],
+    vendors: [],
+    items: [],
     accounts: DEFAULT_ACCOUNTS,
-    invoices: [
-      {
-        id: "inv_1",
-        invoiceNumber: "INV-2026-001",
-        customerId: "cust_1",
-        customerName: "Rajesh Khanna & Sons",
-        date: "2026-05-10",
-        dueDate: "2026-06-10",
-        items: [
-          {
-            id: uuid(),
-            itemId: "item_1",
-            name: "Premium Software Architecture Consulting",
-            hsnSac: "998314",
-            qty: 20,
-            rate: 5000,
-            gstRate: 18,
-            amount: 100000,
-            cgst: 0,
-            sgst: 0,
-            igst: 18000 // Interstate Karnataka -> Maharashtra
-          }
-        ],
-        subtotal: 100000,
-        totalGst: 18000,
-        totalCgst: 0,
-        totalSgst: 0,
-        totalIgst: 18000,
-        total: 118000,
-        status: "Approved",
-        isProforma: false,
-        paymentReceived: 0
-      },
-      {
-        id: "inv_2",
-        invoiceNumber: "INV-2026-002",
-        customerId: "cust_2",
-        customerName: "Zenith Software Hub",
-        date: "2026-05-15",
-        dueDate: "2026-05-15",
-        items: [
-          {
-            id: uuid(),
-            itemId: "item_1",
-            name: "Premium Software Architecture Consulting",
-            hsnSac: "998314",
-            qty: 10,
-            rate: 5000,
-            gstRate: 18,
-            amount: 50000,
-            cgst: 4500, // Intrastate Karnataka -> Karnataka
-            sgst: 4500,
-            igst: 0
-          }
-        ],
-        subtotal: 50000,
-        totalGst: 9000,
-        totalCgst: 4500,
-        totalSgst: 4500,
-        totalIgst: 0,
-        total: 59000,
-        status: "Paid",
-        isProforma: false,
-        paymentReceived: 59000
-      }
-    ],
+    invoices: [],
     creditNotes: [],
-    payments: [
-      {
-        id: "pay_1",
-        receiptNumber: "PAY-2026-001",
-        customerId: "cust_2",
-        customerName: "Zenith Software Hub",
-        date: "2026-05-16",
-        amountReceived: 59000,
-        tdsDeducted: 0,
-        paymentMode: "NEFT",
-        referenceNumber: "N12345678X",
-        bankAccount: "bank_account",
-        allocations: [{ invoiceId: "inv_2", amount: 59000 }]
-      }
-    ],
-    expenses: [
-      {
-        id: "exp_1",
-        date: "2026-05-12",
-        vendorName: "Broadband Provider Ltd",
-        category: "software_subscription",
-        subtotal: 3000,
-        gstAmount: 540, // 18% GST
-        tdsAmount: 0,
-        paymentMode: "Corporate Card",
-        total: 3540
-      }
-    ],
-    bills: [
-      {
-        id: "bill_1",
-        billNumber: "BILL-ACME-8902",
-        vendorId: "vend_1",
-        vendorName: "Acme Office Supplies",
-        date: "2026-05-20",
-        dueDate: "2026-06-20",
-        items: [
-          {
-            itemId: "item_2",
-            name: "Paper Reams & Office Stationery Bundles",
-            qty: 10,
-            rate: 550,
-            gstRate: 12,
-            amount: 5500,
-            cgst: 330,
-            sgst: 330,
-            igst: 0
-          }
-        ],
-        subtotal: 5500,
-        totalGst: 660,
-        totalCgst: 330,
-        totalSgst: 330,
-        totalIgst: 0,
-        total: 6160,
-        status: "Approved",
-        paymentPaid: 0
-      }
-    ],
-    journals: [
-      // Opening
-      {
-        id: "j_init",
-        date: "2026-04-01",
-        reference: "Opening Balance",
-        description: "Initial capital contribution in bank account",
-        lines: [
-          { id: uuid(), accountCode: "bank_account", accountName: "Bank Account", debit: 500000, credit: 0 },
-          { id: uuid(), accountCode: "capital", accountName: "Capital", debit: 0, credit: 500000 }
-        ]
-      },
-      // Journal for approved Invoice 1
-      {
-        id: "j_inv_1",
-        date: "2026-05-10",
-        reference: "Invoice INV-2026-001",
-        description: "Services rendered to Rajesh Khanna & Sons",
-        lines: [
-          { id: uuid(), accountCode: "accounts_receivable", accountName: "Accounts Receivable", debit: 118000, credit: 0 },
-          { id: uuid(), accountCode: "service_income", accountName: "Service Income", debit: 0, credit: 100000 },
-          { id: uuid(), accountCode: "gst_payable", accountName: "GST Payable (IGST 18%)", debit: 0, credit: 18000 }
-        ]
-      },
-      // Journal for paid Invoice 2
-      {
-        id: "j_inv_2",
-        date: "2026-05-15",
-        reference: "Invoice INV-2026-002",
-        description: "Services rendered to Zenith Software Hub",
-        lines: [
-          { id: uuid(), accountCode: "accounts_receivable", accountName: "Accounts Receivable", debit: 59000, credit: 0 },
-          { id: uuid(), accountCode: "service_income", accountName: "Service Income", debit: 0, credit: 50000 },
-          { id: uuid(), accountCode: "gst_payable", accountName: "GST Payable (CGST/SGST 9%)", debit: 0, credit: 9000 }
-        ]
-      },
-      // Journal for payment 1
-      {
-        id: "j_pay_1",
-        date: "2026-05-16",
-        reference: "Payment PAY-2026-001",
-        description: "Payment received for ZEN-KOR-2026-002",
-        lines: [
-          { id: uuid(), accountCode: "bank_account", accountName: "Bank Account", debit: 59000, credit: 0 },
-          { id: uuid(), accountCode: "accounts_receivable", accountName: "Accounts Receivable", debit: 0, credit: 59000 }
-        ]
-      },
-      // Journal for Expense 1
-      {
-        id: "j_exp_1",
-        date: "2026-05-12",
-        reference: "Expense - Broadband Provider Ltd",
-        description: "Broadband Subscription & Internet charges",
-        lines: [
-          { id: uuid(), accountCode: "software_subscription", accountName: "Software Subscription", debit: 3000, credit: 0 },
-          { id: uuid(), accountCode: "input_gst", accountName: "Input GST (18%)", debit: 540, credit: 0 },
-          { id: uuid(), accountCode: "bank_account", accountName: "Bank Account", debit: 0, credit: 3540 }
-        ]
-      },
-      // Journal for Bill 1 (Acme Stationery approved)
-      {
-        id: "j_bill_1",
-        date: "2026-05-20",
-        reference: "Vendor Bill BILL-ACME-8902",
-        description: "Purchased office paper & stationery boxes",
-        lines: [
-          { id: uuid(), accountCode: "salary_expense", accountName: "General Stationeries (through Salary/Admin)", debit: 5500, credit: 0 },
-          { id: uuid(), accountCode: "input_gst", accountName: "Input GST (12%)", debit: 660, credit: 0 },
-          { id: uuid(), accountCode: "accounts_payable", accountName: "Accounts Payable", debit: 0, credit: 6160 }
-        ]
-      }
-    ],
+    payments: [],
+    expenses: [],
+    bills: [],
+    journals: [],
     auditLogs: [
-      { id: uuid(), timestamp: new Date("2026-05-26T04:00:00Z").toISOString(), user: "svtiger543939@gmail.com", action: "System Init", details: "Bizkhata default ledger initialized successfully with secure role access management." }
-    ],
-    users: [
       {
-        id: "usr_default_admin",
-        name: "System Administrator (MCA)",
-        email: "svtiger543939@gmail.com",
-        mobile: "8707401846",
-        role: UserRole.Owner,
-        password: "Admin@123",
-        isOwner: true
-      },
-      {
-        id: "usr_aman_accountant",
-        name: "Aman Sharma Accountant",
-        email: "aman@bizkhata.com",
-        mobile: "9112233445",
-        role: UserRole.Accountant,
-        password: "aman",
-        isOwner: false
+        id: "audit_init",
+        timestamp: new Date().toISOString(),
+        action: "System Init",
+        details: "Bizkhata default ledger initialized successfully with secure role access management.",
+        userId: "system",
+        userName: "System"
       }
     ],
-    userSeatsLimit: 4,
+    users: [],
+    userSeatsLimit: 10,
     mailLogs: [],
-    organizations: [
-      {
-        id: "org_1",
-        name: "Bizkhata Pvt Ltd",
-        legalName: "Bizkhata Solutions Private Limited",
-        pan: "AAAAA1111A",
-        gstin: "29AAAAA0000A1Z1",
-        purchasedSeats: 4,
-        packageType: "Standard",
-        pricingMonthly: 2499,
-        purchaseStatus: "Active",
-        registeredEmail: "svtiger543939@gmail.com"
-      },
-      {
-        id: "org_2",
-        name: "Tata Motors SME Hub",
-        legalName: "Tata Motors Enterprises Limited",
-        pan: "TATA12345A",
-        gstin: "27TATAM1234A1Z5",
-        purchasedSeats: 12,
-        packageType: "Professional",
-        pricingMonthly: 5999,
-        purchaseStatus: "Active",
-        registeredEmail: "finance@tatamotors.com"
-      },
-      {
-        id: "org_3",
-        name: "Relio Global Accounts",
-        legalName: "Relio Global Technologies Inc",
-        pan: "RELI11112B",
-        gstin: "29RELIO2222B1Z6",
-        purchasedSeats: 25,
-        packageType: "Enterprise",
-        pricingMonthly: 12499,
-        purchaseStatus: "Trial",
-        registeredEmail: "billing@relioaccounts.glob"
-      },
-      {
-        id: "org_4",
-        name: "Unregistered Small Shop",
-        legalName: "Sai Kiran Retails India",
-        pan: "KIRA98765C",
-        gstin: "",
-        purchasedSeats: 2,
-        packageType: "Standard",
-        pricingMonthly: 1499,
-        purchaseStatus: "Suspended",
-        registeredEmail: "sai@kiranretail.in"
-      }
-    ]
+    organizations: []
   };
-};
-
+}
 // State Database Reader/Writer API
 function withTimeout(promise: Promise<any> | any, timeoutMs: number, errorMsg: string): Promise<any> {
   return Promise.race([
@@ -2280,6 +1939,20 @@ app.post("/api/vendor-credits", async (req: any, res: any) => {
   } catch(e: any) { res.status(500).json({ error: e.message }); }
 });
 
+
+// ── Reset to Clean State (go-live utility) ───────────────────────────────────
+app.post("/api/admin/reset-clean", async (req: any, res: any) => {
+  try {
+    const { secretKey } = req.body;
+    if (secretKey !== "BIZKHATA_GOLIVE_RESET_2026") {
+      res.status(403).json({ error: "Invalid secret key." }); return;
+    }
+    const clean = getInitialState();
+    cachedDb = clean;
+    await writeDB(clean);
+    res.json({ success: true, message: "Database reset to clean state. All demo data removed." });
+  } catch(e: any) { res.status(500).json({ error: e.message }); }
+});
 
 // ── Delivery Challans API ────────────────────────────────────────────────────
 app.post("/api/delivery-challans", async (req: any, res: any) => {

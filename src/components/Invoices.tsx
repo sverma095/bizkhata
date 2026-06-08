@@ -54,7 +54,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
   // Customer comments state
   const [customerComments, setCustomerComments] = useState<{[custId: string]: {author: string, date: string, text: string}[]}>({
     "cust_1": [
-      { author: "Sudhanshu", date: "2026-05-18 10:55 AM", text: "Verified GSTIN number directly with compliance registry. Checked regularly." }
+      
     ]
   });
   const [newCommentText, setNewCommentText] = useState("");
@@ -1914,7 +1914,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                         onClick={() => {
                           if (!newCommentText.trim()) return;
                           const addition = {
-                            author: "Sudhanshu (Accountant)",
+                            author: "Admin",
                             date: new Date().toISOString().replace('T', ' ').substring(0, 16),
                             text: newCommentText
                           };

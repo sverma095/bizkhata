@@ -53,10 +53,10 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
   const [searchSettingsQuery, setSearchSettingsQuery] = useState<string>("");
 
   // Input States for Profile Info
-  const [name, setName] = useState(db.company.name || "Thrymr Software Private Limited");
-  const [legalName, setLegalName] = useState(db.company.legalName || "Thrymr Software Private Limited");
-  const [gstin, setGstin] = useState(db.company.gstin || "36AAAAA1111A1Z1"); // Telangana GST
-  const [pan, setPan] = useState(db.company.pan || "AAAAA1111A");
+  const [name, setName] = useState(db.company.name || "");
+  const [legalName, setLegalName] = useState(db.company.legalName || "");
+  const [gstin, setGstin] = useState(db.company.gstin || "");
+  const [pan, setPan] = useState(db.company.pan || "");
   const [address, setAddress] = useState(db.company.address || "Hyderabad head office, Telangana");
   const [state, setState] = useState(db.company.state || "Telangana");
   const [currency, setCurrency] = useState(db.company.currency || "INR");
@@ -173,7 +173,7 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
   const [cfgCustomDomain, setCfgCustomDomain] = useState("billing.thrymr.net");
   const [cfgDomainVerified, setCfgDomainVerified] = useState(true);
   const [cfgLocations, setCfgLocations] = useState([
-    { id: "loc_1", name: "Hyderabad Head Office", code: "TS_36", gstin: "36AAAAA1111A1Z1", type: "Headquarters" },
+    
     { id: "loc_2", name: "Bangalore Tech Hub", code: "KA_29", gstin: "29BBBBB2222B2Z2", type: "Branch" }
   ]);
   const [cfgAiCategorize, setCfgAiCategorize] = useState(true);
@@ -320,7 +320,7 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
               </div>
               <div>
                 <h1 className="text-xl font-bold text-slate-900 tracking-tight">All Settings</h1>
-                <p className="text-xs text-slate-500 font-medium">{name || "Thrymr Software Private Limited"}</p>
+                <p className="text-xs text-slate-500 font-medium">{name || "Your Company Name"}</p>
               </div>
             </div>
 
@@ -604,7 +604,7 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 focus:bg-white rounded-lg px-3.5 py-2 text-slate-800 text-xs focus:border-[#006EE5] outline-none transition"
-                        placeholder="e.g. Thrymr Software Private Limited"
+                        placeholder="e.g. Acme Private Limited"
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -615,7 +615,7 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
                         value={legalName}
                         onChange={(e) => setLegalName(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 focus:bg-white rounded-lg px-3.5 py-2 text-slate-800 text-xs focus:border-[#006EE5] outline-none transition"
-                        placeholder="e.g. Thrymr Software Private Limited"
+                        placeholder="e.g. Acme Private Limited"
                       />
                     </div>
                   </div>
@@ -630,7 +630,7 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
                         value={gstin}
                         onChange={(e) => setGstin(e.target.value.toUpperCase())}
                         className="w-full bg-slate-50 border border-slate-200 focus:bg-white rounded-lg px-3.5 py-2 text-slate-800 text-xs font-mono tracking-wider focus:border-[#006EE5] outline-none transition"
-                        placeholder="e.g. 36AAAAA1111A1Z1"
+                        placeholder="e.g. 29AAAAA0000A1Z1"
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -642,7 +642,7 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
                         value={pan}
                         onChange={(e) => setPan(e.target.value.toUpperCase())}
                         className="w-full bg-slate-50 border border-slate-200 focus:bg-white rounded-lg px-3.5 py-2 text-slate-800 text-xs font-mono tracking-wider focus:border-[#006EE5] outline-none transition"
-                        placeholder="e.g. AAAAA1111A"
+                        placeholder="e.g. ABCDE1234F"
                       />
                     </div>
                   </div>
@@ -795,7 +795,7 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
                       <tr className="bg-slate-50/50">
-                        <td className="p-3 font-semibold">Sudhanshu Verma (Owner)</td>
+                        <td className="p-3 font-semibold">{db.company.name} (Owner)</td>
                         <td className="p-3 font-mono">sudhanshu.verma@thrymr.net</td>
                         <td className="p-3"><span className="bg-red-50 text-red-700 border border-red-200 text-[10px] uppercase font-bold px-2 py-0.5 rounded font-mono">Owner</span></td>
                         <td className="p-3 text-right text-slate-400">Unrestricted</td>
@@ -1315,7 +1315,7 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
                 </div>
                 <div className="p-4 bg-indigo-50 text-indigo-800 border-indigo-200 border rounded-xl leading-relaxed text-xs">
                   <strong>Digital Signature Card Profile Online</strong><br />
-                  Owner: <span className="font-bold">Sudhanshu Verma</span><br />
+                  Owner: <span className="font-bold">{db.company.name}</span><br />
                   Provider: <span className="font-mono">eMudhra Core India</span>
                 </div>
                 <button onClick={() => { triggerToast("Aadhaar DSC profile successfully verified!"); setActiveSection("menu"); }} className="w-full bg-[#006EE5] text-white hover:bg-[#0060C7] text-xs font-bold py-2.5 rounded-lg transition cursor-pointer">

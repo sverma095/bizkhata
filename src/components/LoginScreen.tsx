@@ -190,12 +190,7 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
                 New company?{' '}
                 <button onClick={() => { clearMessages(); setView('signup'); }} className="text-emerald-600 font-bold hover:underline">Register your organization</button>
               </div>
-              {/* Quick credentials hint */}
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-[10px] text-slate-500 space-y-0.5">
-                <div className="font-bold text-slate-600 text-xs mb-1">Default Credentials</div>
-                <div>Super Admin: <span className="font-mono">svtiger543939@gmail.com</span> / <span className="font-mono">Admin@123</span></div>
-                <div>Admin: <span className="font-mono">aman@bizkhata.com</span> / <span className="font-mono">Admin@123</span></div>
-              </div>
+
             </div>
           )}
 
