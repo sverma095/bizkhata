@@ -104,6 +104,20 @@ export default function App() {
   const handleLoginSuccess = (newSession: SessionInfo) => {
     setSession(newSession);
     localStorage.setItem('bizkhata_session_token', newSession.token);
+    // Re-fetch DB after login - use timeout to ensure fetchDB is in scope
+    setTimeout(() => {
+      fetch("/api/db").then(r => r.ok ? r.json() : null).then(data => {
+        if (data) {
+          setDb(data);
+          localStorage.setItem("bizkhata_cached_db", JSON.stringify(data));
+          setLoading(false);
+        }
+      }).catch(() => {
+        // Try loading from localStorage cache
+        const cached = localStorage.getItem("bizkhata_cached_db");
+        if (cached) { try { setDb(JSON.parse(cached)); setLoading(false); } catch {} }
+      });
+    }, 100);
   };
 
   const handleLogout = () => {
@@ -421,6 +435,16 @@ export default function App() {
   }, [timerRunning]);
 
   if (loading || !db) {
+    // If we have a session but db is loading, show minimal loader not blank
+    if (session) {
+      return (
+        <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-xs text-slate-700 font-sans gap-3.5 select-none leading-relaxed">
+          <div className="w-10 h-10 border-4 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+          <div className="tracking-widest uppercase font-bold text-[10px] text-slate-500">Loading your ledger data...</div>
+          <button onClick={fetchDB} className="mt-2 text-blue-600 hover:underline text-xs">Click here if stuck</button>
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-xs text-slate-700 font-sans gap-3.5 select-none leading-relaxed">
         <Sparkles className="w-8 h-8 text-blue-600 animate-spin" />
