@@ -1944,14 +1944,19 @@ app.post("/api/vendor-credits", async (req: any, res: any) => {
 app.post("/api/admin/reset-clean", async (req: any, res: any) => {
   try {
     const { secretKey } = req.body;
-    if (secretKey !== "BIZKHATA_GOLIVE_RESET_2026") {
+    if (secretKey !== "BIZKHATA_GOLIVE_2026") {
       res.status(403).json({ error: "Invalid secret key." }); return;
     }
     const clean = getInitialState();
     cachedDb = clean;
     await writeDB(clean);
-    res.json({ success: true, message: "Database reset to clean state. All demo data removed." });
+    res.json({ success: true, message: "✅ Database wiped to clean state. All demo data removed. Ready for go-live." });
   } catch(e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// Expose clean state for manual inspection
+app.get("/api/admin/clean-state", (req: any, res: any) => {
+  res.json(getInitialState());
 });
 
 // ── Delivery Challans API ────────────────────────────────────────────────────
