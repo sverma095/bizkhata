@@ -80,7 +80,7 @@ export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProp
   });
   const expenseCategoryList = Object.entries(expenseMap).map(([name, amount]) => ({ name, value: amount }));
 
-  // Dynamic values offsets styled as requested in Zoho Books Image 1
+  // Dynamic dashboard values
   const baseReceivables = 12553118.32;
   const baseCurrentReceivables = 3557702.14;
   const baseOverdueReceivables = 8995416.18;
@@ -153,7 +153,7 @@ export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProp
       </div>
 
       {/* 2. Sub Navigation Tabs: Dashboard, Fiscal Year-End Tasks, Getting Started */}
-      <div id="zoho-dashboard-tabs" className="border-b border-slate-200 flex flex-wrap items-center justify-between gap-4">
+      <div id="bk-dashboard-tabs" className="border-b border-slate-200 flex flex-wrap items-center justify-between gap-4">
         <div className="flex gap-6">
           {[
             { id: "dashboard", label: "Dashboard" },
@@ -196,10 +196,10 @@ export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProp
       {activeTab === "dashboard" && (
         <>
           {/* 3. Receivables & Payables Grid (Two distinct clean cards) */}
-          <div id="zoho-kpi-main-row" className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div id="bk-kpi-main-row" className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
             {/* CARD A: Total Receivables */}
-            <div id="zoho-receivables-panel" className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+            <div id="bk-receivables-panel" className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
               <div className="flex justify-between items-center pb-2 border-b border-slate-100">
                 <span className="text-sm font-bold text-slate-800">Total Receivables</span>
                 <button 
@@ -247,7 +247,7 @@ export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProp
             </div>
 
             {/* CARD B: Total Payables */}
-            <div id="zoho-payables-panel" className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+            <div id="bk-payables-panel" className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
               <div className="flex justify-between items-center pb-2 border-b border-slate-100">
                 <span className="text-sm font-bold text-slate-800">Total Payables</span>
                 <button 
@@ -329,7 +329,7 @@ export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProp
           )}
 
           {/* 4. Cash Flow area line Chart segment aligned with screenshot */}
-          <div id="zoho-cashflow-panel" className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-6">
+          <div id="bk-cashflow-panel" className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-6">
             <div className="flex justify-between items-center">
               <h3 className="text-sm font-bold text-slate-900">Cash Flow</h3>
               <div className="relative inline-block">
@@ -341,7 +341,7 @@ export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProp
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-center">
-              {/* SVG Area Line Chart mimicking the actual Zoho Books path */}
+              {/* SVG Area Line Chart */}
               <div className="lg:col-span-3 h-64 relative bg-slate-50/20 border border-slate-100 rounded-lg p-2">
                 
                 {/* Horizontal grid lines */}
@@ -480,7 +480,7 @@ export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProp
           </div>
 
           {/* 5. Income and Expense + Top Expenses Row */}
-          <div id="zoho-additional-kpis" className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div id="bk-additional-kpis" className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
             {/* KPI Left: Income and Expense Card */}
             <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
@@ -594,7 +594,7 @@ export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProp
       )}
 
       {activeTab === "getstarted" && (
-        <div id="zoho-getting-started-board" className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div id="bk-getting-started-board" className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-gradient-to-tr from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-5 space-y-3 shadow-xs">
             <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
               <span className="w-5 h-5 bg-blue-100 text-blue-800 rounded-full flex items-center justify-center font-bold text-xs">1</span>

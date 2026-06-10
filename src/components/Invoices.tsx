@@ -999,7 +999,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
       {/* INVOICES LIST TREE */}
       {!showForm && activeTab !== "customers" && (
         <div id="billing-ledger-table-panel" className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-          {/* ── Zoho-style list header with filters + actions ── */}
+          {/* ── Invoice list header with filters + actions ── */}
           <div className="px-5 py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3 flex-wrap">
               {/* Status filter tabs */}
@@ -2203,7 +2203,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
               </div>
             </div>
 
-            {/* ── ZOHO-LEVEL A4 INVOICE BODY ── */}
+            {/* ── A4 Invoice Body ── */}
             <div id="print-sheet-content" className="flex-1 overflow-y-auto bg-white">
               {/* A4 paper wrapper */}
               <div className="max-w-[800px] mx-auto p-8 space-y-0 text-[11px] text-slate-800 print:p-6">

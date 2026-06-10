@@ -38,7 +38,10 @@ import {
   Sparkles, 
   Check, 
   Search, 
-  ChevronRight, 
+  ChevronRight,
+  ShoppingCart,
+  Landmark,
+  Timer, 
   ChevronDown,
   LogOut, 
   AlertTriangle,
@@ -155,6 +158,9 @@ export default function App() {
   const [db, setDb] = useState<DatabaseState | null>(null);
   const [activeTab, setActiveTab] = useState<"dashboard" | "items" | "sales" | "purchases" | "payments" | "accounting" | "reports" | "ai" | "settings" | "banking" | "timetracking" | "users" | "advanced">("dashboard");
   const [salesSubTab, setSalesSubTab] = useState<"tax" | "proforma" | "salesorders" | "notes" | "customers">("tax");
+  const [salesExpanded, setSalesExpanded] = useState(true);
+  const [purchasesExpanded, setPurchasesExpanded] = useState(true);
+  const [accountingExpanded, setAccountingExpanded] = useState(true);
   const [purchasesSubTab2, setPurchasesSubTab2] = useState<"vendors" | "expenses" | "bills" | "purchaseorders" | "vendorcredits">("bills");
   const [loading, setLoading] = useState(true);
 
@@ -175,7 +181,7 @@ export default function App() {
   const [ssoLoading, setSsoLoading] = useState(false);
   const [showHelpDrawer, setShowHelpDrawer] = useState(false);
 
-  // Zoho multi-user recruitment structures
+  // Multi-user management
   const [newlyInvitedUser, setNewlyInvitedUser] = useState<any>(null);
   const [inviteName, setInviteName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
@@ -202,8 +208,6 @@ export default function App() {
   const [accountingSubTab, setAccountingSubTab] = useState<"accounts" | "journals" | "opening" | "fixedassets">("accounts");
 
   // Sidebar fold configurations
-  const [salesExpanded, setSalesExpanded] = useState(true);
-  const [purchasesExpanded, setPurchasesExpanded] = useState(true);
   const [accountantExpanded, setAccountantExpanded] = useState(true);
 
   // Global Global Search value Mock
@@ -1461,7 +1465,7 @@ export default function App() {
 
                   </form>
                 ) : (
-                  /* STEP 2: Password Screen with Zoho UI features */
+                  /* STEP 2: Password Screen */
                   <form onSubmit={handleSignIn} className="space-y-4">
                     
                     {/* Selected Email Display and Quick Edit Back door */}
@@ -1568,7 +1572,7 @@ export default function App() {
 
               </div>
             ) : (
-              /* ----- ZOHO AUTHENTIC REGISTER ORGANIZATION FORM ----- */
+              /* ----- REGISTER ORGANIZATION FORM ----- */
               <form onSubmit={handleSignUp} className="space-y-4 text-xs font-medium">
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1904,402 +1908,197 @@ export default function App() {
       </header>
       
       {/* ----------------- SUB HEADER & CONTENT CONTAINER ----------------- */}
-      <div id="zoho-main-body" className="flex-1 flex overflow-hidden">
+      <div id="bk-main-body" className="flex-1 flex overflow-hidden">
         
         {/* LEFT COMPREHENSIVE SIDEBAR PANEL */}
-        <aside id="zoho-left-sidebar" className="w-[230px] bg-[#F3F4F7] border-r border-slate-200 shrink-0 flex flex-col justify-between select-none overflow-y-auto">
+        <aside id="bk-left-sidebar" className="w-[230px] bg-[#F3F4F7] border-r border-slate-200 shrink-0 flex flex-col justify-between select-none overflow-y-auto">
           
           <div className="py-2.5">
             <nav className="space-y-0.5">
-              
-              {/* Home Menu */}
-              <button
-                id="sidebar-home"
-                onClick={() => { setActiveTab("dashboard"); }}
+
+              {/* 1. Dashboard */}
+              <button id="sidebar-home" onClick={() => { setActiveTab("dashboard"); }}
                 className={`w-full flex items-center gap-3 px-4 py-2 text-xs font-semibold leading-relaxed transition-all cursor-pointer ${
-                  activeTab === "dashboard"
-                    ? "bg-[#E2EAFC] text-blue-700 font-bold border-l-4 border-blue-600 shadow-2xs"
-                    : "text-slate-650 hover:bg-slate-100/70 hover:text-slate-900"
-                }`}
-              >
-                <LayoutDashboard className="w-4 h-4 text-slate-500" />
-                <span>Home (Dashboard)</span>
+                  activeTab === "dashboard" ? "bg-[#E2EAFC] text-blue-700 font-bold border-l-4 border-blue-600" : "text-slate-650 hover:bg-slate-100/70 hover:text-slate-900"
+                }`}>
+                <LayoutDashboard className="w-4 h-4 text-slate-500" /><span>Dashboard</span>
               </button>
 
-              {/* Items Menu */}
-              <button
-                id="sidebar-items"
-                onClick={() => { setActiveTab("items"); }}
+              {/* 2. Items & Inventory */}
+              <button id="sidebar-items" onClick={() => { setActiveTab("items"); }}
                 className={`w-full flex items-center gap-3 px-4 py-2 text-xs font-semibold leading-relaxed transition-all cursor-pointer ${
-                  activeTab === "items"
-                    ? "bg-[#E2EAFC] text-blue-700 font-bold border-l-4 border-blue-600 shadow-2xs"
-                    : "text-slate-650 hover:bg-slate-100/70 hover:text-slate-900"
-                }`}
-              >
-                <Package className="w-4 h-4 text-slate-500" />
-                <span>Items Catalog</span>
+                  activeTab === "items" ? "bg-[#E2EAFC] text-blue-700 font-bold border-l-4 border-blue-600" : "text-slate-650 hover:bg-slate-100/70 hover:text-slate-900"
+                }`}>
+                <Package className="w-4 h-4 text-slate-500" /><span>Items & Inventory</span>
               </button>
 
-              {/* ----------------- Sales Folder Accordion ----------------- */}
+              {/* 3. Sales */}
               <div>
-                <button
-                  onClick={() => setSalesExpanded(!salesExpanded)}
-                  className="w-full flex items-center justify-between px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100/70 cursor-pointer"
-                >
-                  <span className="flex items-center gap-3">
-                    <FileCheck2 className="w-4 h-4 text-slate-500" />
-                    <span>Sales</span>
-                  </span>
+                <button onClick={() => setSalesExpanded(!salesExpanded)}
+                  className="w-full flex items-center justify-between px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100/70 cursor-pointer">
+                  <span className="flex items-center gap-3"><FileCheck2 className="w-4 h-4 text-slate-500" /><span>Sales</span></span>
                   {salesExpanded ? <ChevronDown className="w-3.5 h-3.5 text-slate-400" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-400" />}
                 </button>
-
                 {salesExpanded && (
                   <div className="bg-[#EBECF2]/40 pl-8 space-y-0.5 py-0.5">
-                    
-                    {/* Estimates / proforma invoices */}
-                    <button
-                      onClick={() => { setActiveTab("sales"); setSaleSubTab("proforma"); }}
-                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${
-                        activeTab === "sales" && saleSubTab === "proforma"
-                          ? "text-blue-600 font-bold bg-[#E2EAFC]/80"
-                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"
-                      }`}
-                    >
-                      Estimates
+                    <button onClick={() => { setActiveTab("sales"); setSaleSubTab("tax"); }}
+                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${activeTab === "sales" && saleSubTab === "tax" ? "text-blue-600 font-bold bg-[#E2EAFC]/80" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"}`}>
+                      Tax Invoices
                     </button>
-
-                    {/* Delivery Challans */}
-                    <button
-                      onClick={() => { setActiveTab("sales"); setSaleSubTab("challans" as any); }}
-                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${
-                        activeTab === "sales" && (saleSubTab as any) === "challans"
-                          ? "text-teal-600 font-bold bg-teal-50"
-                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"
-                      }`}
-                    >
-                      Delivery Challans
+                    <button onClick={() => { setActiveTab("sales"); setSaleSubTab("proforma"); }}
+                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${activeTab === "sales" && saleSubTab === "proforma" ? "text-blue-600 font-bold bg-[#E2EAFC]/80" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"}`}>
+                      Proforma Invoices
                     </button>
-                    {/* Sales Orders */}
-                    <button
-                      onClick={() => { setActiveTab("sales"); setSaleSubTab("salesorders" as any); }}
-                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${
-                        activeTab === "sales" && (saleSubTab as any) === "salesorders"
-                          ? "text-blue-600 font-bold bg-[#E2EAFC]/80"
-                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"
-                      }`}
-                    >
+                    <button onClick={() => { setActiveTab("sales"); setSaleSubTab("salesorders" as any); }}
+                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${activeTab === "sales" && (saleSubTab as any) === "salesorders" ? "text-blue-600 font-bold bg-[#E2EAFC]/80" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"}`}>
                       Sales Orders
                     </button>
-
-                    {/* Clients Directory */}
-                    <button
-                      onClick={() => { setActiveTab("sales"); setSaleSubTab("customers"); }}
-                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${
-                        activeTab === "sales" && saleSubTab === "customers"
-                          ? "text-blue-600 font-bold bg-[#E2EAFC]/80"
-                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"
-                      }`}
-                    >
-                      Clients Directory
+                    <button onClick={() => { setActiveTab("sales"); setSaleSubTab("challans" as any); }}
+                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${activeTab === "sales" && (saleSubTab as any) === "challans" ? "text-blue-600 font-bold bg-[#E2EAFC]/80" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"}`}>
+                      Delivery Challans
                     </button>
-
-                    {/* Tax invoices */}
-                    <button
-                      onClick={() => { setActiveTab("sales"); setSaleSubTab("tax"); }}
-                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${
-                        activeTab === "sales" && saleSubTab === "tax"
-                          ? "text-blue-600 font-bold bg-[#E2EAFC]/80"
-                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"
-                      }`}
-                    >
-                      Invoices
-                    </button>
-
-                    {/* Payments received */}
-                    <button
-                      onClick={() => { setActiveTab("payments"); }}
-                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${
-                        activeTab === "payments"
-                          ? "text-blue-600 font-bold bg-[#E2EAFC]/80"
-                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"
-                      }`}
-                    >
-                      Payments Received
-                    </button>
-
-                    {/* Credit notes */}
-                    <button
-                      onClick={() => { setActiveTab("sales"); setSaleSubTab("notes"); }}
-                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${
-                        activeTab === "sales" && saleSubTab === "notes"
-                          ? "text-blue-600 font-bold bg-[#E2EAFC]/80"
-                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"
-                      }`}
-                    >
+                    <button onClick={() => { setActiveTab("sales"); setSaleSubTab("notes"); }}
+                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${activeTab === "sales" && saleSubTab === "notes" ? "text-blue-600 font-bold bg-[#E2EAFC]/80" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"}`}>
                       Credit Notes
                     </button>
-                    
+                    <button onClick={() => { setActiveTab("payments"); }}
+                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${activeTab === "payments" ? "text-blue-600 font-bold bg-[#E2EAFC]/80" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"}`}>
+                      Payments Received
+                    </button>
+                    <button onClick={() => { setActiveTab("sales"); setSaleSubTab("customers"); }}
+                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${activeTab === "sales" && saleSubTab === "customers" ? "text-blue-600 font-bold bg-[#E2EAFC]/80" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"}`}>
+                      Customers
+                    </button>
                   </div>
                 )}
               </div>
 
-              {/* ----------------- Purchases Folder Accordion ----------------- */}
+              {/* 4. Purchases */}
               <div>
-                <button
-                  onClick={() => setPurchasesExpanded(!purchasesExpanded)}
-                  className="w-full flex items-center justify-between px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100/70 cursor-pointer"
-                >
-                  <span className="flex items-center gap-3">
-                    <ShoppingBag className="w-4 h-4 text-slate-500" />
-                    <span>Purchases</span>
-                  </span>
+                <button onClick={() => setPurchasesExpanded(!purchasesExpanded)}
+                  className="w-full flex items-center justify-between px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100/70 cursor-pointer">
+                  <span className="flex items-center gap-3"><ShoppingCart className="w-4 h-4 text-slate-500" /><span>Purchases</span></span>
                   {purchasesExpanded ? <ChevronDown className="w-3.5 h-3.5 text-slate-400" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-400" />}
                 </button>
-
                 {purchasesExpanded && (
                   <div className="bg-[#EBECF2]/40 pl-8 space-y-0.5 py-0.5">
-                    
-                    {/* Vendors */}
-                    <button
-                      onClick={() => { setActiveTab("purchases"); setPurchasesSubTab("vendors"); }}
-                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${
-                        activeTab === "purchases" && purchasesSubTab === "vendors"
-                          ? "text-blue-600 font-bold bg-[#E2EAFC]/80"
-                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"
-                      }`}
-                    >
-                      Vendors
-                    </button>
-
-                    {/* Expenses */}
-                    <button
-                      onClick={() => { setActiveTab("purchases"); setPurchasesSubTab("expenses"); }}
-                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${
-                        activeTab === "purchases" && purchasesSubTab === "expenses"
-                          ? "text-blue-600 font-bold bg-[#E2EAFC]/80"
-                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"
-                      }`}
-                    >
-                      Expenses
-                    </button>
-
-                    {/* Bills */}
-                    <button
-                      onClick={() => { setActiveTab("purchases"); setPurchasesSubTab("bills"); }}
-                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${
-                        activeTab === "purchases" && purchasesSubTab === "bills"
-                          ? "text-blue-600 font-bold bg-[#E2EAFC]/80"
-                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"
-                      }`}
-                    >
+                    <button onClick={() => { setActiveTab("purchases"); setPurchasesSubTab("bills"); setPurchasesSubTab2("bills"); }}
+                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${activeTab === "purchases" && purchasesSubTab === "bills" && purchasesSubTab2 !== "purchaseorders" && purchasesSubTab2 !== "vendorcredits" ? "text-blue-600 font-bold bg-[#E2EAFC]/80" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"}`}>
                       Bills
                     </button>
-
-                    {/* Purchase Orders */}
-                    <button
-                      onClick={() => { setActiveTab("purchases"); setPurchasesSubTab2("purchaseorders"); setPurchasesSubTab("bills"); }}
-                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${
-                        purchasesSubTab2 === "purchaseorders" && activeTab === "purchases"
-                          ? "text-amber-600 font-bold bg-amber-50"
-                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"
-                      }`}
-                    >
+                    <button onClick={() => { setActiveTab("purchases"); setPurchasesSubTab2("purchaseorders"); }}
+                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${purchasesSubTab2 === "purchaseorders" && activeTab === "purchases" ? "text-amber-600 font-bold bg-amber-50" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"}`}>
                       Purchase Orders
                     </button>
-
-                    {/* Vendor Credits */}
-                    <button
-                      onClick={() => { setActiveTab("purchases"); setPurchasesSubTab2("vendorcredits"); setPurchasesSubTab("bills"); }}
-                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${
-                        purchasesSubTab2 === "vendorcredits" && activeTab === "purchases"
-                          ? "text-purple-600 font-bold bg-purple-50"
-                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"
-                      }`}
-                    >
+                    <button onClick={() => { setActiveTab("purchases"); setPurchasesSubTab("expenses"); }}
+                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${activeTab === "purchases" && purchasesSubTab === "expenses" ? "text-blue-600 font-bold bg-[#E2EAFC]/80" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"}`}>
+                      Expenses
+                    </button>
+                    <button onClick={() => { setActiveTab("purchases"); setPurchasesSubTab2("vendorcredits"); }}
+                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${purchasesSubTab2 === "vendorcredits" && activeTab === "purchases" ? "text-purple-600 font-bold bg-purple-50" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"}`}>
                       Vendor Credits
                     </button>
-                    
+                    <button onClick={() => { setActiveTab("purchases"); setPurchasesSubTab("vendors"); }}
+                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${activeTab === "purchases" && purchasesSubTab === "vendors" ? "text-blue-600 font-bold bg-[#E2EAFC]/80" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"}`}>
+                      Vendors
+                    </button>
                   </div>
                 )}
               </div>
 
-              {/* Time Tracking stopwatch Menu */}
-              <button
-                id="sidebar-time"
-                onClick={() => { setActiveTab("timetracking"); }}
+              {/* 5. Banking */}
+              <button id="sidebar-banking" onClick={() => { setActiveTab("banking"); }}
                 className={`w-full flex items-center gap-3 px-4 py-2 text-xs font-semibold leading-relaxed transition-all cursor-pointer ${
-                  activeTab === "timetracking"
-                    ? "bg-[#E2EAFC] text-blue-700 font-bold border-l-4 border-blue-600 shadow-2xs"
-                    : "text-slate-650 hover:bg-slate-100/70 hover:text-slate-900"
-                }`}
-              >
-                <Clock className="w-4 h-4 text-slate-500" />
-                <span>Time Tracking</span>
+                  activeTab === "banking" ? "bg-[#E2EAFC] text-blue-700 font-bold border-l-4 border-blue-600" : "text-slate-650 hover:bg-slate-100/70 hover:text-slate-900"
+                }`}>
+                <Landmark className="w-4 h-4 text-slate-500" /><span>Banking</span>
               </button>
 
-              {/* Banking Statement passbook Menu */}
-              <button
-                id="sidebar-banking"
-                onClick={() => { setActiveTab("banking"); }}
-                className={`w-full flex items-center gap-3 px-4 py-2 text-xs font-semibold leading-relaxed transition-all cursor-pointer ${
-                  activeTab === "banking"
-                    ? "bg-[#E2EAFC] text-blue-700 font-bold border-l-4 border-blue-600 shadow-2xs"
-                    : "text-slate-650 hover:bg-slate-100/70 hover:text-slate-900"
-                }`}
-              >
-                <CreditCard className="w-4 h-4 text-slate-500" />
-                <span>Banking & Reconciliation</span>
-              </button>
-
-              {/* ----------------- Accountant Folder Accordion ----------------- */}
+              {/* 6. Accountant */}
               <div>
-                <button
-                  onClick={() => setAccountantExpanded(!accountantExpanded)}
-                  className="w-full flex items-center justify-between px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100/70 cursor-pointer"
-                >
-                  <span className="flex items-center gap-3">
-                    <BookOpen className="w-4 h-4 text-slate-500" />
-                    <span>Accountant Desk</span>
-                  </span>
-                  {accountantExpanded ? <ChevronDown className="w-3.5 h-3.5 text-slate-400" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-400" />}
+                <button onClick={() => setAccountingExpanded(!accountingExpanded)}
+                  className="w-full flex items-center justify-between px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100/70 cursor-pointer">
+                  <span className="flex items-center gap-3"><BookOpen className="w-4 h-4 text-slate-500" /><span>Accountant</span></span>
+                  {accountingExpanded ? <ChevronDown className="w-3.5 h-3.5 text-slate-400" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-400" />}
                 </button>
-
-                {accountantExpanded && (
+                {accountingExpanded && (
                   <div className="bg-[#EBECF2]/40 pl-8 space-y-0.5 py-0.5">
-                    
-                    {/* Chart of Accounts */}
-                    <button
-                      onClick={() => { setActiveTab("accounting"); setAccountingSubTab("accounts"); }}
-                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${
-                        activeTab === "accounting" && accountingSubTab === "accounts"
-                          ? "text-blue-600 font-bold bg-[#E2EAFC]/80"
-                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"
-                      }`}
-                    >
+                    <button onClick={() => { setActiveTab("accounting"); setAccountingSubTab("accounts"); }}
+                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${activeTab === "accounting" && accountingSubTab === "accounts" ? "text-blue-600 font-bold bg-[#E2EAFC]/80" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"}`}>
                       Chart of Accounts
                     </button>
-
-                    {/* Journals */}
-                    <button
-                      onClick={() => { setActiveTab("accounting"); setAccountingSubTab("journals"); }}
-                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${
-                        activeTab === "accounting" && accountingSubTab === "journals"
-                          ? "text-blue-600 font-bold bg-[#E2EAFC]/80"
-                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"
-                      }`}
-                    >
+                    <button onClick={() => { setActiveTab("accounting"); setAccountingSubTab("journals"); }}
+                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${activeTab === "accounting" && accountingSubTab === "journals" ? "text-blue-600 font-bold bg-[#E2EAFC]/80" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"}`}>
                       Manual Journals
                     </button>
-                    <button
-                      onClick={() => { setActiveTab("accounting"); setAccountingSubTab("opening"); }}
-                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${
-                        activeTab === "accounting" && accountingSubTab === "opening"
-                          ? "text-blue-600 font-bold bg-[#E2EAFC]/80"
-                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"
-                      }`}
-                    >
+                    <button onClick={() => { setActiveTab("accounting"); setAccountingSubTab("opening"); }}
+                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${activeTab === "accounting" && accountingSubTab === "opening" ? "text-blue-600 font-bold bg-[#E2EAFC]/80" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"}`}>
                       Opening Balances
                     </button>
-                    <button
-                      onClick={() => { setActiveTab("accounting"); setAccountingSubTab("fixedassets"); }}
-                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${
-                        activeTab === "accounting" && accountingSubTab === "fixedassets"
-                          ? "text-blue-600 font-bold bg-[#E2EAFC]/80"
-                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"
-                      }`}
-                    >
+                    <button onClick={() => { setActiveTab("accounting"); setAccountingSubTab("fixedassets"); }}
+                      className={`w-full text-left py-1.5 px-3.5 text-xs font-medium rounded-l transition-all cursor-pointer ${activeTab === "accounting" && accountingSubTab === "fixedassets" ? "text-blue-600 font-bold bg-[#E2EAFC]/80" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/40"}`}>
                       Fixed Assets
                     </button>
-                    
                   </div>
                 )}
               </div>
 
-              {/* Reports Menu */}
-              <button
-                id="sidebar-reports"
+              {/* 7. Reports */}
+              <button id="sidebar-reports" onClick={() => { setActiveTab("reports"); }}
                 disabled={isTabBlockedForRole("reports")}
-                onClick={() => { setActiveTab("reports"); }}
                 className={`w-full flex items-center gap-3 px-4 py-2 text-xs font-semibold leading-relaxed transition-all cursor-pointer ${
-                  isTabBlockedForRole("reports")
-                    ? "opacity-35 cursor-not-allowed select-none bg-transparent"
-                    : activeTab === "reports"
-                    ? "bg-[#E2EAFC] text-blue-700 font-bold border-l-4 border-blue-600 shadow-2xs"
-                    : "text-slate-650 hover:bg-slate-100/70 hover:text-slate-900"
-                }`}
-              >
-                <FolderLock className="w-4 h-4 text-slate-500" />
-                <span>Reports Center</span>
+                  isTabBlockedForRole("reports") ? "opacity-35 cursor-not-allowed" :
+                  activeTab === "reports" ? "bg-[#E2EAFC] text-blue-700 font-bold border-l-4 border-blue-600" : "text-slate-650 hover:bg-slate-100/70 hover:text-slate-900"
+                }`}>
+                <FolderLock className="w-4 h-4 text-slate-500" /><span>Reports</span>
               </button>
 
-              {/* Assist Workspace Menu */}
-              <button
-                id="sidebar-ai"
-                onClick={() => { setActiveTab("ai"); }}
+              {/* 8. Time Tracking */}
+              <button id="sidebar-time" onClick={() => { setActiveTab("timetracking"); }}
+                className={`w-full flex items-center gap-3 px-4 py-2 text-xs font-semibold leading-relaxed transition-all cursor-pointer ${
+                  activeTab === "timetracking" ? "bg-[#E2EAFC] text-blue-700 font-bold border-l-4 border-blue-600" : "text-slate-650 hover:bg-slate-100/70 hover:text-slate-900"
+                }`}>
+                <Timer className="w-4 h-4 text-slate-500" /><span>Time Tracking</span>
+              </button>
+
+              {/* DIVIDER */}
+              <div className="mx-4 my-1 border-t border-slate-200" />
+
+              {/* 9. AI Copilot */}
+              <button id="sidebar-ai" onClick={() => { setActiveTab("ai"); }}
                 className={`w-full flex items-center justify-between px-4 py-2 text-xs font-semibold leading-relaxed transition-all cursor-pointer ${
-                  activeTab === "ai"
-                    ? "bg-[#E2EAFC] text-blue-700 font-bold border-l-4 border-blue-600 shadow-2xs animate-pulse"
-                    : "text-slate-650 hover:bg-slate-100/70 hover:text-slate-900"
-                }`}
-              >
-                <span className="flex items-center gap-3">
-                  <Sparkles className="w-4 h-4 text-slate-500" />
-                  <span>AI Copilot Smart Desk</span>
-                </span>
-                <span className="text-[7.5px] font-bold bg-violet-600 text-white rounded px-1 tracking-widest uppercase">
-                  Active
-                </span>
+                  activeTab === "ai" ? "bg-[#E2EAFC] text-blue-700 font-bold border-l-4 border-blue-600" : "text-slate-650 hover:bg-slate-100/70 hover:text-slate-900"
+                }`}>
+                <span className="flex items-center gap-3"><Sparkles className="w-4 h-4 text-violet-500" /><span>AI Copilot</span></span>
+                <span className="text-[7.5px] font-bold bg-violet-600 text-white rounded px-1 tracking-widest uppercase">Active</span>
               </button>
 
-              {/* Zoho Multi-User Seat Registry */}
-              <button
-                id="sidebar-users"
-                onClick={() => { setActiveTab("advanced"); }}
-                className={`flex items-center gap-3 w-full text-left py-2 px-3 rounded-xl transition-all cursor-pointer select-none group ${
-                  activeTab === "advanced"
-                    ? "bg-gradient-to-r from-purple-50 to-violet-50 text-purple-700 font-bold shadow-sm border border-purple-200"
-                    : "text-[#5A5A40] hover:bg-[#F5F2ED] hover:text-[#2C2C24]"
-                }`}
-              >
-                <span className="text-base">🚀</span>
-                <span className="font-semibold">Advanced Modules</span>
-                <span className="ml-auto text-[9px] font-black px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700">30</span>
-              </button>
-              <button
-                onClick={() => { setActiveTab("users"); }}
+              {/* 10. Advanced Modules */}
+              <button onClick={() => { setActiveTab("advanced"); }}
                 className={`w-full flex items-center justify-between px-4 py-2 text-xs font-semibold leading-relaxed transition-all cursor-pointer ${
-                  activeTab === "users"
-                    ? "bg-[#E2EAFC] text-blue-700 font-bold border-l-4 border-blue-600 shadow-2xs"
-                    : "text-slate-650 hover:bg-slate-100/70 hover:text-slate-900"
-                }`}
-              >
-                <span className="flex items-center gap-3">
-                  <Users className="w-4 h-4 text-slate-500" />
-                  <span>Users & Roles Desk</span>
-                </span>
-                <span className="text-[7.5px] font-black bg-blue-600 text-white rounded px-1.5 py-0.5 tracking-wide">
-                  {db?.users?.length || 2} / {db?.userSeatsLimit || 5} Seats
-                </span>
+                  activeTab === "advanced" ? "bg-purple-50 text-purple-700 font-bold border-l-4 border-purple-600" : "text-slate-650 hover:bg-slate-100/70 hover:text-slate-900"
+                }`}>
+                <span className="flex items-center gap-3"><span className="text-sm">🚀</span><span>Advanced Modules</span></span>
+                <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700">30</span>
               </button>
 
-              {/* SaaS Platform Owner Console */}
+              {/* 11. Users & Roles */}
+              <button id="sidebar-users" onClick={() => { setActiveTab("users"); }}
+                className={`w-full flex items-center justify-between px-4 py-2 text-xs font-semibold leading-relaxed transition-all cursor-pointer ${
+                  activeTab === "users" ? "bg-[#E2EAFC] text-blue-700 font-bold border-l-4 border-blue-600" : "text-slate-650 hover:bg-slate-100/70 hover:text-slate-900"
+                }`}>
+                <span className="flex items-center gap-3"><Users className="w-4 h-4 text-slate-500" /><span>Users & Roles</span></span>
+                <span className="text-[7.5px] font-black bg-blue-600 text-white rounded px-1.5 py-0.5">{db?.users?.length || 0} / {db?.userSeatsLimit || 10}</span>
+              </button>
+
+              {/* 12. SaaS Owner (only for Owner role) */}
               {activeRole === UserRole.Owner && (
-                <button
-                  id="sidebar-owner-console"
-                  onClick={() => { setActiveTab("owner_saas"); }}
-                  className={`w-full flex items-center justify-between px-4 py-2 text-xs font-semibold leading-relaxed transition-all cursor-pointer relative ${
-                    activeTab === "owner_saas"
-                      ? "bg-amber-100 text-amber-905 font-bold border-l-4 border-amber-500 shadow-2xs"
-                      : "text-slate-655 hover:bg-slate-100/80 hover:text-slate-900"
-                  }`}
-                >
-                  <span className="flex items-center gap-3">
-                    <ShieldCheck className="w-4 h-4 text-amber-600" />
-                    <span className="font-extrabold text-amber-950">SaaS Owner Desk</span>
-                  </span>
-                  <span className="text-[7.5px] font-black bg-amber-500 text-white rounded px-1.5 py-0.5 tracking-wide">
-                    {db?.organizations?.length || 4} Tenants
-                  </span>
+                <button onClick={() => { setActiveTab("owner_saas"); }}
+                  className={`w-full flex items-center justify-between px-4 py-2 text-xs font-semibold leading-relaxed transition-all cursor-pointer ${
+                    activeTab === "owner_saas" ? "bg-amber-100 text-amber-900 font-bold border-l-4 border-amber-500" : "text-slate-650 hover:bg-slate-100/70 hover:text-slate-900"
+                  }`}>
+                  <span className="flex items-center gap-3"><ShieldCheck className="w-4 h-4 text-amber-600" /><span className="font-extrabold text-amber-950">SaaS Console</span></span>
+                  <span className="text-[7.5px] font-black bg-amber-500 text-white rounded px-1.5 py-0.5">{db?.organizations?.length || 0} Orgs</span>
                 </button>
               )}
 
@@ -2326,10 +2125,10 @@ export default function App() {
         </aside>
 
         {/* COMPREHENSIVE MAIN VIEW CONTAINER WORKSPACE */}
-        <main id="zoho-main-viewport" className="flex-1 overflow-y-auto flex flex-col justify-between bg-white relative">
+        <main id="bk-main-viewport" className="flex-1 overflow-y-auto flex flex-col justify-between bg-white relative">
           
           {/* Actual content section */}
-          <div id="zoho-viewport-content" className="p-6 md:p-8 flex-1 max-w-7xl mx-auto w-full">
+          <div id="bk-viewport-content" className="p-6 md:p-8 flex-1 max-w-7xl mx-auto w-full">
             
             {/* Supabase Status Banner - only show if truly offline, not just slow */}
             {supabaseStatus && supabaseStatus.configured && !supabaseStatus.connected && (
@@ -2476,7 +2275,7 @@ export default function App() {
               />
             )}
 
-            {/* Advanced Modules - 30 Zoho parity features */}
+            {/* Advanced Modules - 30 Enterprise Features */}
             {activeTab === "advanced" && (
               <div className="-m-6 md:-m-8">
                 <BizKhataCompleteUpgrade />
@@ -2852,7 +2651,7 @@ export default function App() {
               </div>
             )}
 
-            {/* ----- CUSTOM TAB 4: Zoho Multi-User Roles & Seating Panel ----- */}
+            {/* ----- Multi-User Roles & Seating Panel ----- */}
             {activeTab === "users" && (
               <div className="space-y-6 animate-fade-in font-sans">
                 
@@ -3136,7 +2935,7 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Simulated Outbound SMTP Mailbox (Zoho Connect) */}
+                {/* Simulated Outbound SMTP Mailbox */}
                 <div className="bg-slate-900 text-slate-100 p-5 rounded-2xl space-y-4 shadow-lg border border-slate-800 font-sans leading-relaxed">
                   <div className="flex justify-between items-center border-b border-slate-800 pb-3">
                     <div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-// BizKhata — Complete Zoho Books Parity Upgrade
+// BizKhata — Complete Enterprise Accounting Upgrade
 // 30 Modules | All Missing & Partial Features Built
 // Supabase: nnuwcyqdhgnmrlfqpv.supabase.co
 // Drop this file into your React project and import as default
@@ -847,7 +847,7 @@ export default function BizKhataCompleteUpgrade() {
       <aside className="w-56 bg-white border-r border-gray-100 flex flex-col flex-shrink-0 overflow-hidden">
         <div className="p-3 border-b border-gray-100">
           <div className="font-semibold text-sm">Biz<span className="text-emerald-600">Khata</span></div>
-          <div className="text-xs text-gray-400 mt-0.5">30 modules · Zoho parity</div>
+          <div className="text-xs text-gray-400 mt-0.5">30 enterprise modules</div>
           <div className="mt-2">
             <div className="flex justify-between text-xs text-gray-400 mb-1"><span>Parity progress</span><span className="font-medium text-emerald-600">94%</span></div>
             <div className="h-1 bg-gray-100 rounded-full overflow-hidden"><div className="h-full bg-emerald-500 rounded-full" style={{ width: "94%" }} /></div>

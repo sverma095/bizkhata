@@ -107,7 +107,7 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
             Platform
           </h1>
           <p className="text-slate-400 text-sm leading-relaxed max-w-sm">
-            Full-stack accounting with GST compliance, e-invoicing (IRN), multi-user management, real-time Supabase sync, and Zoho Books-level features — built for Indian businesses.
+            Full-stack accounting with GST compliance, e-invoicing (IRN), multi-user management, real-time Supabase sync, and enterprise-level features — built for Indian businesses.
           </p>
         </div>
         <div className="relative z-10 grid grid-cols-2 gap-4">
