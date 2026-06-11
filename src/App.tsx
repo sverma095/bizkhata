@@ -13,7 +13,6 @@ import LoginScreen from "./components/LoginScreen.jsx";
 import AdminDashboard from "./components/AdminDashboard.jsx";
 import SuperAdminDashboard from "./components/SuperAdminDashboard.jsx";
 import UserDashboard from "./components/UserDashboard.jsx";
-import TesterPanel from "./components/TesterPanel.jsx";
 import { SessionInfo, AppUserFull } from "./types.js";
 import SalesOrders from "./components/SalesOrders.jsx";
 import PurchaseOrders from "./components/PurchaseOrders.jsx";
@@ -133,26 +132,7 @@ export default function App() {
     if (session) setSession({ ...session, user: updatedUser });
   };
 
-  const handleQuickLoginImpersonation = async (email: string) => {
-    setAuthLoading(true);
-    try {
-      const res = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password: 'Admin@123' }) });
-      const data = await res.json();
-      if (res.ok) {
-        if (data.twoFactorRequired) {
-          const nRes = await fetch('/api/notifications');
-          const notifs = await nRes.json();
-          const lastOtp = notifs.find((n: any) => n.to === email && n.type === 'OTP')?.code;
-          if (lastOtp) {
-            const mfaRes = await fetch('/api/auth/verify-2fa', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, otp: lastOtp }) });
-            const mfaData = await mfaRes.json();
-            if (mfaRes.ok) handleLoginSuccess(mfaData);
-          }
-        } else { handleLoginSuccess(data); }
-      } else { alert(`Login failed: ${data.error}`); }
-    } catch(e) { console.error(e); }
-    finally { setAuthLoading(false); }
-  };
+
 
   // ── Ledger DB state ───────────────────────────────────────────────────────
   const [db, setDb] = useState<DatabaseState | null>(null);
@@ -1177,11 +1157,7 @@ export default function App() {
           initialEmail={routeEmail}
           initialCode={routeCode}
         />
-        <TesterPanel
-          onQuickLogin={handleQuickLoginImpersonation}
-          onNavigateToReset={(email: string, code: string) => { setPanelView('reset'); setRouteEmail(email); setRouteCode(code); }}
-          onNavigateToActivate={(email: string, code: string) => { setPanelView('reset'); setRouteEmail(email); setRouteCode(code); }}
-        />
+
       </div>
     );
   }
@@ -1192,7 +1168,6 @@ export default function App() {
       return (
         <div className="min-h-screen">
           <SuperAdminDashboard token={session.token} activeUser={session.user} onLogout={handleLogout} />
-          <TesterPanel onQuickLogin={handleQuickLoginImpersonation} onNavigateToReset={(e,c)=>{}} onNavigateToActivate={(e,c)=>{}} />
         </div>
       );
     }
@@ -1200,7 +1175,6 @@ export default function App() {
       return (
         <div className="min-h-screen">
           <AdminDashboard token={session.token} activeUser={session.user} onLogout={handleLogout} />
-          <TesterPanel onQuickLogin={handleQuickLoginImpersonation} onNavigateToReset={(e,c)=>{}} onNavigateToActivate={(e,c)=>{}} />
         </div>
       );
     }
