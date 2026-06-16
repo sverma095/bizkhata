@@ -81,33 +81,21 @@ export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProp
   const expenseCategoryList = Object.entries(expenseMap).map(([name, amount]) => ({ name, value: amount }));
 
   // Dynamic dashboard values
-  const baseReceivables = 12553118.32;
-  const baseCurrentReceivables = 3557702.14;
-  const baseOverdueReceivables = 8995416.18;
-
-  const basePayables = 4519871.34;
-  const baseCurrentPayables = 26015.31;
-  const baseOverduePayables = 4493856.03;
-
-  // Receivables Card totals
-  const finalReceivables = baseReceivables + totalOutstanding;
-  const finalOverdueReceivables = baseOverdueReceivables + totalOverdue;
+  // Receivables Card totals (real data only)
+  const finalReceivables = totalOutstanding;
+  const finalOverdueReceivables = totalOverdue;
   const finalCurrentReceivables = Math.max(0, finalReceivables - finalOverdueReceivables);
 
-  // Payables Card totals (Unpaid Bills)
+  // Payables Card totals (Unpaid Bills — real data only)
   const dynamicUnpaidBills = db.bills.filter(b => b.status !== "Paid").reduce((acc, curr) => acc + (curr.total - (curr.paymentPaid || 0)), 0);
-  const finalPayables = basePayables + dynamicUnpaidBills;
-  const finalOverduePayables = baseOverduePayables + (db.bills.filter(b => b.status !== "Paid" && b.dueDate < presentDate).reduce((acc, c) => acc + (c.total - (c.paymentPaid || 0)), 0));
+  const finalPayables = dynamicUnpaidBills;
+  const finalOverduePayables = db.bills.filter(b => b.status !== "Paid" && b.dueDate < presentDate).reduce((acc, c) => acc + (c.total - (c.paymentPaid || 0)), 0);
   const finalCurrentPayables = Math.max(0, finalPayables - finalOverduePayables);
 
-  // Cash Flow Values Offsets
-  const baseStart = 24791471.57;
-  const baseIncoming = 18567371.87;
-  const baseOutgoing = 15653740.42;
-
-  const finalIncoming = baseIncoming + totalCollections;
-  const finalOutgoing = baseOutgoing + totalExpenses;
-  const finalEnd = baseStart + finalIncoming - finalOutgoing;
+  // Cash Flow Values (real data only)
+  const finalIncoming = totalCollections;
+  const finalOutgoing = totalExpenses;
+  const finalEnd = finalIncoming - finalOutgoing;
 
   // Format Currencies in standard Indian Numbering system (Lakhs / Crores)
   const formatIndianCurrency = (num: number) => {
@@ -509,7 +497,7 @@ export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProp
                     <span className="text-slate-550 flex items-center gap-1.5">
                       <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full inline-block" /> Total Income
                     </span>
-                    <strong className="font-mono text-emerald-700 font-bold">{formatIndianCurrency(totalIncomeValue || totalSales || 150000)}</strong>
+                    <strong className="font-mono text-emerald-700 font-bold">{formatIndianCurrency(totalIncomeValue || totalSales || 0)}</strong>
                   </div>
                   <div className="bg-slate-100 h-2.5 rounded-full overflow-hidden">
                     <div style={{ width: `78%` }} className="bg-emerald-500 h-full rounded-full" />
@@ -639,3 +627,4 @@ export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProp
     </div>
   );
 }
+
