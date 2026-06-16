@@ -1374,7 +1374,6 @@ export default function App() {
               }}
               className="p-1 hover:text-white text-slate-400 hover:bg-slate-800 rounded transition cursor-pointer flex items-center justify-center"
               title="Sign Out"
-              onClick={handleLogout}
             >
               <LogOut className="w-3.5 h-3.5 text-rose-400 hover:text-rose-300" />
             </button>
@@ -2484,7 +2483,7 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => setShowNewOrgForm(!showNewOrgForm)}
-                      className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-4 py-2 rounded-lg cursor-pointer flex items-center gap-1.5 transition shadow-xs"\ 
+                      className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-4 py-2 rounded-lg cursor-pointer flex items-center gap-1.5 transition shadow-xs"
                     >
                       <Plus className="w-3.5 h-3.5" /> Enlist New Subscriber
                     </button>
@@ -3182,4 +3181,5 @@ export default function App() {
     </div>
   );
 }
+
 
