@@ -2756,3 +2756,4 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
   );
 }
 
+
