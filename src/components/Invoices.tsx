@@ -61,6 +61,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
 
   // Customer form inputs
   const [customerFormId, setCustomerFormId] = useState("");
+  const [customerFormIsRegistered, setCustomerFormIsRegistered] = useState(true);
   const [customerFormName, setCustomerFormName] = useState("");
   const [customerFormLegalName, setCustomerFormLegalName] = useState("");
   const [customerFormGstin, setCustomerFormGstin] = useState("");
@@ -84,7 +85,8 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
       id: customerFormId || undefined,
       name: customerFormName,
       legalName: customerFormLegalName || customerFormName,
-      gstin: customerFormGstin,
+      isRegistered: customerFormIsRegistered,
+      gstin: customerFormIsRegistered ? customerFormGstin : "",
       pan: customerFormPan,
       email: customerFormEmail,
       phone: customerFormPhone,
@@ -556,16 +558,16 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
 
       {/* NEW INVOICE FORM */}
       {showForm && (
-        <div id="billing-invoice-form" className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4">
-          <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-            <h3 id="lbl-create-inv-title" className="text-sm font-bold text-slate-200 flex items-center gap-2.5">
+        <div id="billing-invoice-form" className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
+          <div className="flex justify-between items-center border-b border-slate-200 pb-3">
+            <h3 id="lbl-create-inv-title" className="text-sm font-bold text-slate-800 flex items-center gap-2.5">
               <Sparkles className="w-4 h-4 text-emerald-400" />
               {isProforma ? "Drafting New Proforma Invoice" : editingInvoice ? `Editing Invoice ${editingInvoice.invoiceNumber}` : (window as any).__convertingFromProformaId ? "Converting Proforma → Tax Invoice (Review & Edit)" : "Drafting New GST Tax Invoice"}
             </h3>
             <button 
               id="btn-close-inv-form"
               onClick={() => setShowForm(false)}
-              className="p-1 text-slate-400 hover:text-slate-200"
+              className="p-1 text-slate-400 hover:text-slate-700"
             >
               <X className="w-4 h-4" />
             </button>
@@ -574,13 +576,13 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
           <form id="frm-invoice-draft" onSubmit={(e) => e.preventDefault()} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-1.5">
-                <label id="lbl-fld-cust" className="text-xs text-slate-400 font-medium">Customer Master Record</label>
+                <label id="lbl-fld-cust" className="text-xs text-slate-600 font-medium">Customer Master Record</label>
                 <select
                   id="fld-cust-select"
                   required
                   value={customerId}
                   onChange={(e) => setCustomerId(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 text-xs focus:border-slate-700 outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-800 text-xs focus:border-blue-500 outline-none"
                 >
                   <option value="">-- Choose Customer --</option>
                   {db.customers.map(c => (
@@ -592,29 +594,29 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                   const cust = db.customers.find((c: any) => c.id === customerId);
                   if (!cust) return null;
                   return (
-                    <div className="mt-1.5 bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-[10px] space-y-0.5">
-                      {cust.legalName && cust.legalName !== cust.name && <div className="text-slate-400">Legal: <span className="text-slate-200">{cust.legalName}</span></div>}
-                      {cust.gstin && <div className="text-slate-400">GSTIN: <span className="font-mono text-emerald-400">{cust.gstin}</span></div>}
-                      {cust.pan && <div className="text-slate-400">PAN: <span className="font-mono text-slate-200">{cust.pan}</span></div>}
-                      {cust.billingAddress && <div className="text-slate-400">Address: <span className="text-slate-300">{cust.billingAddress}</span></div>}
-                      {cust.email && <div className="text-slate-400">Email: <span className="text-slate-300">{cust.email}</span></div>}
-                      {cust.phone && <div className="text-slate-400">Phone: <span className="text-slate-300">{cust.phone}</span></div>}
+                    <div className="mt-1.5 bg-blue-50 border border-blue-100 rounded-lg p-2.5 text-[10px] space-y-0.5">
+                      {cust.legalName && cust.legalName !== cust.name && <div className="text-slate-500">Legal: <span className="text-slate-800">{cust.legalName}</span></div>}
+                      {cust.gstin && <div className="text-slate-500">GSTIN: <span className="font-mono text-emerald-700">{cust.gstin}</span></div>}
+                      {cust.pan && <div className="text-slate-500">PAN: <span className="font-mono text-slate-700">{cust.pan}</span></div>}
+                      {cust.billingAddress && <div className="text-slate-500">Address: <span className="text-slate-700">{cust.billingAddress}</span></div>}
+                      {cust.email && <div className="text-slate-500">Email: <span className="text-slate-700">{cust.email}</span></div>}
+                      {cust.phone && <div className="text-slate-500">Phone: <span className="text-slate-700">{cust.phone}</span></div>}
                       {!cust.gstin && <div className="text-amber-400 font-semibold">⚠ Unregistered — IGST/CGST+SGST applies as B2C</div>}
                     </div>
                   );
                 })()}
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs text-slate-400 font-medium">Invoice Date</label>
+                <label className="text-xs text-slate-600 font-medium">Invoice Date</label>
                 <input type="date" required value={date}
                   onChange={(e) => { setDate(e.target.value); applyPaymentTerms(paymentTerms, e.target.value); }}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 text-xs focus:border-slate-700 outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-800 text-xs focus:border-blue-500 outline-none"
                 />
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs text-slate-400 font-medium">Payment Terms</label>
                 <select value={paymentTerms} onChange={(e) => { setPaymentTerms(e.target.value); applyPaymentTerms(e.target.value, date); }}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 text-xs focus:border-slate-700 outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-800 text-xs focus:border-blue-500 outline-none"
                 >
                   <option>Due on Receipt</option>
                   <option>Net 15</option>
@@ -629,7 +631,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
               <div className="space-y-1.5">
                 <label className="text-xs text-slate-400 font-medium">Due Date</label>
                 <input type="date" required value={dueDate} onChange={(e) => setDueDate(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 text-xs focus:border-slate-700 outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-800 text-xs focus:border-blue-500 outline-none"
                 />
               </div>
             </div>
@@ -711,14 +713,15 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                         value={item.rate}
                         placeholder="Rate (₹)"
                         onChange={(e) => handleFormItemChange(idx, "rate", parseFloat(e.target.value) || 0)}
-                        className="w-full bg-slate-950 border border-slate-855 rounded px-2 py-1 text-slate-300 text-xs text-right focus:border-slate-700 outline-none"
+                        className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-slate-700 text-xs text-right focus:border-blue-500 outline-none"
                       />
                     </div>
+                    {orgIsGstRegistered && (
                     <div className="md:col-span-2 space-y-1">
                       <select
                         value={item.gstRate}
                         onChange={(e) => handleFormItemChange(idx, "gstRate", parseFloat(e.target.value))}
-                        className="w-full bg-slate-950 border border-slate-855 rounded px-2 py-1 text-slate-300 text-xs focus:border-slate-700 outline-none"
+                        className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-slate-700 text-xs focus:border-blue-500 outline-none"
                         title="GST Rate"
                       >
                         <option value={0}>0% GST (Exempt)</option>
@@ -734,12 +737,18 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                         <option value={28}>28% GST</option>
                       </select>
                     </div>
+                    )}
+                    {!orgIsGstRegistered && (
+                    <div className="md:col-span-2 space-y-1">
+                      <div className="w-full bg-orange-50 border border-orange-200 rounded px-2 py-1 text-orange-600 text-xs text-center font-semibold">No GST</div>
+                    </div>
+                    )}
                     <div className="md:col-span-1 space-y-1">
                       <div className="flex items-center gap-1">
                         <input type="number" min={0} max={100} step={0.5} value={item.discount || 0}
                           placeholder="Disc%"
                           onChange={(e) => handleFormItemChange(idx, "discount", parseFloat(e.target.value) || 0)}
-                          className="w-full bg-slate-950 border border-slate-855 rounded px-1 py-1 text-slate-300 text-xs text-center focus:border-amber-600 outline-none"
+                          className="w-full bg-white border border-slate-200 rounded px-1 py-1 text-slate-700 text-xs text-center focus:border-amber-500 outline-none"
                           title="Discount %"
                         />
                         <span className="text-slate-500 text-[10px]">%</span>
@@ -765,7 +774,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
               <button
                 type="button"
                 onClick={handleAddItemRow}
-                className="flex items-center gap-1 bg-slate-950 hover:bg-slate-900 border border-slate-800 text-[11px] font-semibold text-indigo-400 px-3 py-1.5 rounded transition cursor-pointer"
+                className="flex items-center gap-1 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-[11px] font-semibold text-indigo-600 px-3 py-1.5 rounded transition cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
                 Add Row Item
@@ -802,13 +811,13 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                 <label className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wide">Discount</label>
                 <div className="flex items-center gap-2">
                   <select value={discountType} onChange={(e) => setDiscountType(e.target.value as any)}
-                    className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-300 text-[10px] outline-none">
+                    className="bg-white border border-slate-200 rounded px-2 py-1 text-slate-800 text-[10px] outline-none">
                     <option value="percent">%</option>
                     <option value="amount">₹</option>
                   </select>
                   <input type="number" min={0} step={0.01} value={discountValue}
                     onChange={(e) => setDiscountValue(parseFloat(e.target.value)||0)}
-                    className="flex-1 bg-slate-900 border border-emerald-800/50 rounded px-2 py-1 text-emerald-300 text-[10px] font-mono outline-none text-right"
+                    className="flex-1 bg-emerald-50 border border-emerald-200 rounded px-2 py-1 text-emerald-700 text-[10px] font-mono outline-none text-right"
                     placeholder="0"
                   />
                   {discountAmount > 0 && <span className="text-emerald-400 text-[10px] font-mono">-₹{discountAmount.toLocaleString('en-IN')}</span>}
@@ -820,14 +829,14 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                   <label className="text-[10px] text-slate-400">Shipping (₹)</label>
                   <input type="number" min={0} step={0.01} value={shippingCharge}
                     onChange={(e) => setShippingCharge(parseFloat(e.target.value)||0)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-300 text-[10px] font-mono outline-none text-right"
+                    className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-slate-700 text-[10px] font-mono outline-none text-right"
                   />
                 </div>
                 <div className="flex-1 space-y-1">
                   <label className="text-[10px] text-slate-400">Other Charges (₹)</label>
                   <input type="number" min={0} step={0.01} value={otherCharges}
                     onChange={(e) => setOtherCharges(parseFloat(e.target.value)||0)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-300 text-[10px] font-mono outline-none text-right"
+                    className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-slate-700 text-[10px] font-mono outline-none text-right"
                   />
                 </div>
               </div>
@@ -852,7 +861,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                     setTdsRate(rate);
                     setTdsAmount(Math.round(liveResults.subtotal * rate / 100 * 100) / 100);
                   }}
-                  className="w-full bg-slate-900 border border-amber-900/50 rounded px-2 py-1 text-slate-300 text-[10px] outline-none"
+                  className="w-full bg-amber-50 border border-amber-200 rounded px-2 py-1 text-slate-700 text-[10px] outline-none"
                 >
                   <option value="">No TDS</option>
                   <optgroup label="Contract Payments">
@@ -889,7 +898,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                       step={0.01}
                       value={tdsAmount}
                       onChange={(e) => setTdsAmount(parseFloat(e.target.value) || 0)}
-                      className="w-28 bg-slate-900 border border-amber-700/60 rounded px-2 py-0.5 text-amber-300 text-[10px] font-mono outline-none text-right"
+                      className="w-28 bg-amber-50 border border-amber-200 rounded px-2 py-0.5 text-amber-700 text-[10px] font-mono outline-none text-right"
                     />
                   </div>
                 )}
@@ -1333,45 +1342,62 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
               <form onSubmit={handleCustomerSubmit} className="space-y-4 text-xs">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <label className="text-slate-400 font-medium font-sans">Customer Label / Display Name</label>
+                    <label className="text-slate-600 font-medium font-sans">Customer Label / Display Name</label>
                     <input 
                       type="text" required value={customerFormName} onChange={e => setCustomerFormName(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 px-3 py-2 rounded text-slate-100 placeholder-slate-500 focus:border-blue-500 outline-none"
+                      className="w-full bg-white border border-slate-200 px-3 py-2 rounded text-slate-800 placeholder-slate-400 focus:border-blue-500 outline-none"
                       placeholder="e.g. Analytics Vidya"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-slate-400 font-medium font-sans">Official Legal Registry Name</label>
+                    <label className="text-slate-600 font-medium font-sans">Official Legal Registry Name</label>
                     <input 
                       type="text" required value={customerFormLegalName} onChange={e => setCustomerFormLegalName(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 px-3 py-2 rounded text-slate-100 placeholder-slate-500 focus:border-blue-500 outline-none"
+                      className="w-full bg-white border border-slate-200 px-3 py-2 rounded text-slate-800 placeholder-slate-400 focus:border-blue-500 outline-none"
                       placeholder="e.g. Analytics Vidya Educon Private Limited"
                     />
                   </div>
                 </div>
 
+                <div className="space-y-1.5">
+                  <label className="text-slate-400 font-sans font-medium">GST Registration Status</label>
+                  <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+                      <input type="radio" name="custGstReg" checked={customerFormIsRegistered} onChange={() => setCustomerFormIsRegistered(true)} className="accent-blue-400" />
+                      <span className="font-semibold text-emerald-400">Registered</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+                      <input type="radio" name="custGstReg" checked={!customerFormIsRegistered} onChange={() => { setCustomerFormIsRegistered(false); setCustomerFormGstin(""); }} className="accent-blue-400" />
+                      <span className="font-semibold text-orange-400">Unregistered (B2C / Consumer)</span>
+                    </label>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 font-mono">
                   <div className="space-y-1.5 font-sans">
-                    <label className="text-slate-400 font-sans">State location (Place of Supply)</label>
+                    <label className="text-slate-600 font-sans">State location (Place of Supply)</label>
                     <input 
                       type="text" required value={customerFormState} onChange={e => setCustomerFormState(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 px-3 py-2 rounded text-slate-100 placeholder-slate-500 focus:border-blue-500 outline-none"
+                      className="w-full bg-white border border-slate-200 px-3 py-2 rounded text-slate-800 placeholder-slate-400 focus:border-blue-500 outline-none"
                       placeholder="e.g. Haryana"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-slate-400 font-sans">GSTIN Registration Tag</label>
+                    <label className="text-slate-600 font-sans">
+                      GSTIN Registration{customerFormIsRegistered && <span className="text-red-400 ml-1">*</span>}
+                    </label>
                     <input 
-                      type="text" maxLength={15} value={customerFormGstin} onChange={e => setCustomerFormGstin(e.target.value.toUpperCase())}
-                      className="w-full bg-slate-900 border border-slate-700 px-3 py-2 rounded text-slate-100 placeholder-slate-500 focus:border-blue-500 outline-none tracking-wide"
-                      placeholder="e.g. 06AAMCA5999F1Z6"
+                      type="text" maxLength={15} required={customerFormIsRegistered} disabled={!customerFormIsRegistered}
+                      value={customerFormGstin} onChange={e => setCustomerFormGstin(e.target.value.toUpperCase())}
+                      className={`w-full border px-3 py-2 rounded placeholder-slate-400 focus:border-blue-500 outline-none tracking-wide ${customerFormIsRegistered ? "bg-white border-slate-200 text-slate-800" : "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"}`}
+                      placeholder={customerFormIsRegistered ? "e.g. 06AAMCA5999F1Z6" : "Not applicable"}
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-slate-400 font-sans">Customer PAN Tag</label>
+                    <label className="text-slate-600 font-sans">Customer PAN Tag</label>
                     <input 
                       type="text" maxLength={10} value={customerFormPan} onChange={e => setCustomerFormPan(e.target.value.toUpperCase())}
-                      className="w-full bg-slate-900 border border-slate-700 px-3 py-2 rounded text-slate-100 placeholder-slate-500 focus:border-blue-500 outline-none tracking-wide"
+                      className="w-full bg-white border border-slate-200 px-3 py-2 rounded text-slate-800 placeholder-slate-400 focus:border-blue-500 outline-none tracking-wide"
                       placeholder="e.g. AAMCA5999F"
                     />
                   </div>
@@ -1379,38 +1405,38 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <label className="text-slate-400 font-medium">Primary Contact Email Address</label>
+                    <label className="text-slate-600 font-medium">Primary Contact Email Address</label>
                     <input 
                       type="email" required value={customerFormEmail} onChange={e => setCustomerFormEmail(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 px-3 py-2 rounded text-slate-100 placeholder-slate-500 focus:border-blue-500 outline-none"
+                      className="w-full bg-white border border-slate-200 px-3 py-2 rounded text-slate-800 placeholder-slate-400 focus:border-blue-500 outline-none"
                       placeholder="e.g. finance@analyticsvidya.com"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-slate-400 font-medium">Authorized Contact Telephone</label>
+                    <label className="text-slate-600 font-medium">Authorized Contact Telephone</label>
                     <input 
                       type="text" required value={customerFormPhone} onChange={e => setCustomerFormPhone(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 px-3 py-2 rounded text-slate-100 placeholder-slate-500 focus:border-blue-500 outline-none"
+                      className="w-full bg-white border border-slate-200 px-3 py-2 rounded text-slate-800 placeholder-slate-400 focus:border-blue-500 outline-none"
                       placeholder="e.g. +91-8888999911"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-slate-400 font-medium">Registered Office Address</label>
+                  <label className="text-slate-600 font-medium">Registered Office Address</label>
                   <textarea 
                     rows={2} required value={customerFormBillingAddress} onChange={e => setCustomerFormBillingAddress(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 px-3 py-2 rounded text-slate-100 placeholder-slate-500 focus:border-blue-500 outline-none resize-none"
+                    className="w-full bg-white border border-slate-200 px-3 py-2 rounded text-slate-800 placeholder-slate-400 focus:border-blue-500 outline-none resize-none"
                     placeholder="Mailing credentials for postal invoice compliance checking"
                   />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <label className="text-slate-400 font-medium">Standard Payment Due period</label>
+                    <label className="text-slate-600 font-medium">Standard Payment Due period</label>
                     <select
                       value={customerFormTerms} onChange={e => setCustomerFormTerms(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 px-3 py-2 text-xs rounded text-slate-100 focus:border-blue-500 outline-none"
+                      className="w-full bg-white border border-slate-200 px-3 py-2 text-xs rounded text-slate-800 focus:border-blue-500 outline-none"
                     >
                       <option value="Net 45">Net 45 days</option>
                       <option value="Due on Receipt">Due on Receipt</option>
@@ -1419,10 +1445,10 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                     </select>
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-slate-400 font-medium">Customer Opening Ledger Balance (₹)</label>
+                    <label className="text-slate-600 font-medium">Customer Opening Ledger Balance (₹)</label>
                     <input 
                       type="number" value={customerFormOpeningBalance} onChange={e => setCustomerFormOpeningBalance(parseInt(e.target.value) || 0)}
-                      className="w-full bg-slate-900 border border-slate-700 px-3 py-2 rounded text-slate-100 focus:border-blue-500 outline-none font-mono"
+                      className="w-full bg-white border border-slate-200 px-3 py-2 rounded text-slate-800 focus:border-blue-500 outline-none font-mono"
                       placeholder="0"
                     />
                   </div>
@@ -1677,11 +1703,11 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                       {isDetailsExpanded && (
                         <div className="space-y-3.5 pt-2 text-slate-700 leading-normal animate-fade-in font-medium">
                           <div className="flex justify-between gap-1.5 border-b border-slate-50 pb-1.5">
-                            <span className="text-slate-400 font-medium">Customer Type</span>
+                            <span className="text-slate-600 font-medium">Customer Type</span>
                             <span className="font-bold text-slate-800 font-sans">Business</span>
                           </div>
                           <div className="flex justify-between gap-1.5 border-b border-slate-50 pb-1.5">
-                            <span className="text-slate-400 font-medium">Default Currency</span>
+                            <span className="text-slate-600 font-medium">Default Currency</span>
                             <span className="font-mono text-slate-800">INR</span>
                           </div>
                           <div className="flex justify-between gap-1.5 border-b border-slate-50 pb-1.5">
@@ -1689,7 +1715,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                             <span className="font-bold text-slate-900 text-right uppercase break-all">{selectedCustomer.legalName.toUpperCase()}</span>
                           </div>
                           <div className="flex justify-between gap-1.5 border-b border-slate-50 pb-1.5">
-                            <span className="text-slate-400 font-medium font-sans">GST Treatment</span>
+                            <span className="text-slate-600 font-medium font-sans">GST Treatment</span>
                             <span className="font-bold text-slate-700 text-right">Registered Business - Regular</span>
                           </div>
                           <div className="flex justify-between gap-1.5 border-b border-slate-50 pb-1.5">
@@ -1697,7 +1723,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                             <span className="font-mono font-bold text-blue-700 text-right">{selectedCustomer.gstin || "06AAMCA5999F1Z6"}</span>
                           </div>
                           <div className="flex justify-between gap-1.5 font-sans">
-                            <span className="text-slate-400 font-medium">Place of Supply</span>
+                            <span className="text-slate-600 font-medium">Place of Supply</span>
                             <span className="font-bold text-slate-800 text-right">{selectedCustomer.state || "Haryana"}</span>
                           </div>
                         </div>
@@ -2493,7 +2519,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
       {showCreditForm && (
         <div className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-md space-y-4">
-            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+            <div className="flex justify-between items-center border-b border-slate-200 pb-3">
               <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2 text-rose-500">
                 <CreditCard className="w-4 h-4 text-rose-500 animate-pulse" />
                 Issue Credit note adjustment
@@ -2582,7 +2608,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
       {signingInvoice && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full space-y-4">
-            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+            <div className="flex justify-between items-center border-b border-slate-200 pb-3">
               <h4 className="font-bold text-slate-100 text-sm flex items-center gap-2">
                 <span>✍️</span>
                 Affix Digital Signature Certificate (DSC)
@@ -2729,3 +2755,4 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
     </div>
   );
 }
+
