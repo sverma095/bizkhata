@@ -55,6 +55,7 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
   // Input States for Profile Info
   const [name, setName] = useState(db.company.name || "");
   const [legalName, setLegalName] = useState(db.company.legalName || "");
+  const [isGstRegistered, setIsGstRegistered] = useState(db.company.isGstRegistered !== false ? (!!db.company.gstin || true) : false);
   const [gstin, setGstin] = useState(db.company.gstin || "");
   const [pan, setPan] = useState(db.company.pan || "");
   const [address, setAddress] = useState(db.company.address || "Hyderabad head office, Telangana");
@@ -218,7 +219,8 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
       ...db.company,
       name,
       legalName,
-      gstin,
+      isGstRegistered,
+      gstin: isGstRegistered ? gstin : "",
       pan,
       address,
       state,
@@ -620,18 +622,38 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
                     </div>
                   </div>
 
+                  <div className="space-y-1.5 col-span-2">
+                    <label className="text-xs text-slate-500 font-bold">GST Registration Status</label>
+                    <div className="flex items-center gap-4">
+                      <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-700">
+                        <input type="radio" name="gstReg" checked={isGstRegistered} onChange={() => setIsGstRegistered(true)} className="accent-blue-600" />
+                        <span className="font-semibold text-emerald-700">Registered (Regular / Composition)</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-700">
+                        <input type="radio" name="gstReg" checked={!isGstRegistered} onChange={() => { setIsGstRegistered(false); setGstin(""); }} className="accent-blue-600" />
+                        <span className="font-semibold text-orange-600">Unregistered / Consumer (No GST)</span>
+                      </label>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-xs text-slate-500 font-bold">GSTIN (Indian Goods & Service Tax Identification) <span className="text-red-500">*</span></label>
+                      <label className="text-xs text-slate-500 font-bold">
+                        GSTIN (Indian Goods & Service Tax Identification)
+                        {isGstRegistered && <span className="text-red-500 ml-1">*</span>}
+                        {!isGstRegistered && <span className="text-slate-400 ml-1 font-normal">(N/A — Unregistered)</span>}
+                      </label>
                       <input 
                         type="text"
-                        required
+                        required={isGstRegistered}
+                        disabled={!isGstRegistered}
                         maxLength={15}
                         value={gstin}
                         onChange={(e) => setGstin(e.target.value.toUpperCase())}
-                        className="w-full bg-slate-50 border border-slate-200 focus:bg-white rounded-lg px-3.5 py-2 text-slate-800 text-xs font-mono tracking-wider focus:border-[#006EE5] outline-none transition"
-                        placeholder="e.g. 29AAAAA0000A1Z1"
+                        className={`w-full border rounded-lg px-3.5 py-2 text-xs font-mono tracking-wider outline-none transition ${isGstRegistered ? "bg-slate-50 border-slate-200 focus:bg-white focus:border-[#006EE5] text-slate-800" : "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"}`}
+                        placeholder={isGstRegistered ? "e.g. 29AAAAA0000A1Z1" : "Not applicable"}
                       />
+                      {!isGstRegistered && <p className="text-[10px] text-orange-600 font-medium">⚠ No tax (GST) will be applied on invoices — Unregistered Business</p>}
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-xs text-slate-500 font-bold">Permanent Account Number (PAN) <span className="text-red-500">*</span></label>
@@ -3069,3 +3091,4 @@ function EInvoicePortalSection({ db, onSaveCompany, triggerToast, setActiveSecti
     </div>
   );
 }
+
