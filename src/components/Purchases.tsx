@@ -46,6 +46,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
 
   // Vendor Form State
   const [vendorName, setVendorName] = useState("");
+  const [vendorIsRegistered, setVendorIsRegistered] = useState(true);
   const [vendorGstin, setVendorGstin] = useState("");
   const [vendorPan, setVendorPan] = useState("");
   const [msmeStatus, setMsmeStatus] = useState("Micro");
@@ -82,7 +83,8 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
     e.preventDefault();
     await onAddVendor({
       name: vendorName,
-      gstin: vendorGstin,
+      isRegistered: vendorIsRegistered,
+      gstin: vendorIsRegistered ? vendorGstin : "",
       pan: vendorPan,
       msmeStatus,
       email: vendorEmail,
@@ -92,7 +94,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
     });
     setShowVendorForm(false);
     // clean
-    setVendorName(""); setVendorGstin(""); setVendorPan(""); setMsmeStatus("Micro"); setVendorEmail(""); setVendorPhone(""); setVendorAddress("");
+    setVendorName(""); setVendorGstin(""); setVendorPan(""); setMsmeStatus("Micro"); setVendorEmail(""); setVendorPhone(""); setVendorAddress(""); setVendorIsRegistered(true);
   };
 
   const handleExpenseSubmit = async (e: React.FormEvent, overrideStatus?: 'Draft' | 'Pending Approval' | 'Approved') => {
@@ -259,46 +261,64 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
 
       {/* VENDOR ADD FORM PANEL OVERLAY */}
       {showVendorForm && (
-        <div id="vendor-master-form" className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4">
-          <div className="flex justify-between items-center border-b border-slate-800 pb-2.5">
-            <h4 className="text-sm font-bold text-slate-250">Create Supplier Account Master</h4>
+        <div id="vendor-master-form" className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
+          <div className="flex justify-between items-center border-b border-slate-200 pb-2.5">
+            <h4 className="text-sm font-bold text-slate-800">Create Supplier Account Master</h4>
             <button onClick={() => setShowVendorForm(false)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button>
           </div>
 
           <form onSubmit={handleVendorSubmit} className="space-y-4 text-xs text-slate-300">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-slate-400 font-medium">Business / Supplier Legal Name</label>
+                <label className="text-slate-600 font-medium">Business / Supplier Legal Name</label>
                 <input 
                   type="text" required value={vendorName} onChange={(e) => setVendorName(e.target.value)}
-                  className="w-full bg-slate-955 border border-slate-850 rounded px-3 py-2 text-slate-200 focus:border-slate-705 outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:border-blue-500 outline-none"
                   placeholder="e.g. Acme Office Supplies Ltd"
                 />
               </div>
               <div className="space-y-1.5 font-sans">
-                <label className="text-slate-400">Supplier PAN Number</label>
+                <label className="text-slate-600">Supplier PAN Number</label>
                 <input 
                   type="text" required maxLength={10} value={vendorPan} onChange={(e) => setVendorPan(e.target.value.toUpperCase())}
-                  className="w-full bg-slate-955 border border-slate-850 rounded px-3 py-2 text-slate-200 font-mono tracking-wider focus:border-slate-705 outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 font-mono tracking-wider focus:border-blue-500 outline-none"
                   placeholder="e.g. DDNDD1111A"
                 />
               </div>
             </div>
 
+            <div className="space-y-1.5">
+              <label className="text-slate-600 font-medium text-xs">GST Registration Status</label>
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-700">
+                  <input type="radio" name="vendorGstReg" checked={vendorIsRegistered} onChange={() => setVendorIsRegistered(true)} className="accent-blue-600" />
+                  <span className="font-semibold text-emerald-700">Registered Supplier</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-700">
+                  <input type="radio" name="vendorGstReg" checked={!vendorIsRegistered} onChange={() => { setVendorIsRegistered(false); setVendorGstin(""); }} className="accent-blue-600" />
+                  <span className="font-semibold text-orange-600">Unregistered Supplier</span>
+                </label>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-1.5">
-                <label className="text-slate-450">GSTIN Claim Identification (Optional)</label>
+                <label className="text-slate-600">
+                  GSTIN{vendorIsRegistered && <span className="text-red-500 ml-1">*</span>}
+                  {!vendorIsRegistered && <span className="text-slate-400 ml-1 font-normal text-[10px]">(N/A)</span>}
+                </label>
                 <input 
-                  type="text" maxLength={15} value={vendorGstin} onChange={(e) => setVendorGstin(e.target.value.toUpperCase())}
-                  className="w-full bg-slate-955 border border-slate-850 rounded px-3 py-2 text-slate-200 font-mono tracking-wider focus:border-slate-705 outline-none"
-                  placeholder="e.g. 29DDDDD3333D1Z5"
+                  type="text" maxLength={15} required={vendorIsRegistered} disabled={!vendorIsRegistered}
+                  value={vendorGstin} onChange={(e) => setVendorGstin(e.target.value.toUpperCase())}
+                  className={`w-full border rounded px-3 py-2 font-mono tracking-wider focus:border-blue-500 outline-none ${vendorIsRegistered ? "bg-slate-50 border-slate-200 text-slate-800" : "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"}`}
+                  placeholder={vendorIsRegistered ? "e.g. 29DDDDD3333D1Z5" : "Not applicable"}
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-slate-450">MSME Classification Status</label>
+                <label className="text-slate-600">MSME Classification Status</label>
                 <select 
                   value={msmeStatus} onChange={(e) => setMsmeStatus(e.target.value)}
-                  className="w-full bg-slate-955 border border-slate-850 rounded px-3 py-2 text-slate-200 focus:border-slate-755 outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:border-blue-500 outline-none"
                 >
                   <option value="Micro">Micro Enterprise (Govt Settle)</option>
                   <option value="Small">Small Enterprise</option>
@@ -307,26 +327,26 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                 </select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-slate-455">Supplier Office Telephone</label>
+                <label className="text-slate-600">Supplier Office Telephone</label>
                 <input 
                   type="text" value={vendorPhone} onChange={(e) => setVendorPhone(e.target.value)}
-                  className="w-full bg-slate-955 border border-slate-850 rounded px-3 py-2 text-slate-200 focus:border-slate-705 outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:border-blue-500 outline-none"
                   placeholder="+91-8888777766"
                 />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-slate-400">Postal / Mailing Address Details</label>
+              <label className="text-slate-600">Postal / Mailing Address Details</label>
               <textarea 
                 rows={2} required value={vendorAddress} onChange={(e) => setVendorAddress(e.target.value)}
-                className="w-full bg-slate-955 border border-slate-855 rounded px-3 py-2 text-slate-200 focus:border-slate-705 outline-none resize-none"
+                className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:border-blue-500 outline-none resize-none"
                 placeholder="Mailing credentials for postal invoice compliance checking"
               />
             </div>
 
-            <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
-              <button type="button" onClick={() => setShowVendorForm(false)} className="border border-slate-800 px-4 py-2 rounded text-slate-400">Cancel</button>
+            <div className="flex justify-end gap-3 pt-3 border-t border-slate-200">
+              <button type="button" onClick={() => setShowVendorForm(false)} className="border border-slate-300 px-4 py-2 rounded text-slate-600">Cancel</button>
               <button type="submit" className="bg-emerald-600 hover:bg-emerald-500 px-5 py-2 rounded text-white font-bold select-none cursor-pointer">Save Supplier</button>
             </div>
           </form>
@@ -335,9 +355,9 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
 
       {/* RECORD EXPENSE ENTRY FORM */}
       {showExpenseForm && (
-        <div id="expense-outflow-form" className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-          <div className="flex justify-between items-center border-b border-slate-800 pb-3 mb-4">
-            <h4 className="text-sm font-bold text-slate-200 flex items-center gap-2">
+        <div id="expense-outflow-form" className="bg-white border border-slate-200 rounded-xl p-6">
+          <div className="flex justify-between items-center border-b border-slate-200 pb-3 mb-4">
+            <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
               <Receipt className="text-rose-450 w-4.5 h-4.5" />
               Record New Expense
             </h4>
@@ -361,7 +381,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                 <input 
                   type="text" required value={expVendor} placeholder="e.g. Amazon Web Services Pvt Ltd, Indiranagar Rent"
                   onChange={(e) => setExpVendor(e.target.value)}
-                  className="w-full bg-slate-955 border border-slate-850 rounded px-3 py-2 text-slate-200 focus:border-slate-705 outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:border-blue-500 outline-none"
                 />
               </div>
 
@@ -371,7 +391,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                   required
                   value={expCategory}
                   onChange={(e) => setExpCategory(e.target.value)}
-                  className="w-full bg-slate-955 border border-slate-850 rounded px-3 py-2 text-slate-200 font-semibold text-slate-300 focus:border-slate-705 outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 font-semibold focus:border-blue-500 outline-none"
                 >
                   <option value="salary_expense">Salary & Payroll Expense</option>
                   <option value="contractor_expense">Contractor & Consulting Fee</option>
@@ -386,7 +406,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                 <label className="text-slate-400">Settle Spend Date</label>
                 <input 
                   type="date" required value={expDate} onChange={(e) => setExpDate(e.target.value)}
-                  className="w-full bg-slate-955 border border-slate-850 rounded px-3 py-2 text-slate-200 focus:border-slate-705 outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:border-blue-500 outline-none"
                 />
               </div>
             </div>
@@ -397,7 +417,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                 <input 
                   type="number" required min={1} value={expSubtotal}
                   onChange={(e) => setExpSubtotal(parseFloat(e.target.value) || 0)}
-                  className="w-full bg-slate-955 border border-slate-850 rounded px-3 py-2 text-slate-100 font-mono font-bold focus:border-slate-705 outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 font-mono font-bold focus:border-blue-500 outline-none"
                 />
               </div>
 
@@ -406,7 +426,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                 <input 
                   type="number" min={0} value={expGst}
                   onChange={(e) => setExpGst(parseFloat(e.target.value) || 0)}
-                  className="w-full bg-slate-955 border border-slate-850 rounded px-3 py-2 text-slate-100 font-mono focus:border-slate-705 outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 font-mono focus:border-blue-500 outline-none"
                 />
               </div>
 
@@ -415,7 +435,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                 <input 
                   type="number" min={0} value={expTds}
                   onChange={(e) => setExpTds(parseFloat(e.target.value) || 0)}
-                  className="w-full bg-slate-955 border border-slate-850 rounded px-3 py-2 text-slate-100 font-mono focus:border-slate-705 outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 font-mono focus:border-blue-500 outline-none"
                 />
               </div>
 
@@ -423,7 +443,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                 <label className="text-slate-400">Expense Payment Mode</label>
                 <select 
                   value={expMode} onChange={(e) => setExpMode(e.target.value)}
-                  className="w-full bg-slate-955 border border-slate-850 rounded px-3 py-2 text-slate-200 focus:border-slate-705 outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:border-blue-500 outline-none"
                 >
                   <option value="Corporate Card">Corporate Credit Card</option>
                   <option value="Bank Account">Direct NetBanking Debit</option>
@@ -436,7 +456,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div 
                 id="dropzone-expense-receipt"
-                className="border border-dashed border-slate-800 rounded-lg p-5 bg-slate-955/20 text-center space-y-2 cursor-pointer hover:border-slate-700 hover:bg-slate-955/50 transition-all"
+                className="border border-dashed border-slate-300 rounded-lg p-5 bg-slate-50 text-center space-y-2 cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all"
                 onClick={() => {
                   const items = ["Aws_Spend_Invoice.pdf", "Internet_Bill_Airtel.jpeg", "Cafe_Meeting_Receipt.pdf"];
                   setExpAttachmentName(items[Math.floor(Math.random() * items.length)]);
@@ -454,13 +474,13 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
               </div>
 
               {/* Ledger Preview double entry */}
-              <div className="bg-slate-955/50 border border-slate-850 p-4 rounded-lg flex flex-col justify-between">
+              <div className="bg-slate-50 border border-slate-200 p-4 rounded-lg flex flex-col justify-between">
                 <div className="text-[10px] uppercase font-bold text-slate-500 tracking-widest flex items-center gap-1.5">
                   <Layers className="w-3.5 h-3.5 text-rose-400" />
                   Expenses Double Entry Effect:
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-[10.5px] font-mono mt-3 select-none leading-relaxed">
-                  <div className="text-slate-450 border-r border-slate-850 pr-2">
+                  <div className="text-slate-500 border-r border-slate-200 pr-2">
                     <p className="text-emerald-400 font-semibold">• dr. Category Expense: ₹{expSubtotal}</p>
                     {expGst > 0 && <p className="text-teal-400 font-semibold">• dr. Input GST: ₹{expGst}</p>}
                   </div>
@@ -472,12 +492,12 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
-              <button type="button" onClick={() => setShowExpenseForm(false)} className="border border-slate-800 px-4 py-2 rounded text-slate-400">Cancel</button>
+            <div className="flex justify-end gap-3 pt-3 border-t border-slate-200">
+              <button type="button" onClick={() => setShowExpenseForm(false)} className="border border-slate-300 px-4 py-2 rounded text-slate-600">Cancel</button>
               <button 
                 type="button" 
                 onClick={(e) => handleExpenseSubmit(e, "Draft")}
-                className="bg-slate-800 hover:bg-slate-750 border border-slate-700 font-semibold text-[#E5E1D8] px-4 py-2 rounded text-xs transition cursor-pointer"
+                className="bg-slate-100 hover:bg-slate-200 border border-slate-300 font-semibold text-slate-700 px-4 py-2 rounded text-xs transition cursor-pointer"
               >
                 Save as Draft
               </button>
@@ -495,9 +515,9 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
 
       {/* RECORD SUPPLIER VENDOR BILL FORM */}
       {showBillForm && (
-        <div id="supplier-bill-form" className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-          <div className="flex justify-between items-center border-b border-slate-800 pb-2.5 mb-4">
-            <h4 className="text-sm font-bold text-slate-250 flex items-center gap-2">
+        <div id="supplier-bill-form" className="bg-white border border-slate-200 rounded-xl p-6">
+          <div className="flex justify-between items-center border-b border-slate-200 pb-2.5 mb-4">
+            <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
               <FileText className="w-4 h-4 text-indigo-455" />
               Record Vendor Invoice
             </h4>
@@ -512,7 +532,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                   required
                   value={billVendorId}
                   onChange={(e) => setBillVendorId(e.target.value)}
-                  className="w-full bg-slate-955 border border-slate-850 rounded px-3 py-2 text-slate-200 focus:border-slate-705 outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:border-blue-500 outline-none"
                 >
                   <option value="">-- Choose Vendor Supplier --</option>
                   {db.vendors.map(v => (
@@ -524,10 +544,10 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                   const vend = db.vendors.find((v: any) => v.id === billVendorId);
                   if (!vend) return null;
                   return (
-                    <div className="mt-1.5 bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-[10px] space-y-0.5">
-                      {vend.legalName && vend.legalName !== vend.name && <div className="text-slate-400">Legal: <span className="text-slate-200">{vend.legalName}</span></div>}
+                    <div className="mt-1.5 bg-blue-50 border border-blue-100 rounded-lg p-2.5 text-[10px] space-y-0.5">
+                      {vend.legalName && vend.legalName !== vend.name && <div className="text-slate-500">Legal: <span className="text-slate-700">{vend.legalName}</span></div>}
                       {vend.gstin && <div className="text-slate-400">GSTIN: <span className="font-mono text-emerald-400">{vend.gstin}</span></div>}
-                      {vend.pan && <div className="text-slate-400">PAN: <span className="font-mono text-slate-200">{vend.pan}</span></div>}
+                      {vend.pan && <div className="text-slate-500">PAN: <span className="font-mono text-slate-700">{vend.pan}</span></div>}
                       {vend.billingAddress && <div className="text-slate-400">Address: <span className="text-slate-300">{vend.billingAddress}</span></div>}
                       {vend.email && <div className="text-slate-400">Email: <span className="text-slate-300">{vend.email}</span></div>}
                       {!vend.gstin && <div className="text-amber-400 font-semibold">⚠ Unregistered Vendor</div>}
@@ -541,7 +561,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                 <input 
                   type="text" required value={billNumber} placeholder="e.g. BILL-ACME-8902"
                   onChange={(e) => setBillNumber(e.target.value)}
-                  className="w-full bg-slate-955 border border-slate-850 rounded px-3 py-2 text-slate-200 focus:border-slate-705 outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:border-blue-500 outline-none"
                 />
               </div>
 
@@ -550,14 +570,14 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                   <label className="text-slate-400">Bill Date</label>
                   <input 
                     type="date" required value={billDate} onChange={(e) => setBillDate(e.target.value)}
-                    className="w-full bg-slate-955 border border-slate-850 rounded px-3.5 py-2 text-slate-200 focus:border-slate-705 outline-none text-[11px]"
+                    className="w-full bg-slate-50 border border-slate-200 rounded px-3.5 py-2 text-slate-800 focus:border-blue-500 outline-none text-[11px]"
                   />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-slate-450">Due Limit Date</label>
                   <input 
                     type="date" required value={billDueDate} onChange={(e) => setBillDueDate(e.target.value)}
-                    className="w-full bg-slate-955 border border-slate-850 rounded px-3.5 py-2 text-slate-200 focus:border-slate-705 outline-none text-[11px]"
+                    className="w-full bg-slate-50 border border-slate-200 rounded px-3.5 py-2 text-slate-800 focus:border-blue-500 outline-none text-[11px]"
                   />
                 </div>
               </div>
@@ -569,7 +589,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                 <input 
                   type="number" required min={1} value={billSubtotal}
                   onChange={(e) => setBillSubtotal(parseFloat(e.target.value) || 0)}
-                  className="w-full bg-slate-955 border border-slate-850 rounded px-3 py-2 text-slate-100 font-mono font-bold focus:border-slate-705 outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 font-mono font-bold focus:border-blue-500 outline-none"
                 />
               </div>
 
@@ -577,7 +597,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                 <label className="text-slate-400">GST Input tax claim rate category (%)</label>
                 <select 
                   value={billGstRate} onChange={(e) => setBillGstRate(parseInt(e.target.value) || 18)}
-                  className="w-full bg-slate-955 border border-slate-850 rounded px-3 py-2 text-slate-200 focus:border-slate-755 outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:border-blue-500 outline-none"
                 >
                   <option value="5">Standard 5% Rate</option>
                   <option value="12">Standard 12% Rate</option>
@@ -587,7 +607,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
               </div>
 
               {/* Calculations review */}
-              <div className="bg-slate-955 p-3 rounded border border-slate-850 flex justify-between items-center text-xs font-mono select-none">
+              <div className="bg-slate-100 p-3 rounded border border-slate-200 flex justify-between items-center text-xs font-mono select-none">
                 <div className="text-slate-500">
                   <p>Incurred GST: ₹{(billSubtotal * billGstRate) / 100}</p>
                 </div>
@@ -833,9 +853,9 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
       {/* PAY SUPPLIER BILL MODAL PANEL */}
       {showPayBillForm && (
         <div className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-md space-y-4 font-sans text-xs">
-            <div className="flex justify-between items-center border-b border-slate-800 pb-2.5">
-              <h4 className="font-bold text-slate-100 text-sm flex items-center gap-2">
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 w-full max-w-md space-y-4 font-sans text-xs">
+            <div className="flex justify-between items-center border-b border-slate-200 pb-2.5">
+              <h4 className="font-bold text-slate-800 text-sm flex items-center gap-2">
                 <Check className="w-5 h-5 text-emerald-400" />
                 Settle supplier claim: {showPayBillForm.billNumber}
               </h4>
@@ -851,7 +871,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                 <label className="text-slate-450">Remitted clearing Date</label>
                 <input 
                   type="date" required value={payDate} onChange={(e) => setPayDate(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-slate-100 focus:border-slate-705 outline-none font-medium"
+                  className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:border-blue-500 outline-none font-medium"
                 />
               </div>
 
@@ -860,7 +880,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                   <label className="text-slate-450">Payment Instrument / Mode</label>
                   <select 
                     value={payMode} onChange={(e) => setPayMode(e.target.value)}
-                    className="w-full bg-slate-955 border border-slate-850 rounded px-3 py-2 text-slate-200 focus:border-slate-705 outline-none"
+                    className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:border-blue-500 outline-none"
                   >
                     <option value="NEFT">NEFT Bank</option>
                     <option value="IMPS">IMPS Immediate</option>
@@ -872,7 +892,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                   <label className="text-slate-450">UTR Clearance ID</label>
                   <input 
                     type="text" required value={payRef} placeholder="UTR ID" onChange={(e) => setPayRef(e.target.value)}
-                    className="w-full bg-slate-955 border border-slate-850 rounded px-3 py-2 text-slate-200 focus:border-slate-705 outline-none"
+                    className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:border-blue-500 outline-none"
                   />
                 </div>
               </div>
@@ -882,12 +902,12 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                 <input 
                   type="number" required max={showPayBillForm.total - (showPayBillForm.paymentPaid || 0)}
                   value={payAmount} onChange={(e) => setPayAmount(parseFloat(e.target.value) || 0)}
-                  className="w-full bg-slate-955 border border-slate-850 rounded px-3 py-2 text-emerald-400 text-sm font-bold font-mono focus:border-slate-705 outline-none"
+                  className="w-full bg-emerald-50 border border-emerald-200 rounded px-3 py-2 text-emerald-700 text-sm font-bold font-mono focus:border-emerald-500 outline-none"
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-slate-800 font-medium">
-                <button type="button" onClick={() => setShowPayBillForm(null)} className="border border-slate-800 px-4 py-2 rounded text-slate-400">Cancel</button>
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-200 font-medium">
+                <button type="button" onClick={() => setShowPayBillForm(null)} className="border border-slate-300 px-4 py-2 rounded text-slate-600">Cancel</button>
                 <button type="submit" className="bg-emerald-600 hover:bg-emerald-500 px-5 py-2 rounded text-white font-bold cursor-pointer">Post Outflow Journal</button>
               </div>
             </form>
@@ -898,3 +918,4 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
     </div>
   );
 }
+
