@@ -1,6 +1,7 @@
 export interface CompanyInfo {
   name: string;
   legalName: string;
+  isGstRegistered?: boolean;
   gstin: string;
   pan: string;
   address: string;
@@ -36,6 +37,7 @@ export interface Customer {
   id: string;
   name: string;
   legalName: string;
+  isRegistered?: boolean;
   gstin: string;
   pan: string;
   email: string;
@@ -49,6 +51,7 @@ export interface Customer {
 export interface Vendor {
   id: string;
   name: string;
+  isRegistered?: boolean;
   gstin: string;
   pan: string;
   msmeStatus: string;
@@ -557,3 +560,4 @@ export const ALL_PERMISSIONS = [
   { id: 'manage_billing', label: 'Manage Bills', category: 'Finance' },
   { id: 'view_banking', label: 'View Banking', category: 'Banking' },
 ];
+
