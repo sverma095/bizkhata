@@ -561,3 +561,4 @@ export const ALL_PERMISSIONS = [
   { id: 'view_banking', label: 'View Banking', category: 'Banking' },
 ];
 
+
