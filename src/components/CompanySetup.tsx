@@ -3092,3 +3092,4 @@ function EInvoicePortalSection({ db, onSaveCompany, triggerToast, setActiveSecti
   );
 }
 
+
