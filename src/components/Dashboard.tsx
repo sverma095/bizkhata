@@ -24,6 +24,7 @@ interface DashboardProps {
 export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProps) {
   const [activeTab, setActiveTab] = useState<"dashboard" | "fiscal" | "getstarted">("dashboard");
   const [cashFlowPeriod, setCashFlowPeriod] = useState("This Fiscal Year");
+  const [showPeriodDrop, setShowPeriodDrop] = useState(false);
   const [accrualMode, setAccrualMode] = useState<"Accrual" | "Cash">("Accrual");
 
   // Financial calculations
@@ -92,10 +93,73 @@ export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProp
   const finalOverduePayables = db.bills.filter(b => b.status !== "Paid" && b.dueDate < presentDate).reduce((acc, c) => acc + (c.total - (c.paymentPaid || 0)), 0);
   const finalCurrentPayables = Math.max(0, finalPayables - finalOverduePayables);
 
-  // Cash Flow Values (real data only)
-  const finalIncoming = totalCollections;
-  const finalOutgoing = totalExpenses;
-  const finalEnd = finalIncoming - finalOutgoing;
+  // ── Period filter state (declared in JSX below via useState) ──
+  // We compute period-aware values here using cashFlowPeriod + showPeriodDrop states
+  const now = new Date();
+  const fyStart = now.getMonth() >= 3
+    ? new Date(now.getFullYear(), 3, 1)
+    : new Date(now.getFullYear() - 1, 3, 1);
+  const fyEnd = new Date(fyStart.getFullYear() + 1, 2, 31);
+
+  const periodBoundsMap: Record<string, { from: Date; to: Date }> = {
+    "This Fiscal Year":  { from: fyStart, to: fyEnd },
+    "Last Fiscal Year":  { from: new Date(fyStart.getFullYear() - 1, 3, 1), to: new Date(fyStart.getFullYear(), 2, 31) },
+    "This Quarter": (() => {
+      const m = now.getMonth();
+      const qStarts = [3,6,9,0];
+      const q = m>=3&&m<=5?0:m>=6&&m<=8?1:m>=9&&m<=11?2:3;
+      const qsm = qStarts[q];
+      const yr = qsm===0 ? now.getFullYear() : now.getFullYear();
+      const from = new Date(yr, qsm, 1);
+      return { from, to: new Date(from.getFullYear(), from.getMonth()+3, 0) };
+    })(),
+    "This Month": { from: new Date(now.getFullYear(), now.getMonth(), 1), to: new Date(now.getFullYear(), now.getMonth()+1, 0) },
+    "Last Month": { from: new Date(now.getFullYear(), now.getMonth()-1, 1), to: new Date(now.getFullYear(), now.getMonth(), 0) },
+  };
+
+  const pb = periodBoundsMap[cashFlowPeriod] || periodBoundsMap["This Fiscal Year"];
+  const inPeriod = (dateStr: string) => { const d = new Date(dateStr); return d >= pb.from && d <= pb.to; };
+
+  // Period-filtered totals (real data only — no base dummy values)
+  const periodPayments = db.payments.filter(p => inPeriod(p.date));
+  const periodExpensesP = db.expenses.filter(e => inPeriod(e.date));
+  const periodBillsP = db.bills.filter(b => inPeriod(b.date));
+  const periodInvoicesP = db.invoices.filter(i => !i.isProforma && inPeriod(i.date));
+
+  const finalIncoming = periodPayments.reduce((s,p) => s + (p.amountReceived||0), 0);
+  const finalOutgoing = periodExpensesP.reduce((s,e) => s + (e.total||0), 0)
+                      + periodBillsP.reduce((s,b) => s + (b.total||0), 0);
+  // Opening balance = bank/cash account balance (no dummy base)
+  const baseStart = db.accounts.filter(a => a.type === "Bank" || a.type === "Cash").reduce((s,a) => s+(a.balance||0), 0);
+  const finalEnd  = baseStart + finalIncoming - finalOutgoing;
+
+  // Period receivables
+  const pUnpaidInv = periodInvoicesP.filter(i => i.status !== "Paid");
+  const periodReceivables   = pUnpaidInv.reduce((s,i) => s+(i.total-(i.paymentReceived||0)), 0);
+  const periodOverdueRec    = pUnpaidInv.filter(i => i.dueDate < presentDate).reduce((s,i) => s+(i.total-(i.paymentReceived||0)), 0);
+  // Period payables
+  const pUnpaidBills = periodBillsP.filter(b => b.status !== "Paid");
+  const periodPayables  = pUnpaidBills.reduce((s,b) => s+(b.total-(b.paymentPaid||0)), 0);
+  const periodOverduePay = pUnpaidBills.filter(b => b.dueDate < presentDate).reduce((s,b) => s+(b.total-(b.paymentPaid||0)), 0);
+
+  // Month-by-month breakdown for chart
+  const monthLabels: string[] = [];
+  const monthIncoming: number[] = [];
+  const monthOutgoing: number[] = [];
+  {
+    const cur = new Date(pb.from.getFullYear(), pb.from.getMonth(), 1);
+    const end = new Date(pb.to.getFullYear(), pb.to.getMonth(), 1);
+    while (cur <= end) {
+      const ym = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,"0")}`;
+      monthLabels.push(cur.toLocaleDateString("en-IN",{month:"short",year:"2-digit"}));
+      monthIncoming.push(db.payments.filter(p=>p.date?.startsWith(ym)).reduce((s,p)=>s+(p.amountReceived||0),0));
+      monthOutgoing.push(
+        db.expenses.filter(e=>e.date?.startsWith(ym)).reduce((s,e)=>s+(e.total||0),0)+
+        db.bills.filter(b=>b.date?.startsWith(ym)).reduce((s,b)=>s+(b.total||0),0)
+      );
+      cur.setMonth(cur.getMonth()+1);
+    }
+  }
 
   // Format Currencies in standard Indian Numbering system (Lakhs / Crores)
   const formatIndianCurrency = (num: number) => {
@@ -114,14 +178,14 @@ export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProp
         <div className="flex items-center gap-4">
           {/* Avatar badge */}
           <div className="w-12 h-12 bg-amber-100 border border-amber-300 text-amber-800 rounded-full flex items-center justify-center font-bold text-lg shadow-inner uppercase">
-            S
+            {(db.company.name || db.company.legalName || "B")[0].toUpperCase()}
           </div>
           <div className="space-y-1">
             <h1 id="bizkhata-hello-title" className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
               Hello, {db.company.name || "Welcome"}
             </h1>
             <div className="flex items-center text-xs text-slate-500 font-medium hover:text-blue-650 cursor-pointer">
-              <span>{db.company.legalName || "Thrymr Software Private Limited"} • All Locations</span>
+              <span>{db.company.legalName || db.company.name || "Your Organisation"} • All Locations</span>
               <ChevronDown className="w-3.5 h-3.5 ml-1 text-slate-400" />
             </div>
           </div>
@@ -201,7 +265,7 @@ export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProp
               <div className="space-y-1">
                 <p className="text-xs text-slate-500">Total Unpaid Invoices</p>
                 <div className="text-2xl font-black text-slate-900 font-mono tracking-tight">
-                  {formatIndianCurrency(finalReceivables)}
+                  {formatIndianCurrency(periodReceivables)}
                 </div>
               </div>
 
@@ -249,7 +313,7 @@ export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProp
               <div className="space-y-1">
                 <p className="text-xs text-slate-500">Total Unpaid Bills</p>
                 <div className="text-2xl font-black text-slate-900 font-mono tracking-tight">
-                  {formatIndianCurrency(finalPayables)}
+                  {formatIndianCurrency(periodPayables)}
                 </div>
               </div>
 
@@ -321,10 +385,26 @@ export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProp
             <div className="flex justify-between items-center">
               <h3 className="text-sm font-bold text-slate-900">Cash Flow</h3>
               <div className="relative inline-block">
-                <button className="bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer">
+                <button
+                  onClick={() => setShowPeriodDrop(p => !p)}
+                  className="bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer transition"
+                >
                   <span>{cashFlowPeriod}</span>
                   <ChevronDown className="w-3 h-3 text-slate-500" />
                 </button>
+                {showPeriodDrop && (
+                  <div className="absolute right-0 mt-1 w-44 bg-white border border-slate-200 rounded-lg shadow-xl z-40 py-1 text-xs text-slate-700">
+                    {["This Fiscal Year","Last Fiscal Year","This Quarter","This Month","Last Month"].map(opt => (
+                      <button
+                        key={opt}
+                        onClick={() => { setCashFlowPeriod(opt); setShowPeriodDrop(false); }}
+                        className={`w-full text-left px-3 py-2 hover:bg-blue-50 hover:text-blue-700 transition ${cashFlowPeriod === opt ? "font-bold text-blue-600 bg-blue-50" : ""}`}
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -342,63 +422,48 @@ export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProp
                   <div className="border-b border-dashed border-slate-200 w-full flex justify-between pr-2"><span>0</span></div>
                 </div>
 
-                {/* SVG Curve Canvas with responsiveness */}
-                <svg className="w-full h-full overflow-visible pt-6" viewBox="0 0 1000 200" preserveAspectRatio="none">
-                  {/* Closed Gradient Shaded Area */}
-                  <path 
-                    d="M 50 140 
-                       C 100 130, 150 160, 200 65 
-                       C 280 65, 360 65, 420 65 
-                       C 500 65, 580 65, 660 65 
-                       C 740 65, 820 65, 900 65 
-                       C 930 65, 960 65, 980 65 
-                       L 980 200 L 50 200 Z" 
-                    fill="url(#cashflow-gradient)" 
-                    opacity="0.14" 
-                  />
-
-                  {/* Bezier Path Line */}
-                  <path 
-                    d="M 50 140 
-                       C 100 130, 150 160, 200 65 
-                       C 280 65, 360 65, 420 65 
-                       C 500 65, 580 65, 660 65 
-                       C 740 65, 820 65, 900 65 
-                       C 930 65, 960 65, 980 65" 
-                    fill="none" 
-                    stroke="#1a73e8" 
-                    strokeWidth="2.5" 
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-
-                  {/* Dot Markers at months */}
-                  {[
-                    { cx: 50, cy: 140 },
-                    { cx: 120, cy: 150 },
-                    { cx: 200, cy: 65 },
-                    { cx: 280, cy: 65 },
-                    { cx: 360, cy: 65 },
-                    { cx: 440, cy: 65 },
-                    { cx: 520, cy: 65 },
-                    { cx: 600, cy: 65 },
-                    { cx: 680, cy: 65 },
-                    { cx: 760, cy: 65 },
-                    { cx: 840, cy: 65 },
-                    { cx: 920, cy: 65 },
-                    { cx: 980, cy: 65 }
-                  ].map((dot, dIdx) => (
-                    <circle key={dIdx} cx={dot.cx} cy={dot.cy} r="4" fill="#1a73e8" stroke="#ffffff" strokeWidth="2" className="drop-shadow cursor-pointer" />
-                  ))}
-
-                  {/* Definitions */}
-                  <defs>
-                    <linearGradient id="cashflow-gradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#1a73e8" />
-                      <stop offset="100%" stopColor="#ffffff" />
-                    </linearGradient>
-                  </defs>
-                </svg>
+                {/* Dynamic chart — real period data */}
+                {(() => {
+                  const H=180, W=1000, PAD=50;
+                  const maxVal = Math.max(...monthIncoming, ...monthOutgoing, 1);
+                  const n = monthLabels.length;
+                  const xp = (i: number) => n<=1 ? W/2 : PAD + (i/(n-1))*(W-PAD*2);
+                  const yp = (v: number) => H - PAD - ((v/maxVal)*(H-PAD*2));
+                  const makePath = (arr: number[]) => arr.reduce((d,v,i)=>d+(i===0?`M ${xp(i)} ${yp(v)}`:`L ${xp(i)} ${yp(v)}`), "");
+                  const incPath = makePath(monthIncoming);
+                  const outPath = makePath(monthOutgoing);
+                  return (
+                    <svg className="w-full h-full" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
+                      <defs>
+                        <linearGradient id="inc-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#1a73e8" stopOpacity="0.3"/><stop offset="100%" stopColor="#1a73e8" stopOpacity="0"/></linearGradient>
+                        <linearGradient id="out-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#f43f5e" stopOpacity="0.2"/><stop offset="100%" stopColor="#f43f5e" stopOpacity="0"/></linearGradient>
+                      </defs>
+                      {[0.25,0.5,0.75,1].map((t,i)=>(
+                        <line key={i} x1={PAD} x2={W-PAD} y1={yp(maxVal*t)} y2={yp(maxVal*t)} stroke="#e2e8f0" strokeWidth="1" strokeDasharray="4 3"/>
+                      ))}
+                      {monthLabels.length > 0 ? (
+                        <>
+                          <path d={incPath+` L ${xp(n-1)} ${H-PAD} L ${xp(0)} ${H-PAD} Z`} fill="url(#inc-g)"/>
+                          <path d={incPath} fill="none" stroke="#1a73e8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d={outPath+` L ${xp(n-1)} ${H-PAD} L ${xp(0)} ${H-PAD} Z`} fill="url(#out-g)"/>
+                          <path d={outPath} fill="none" stroke="#f43f5e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="6 3"/>
+                          {monthIncoming.map((v,i)=>(
+                            <circle key={`i${i}`} cx={xp(i)} cy={yp(v)} r="4" fill="#1a73e8" stroke="#fff" strokeWidth="2">
+                              <title>{monthLabels[i]} Incoming: ₹{v.toLocaleString("en-IN")}</title>
+                            </circle>
+                          ))}
+                          {monthOutgoing.map((v,i)=>(
+                            <circle key={`o${i}`} cx={xp(i)} cy={yp(v)} r="4" fill="#f43f5e" stroke="#fff" strokeWidth="2">
+                              <title>{monthLabels[i]} Outgoing: ₹{v.toLocaleString("en-IN")}</title>
+                            </circle>
+                          ))}
+                        </>
+                      ) : (
+                        <text x={W/2} y={H/2} textAnchor="middle" fontSize="18" fill="#94a3b8">No data for this period</text>
+                      )}
+                    </svg>
+                  );
+                })()}
 
                 {/* X Axis Month Labels */}
                 <div className="absolute bottom-1 inset-x-0 flex justify-between px-1 text-[8.5px] font-semibold text-slate-500 font-sans tracking-tight">
@@ -424,7 +489,7 @@ export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProp
                 <div className="p-3.5 bg-slate-50/60 border border-slate-100 rounded-lg flex flex-col gap-1">
                   <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold flex items-center gap-1.5">
                     <span className="w-2.5 h-2.5 bg-slate-400 rounded-sm inline-block" />
-                    Cash as on 01 Apr 2026
+                    Opening Balance (Bank + Cash)
                   </span>
                   <p className="text-sm font-bold text-slate-900 font-mono">
                     {formatIndianCurrency(baseStart)}
@@ -627,4 +692,5 @@ export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProp
     </div>
   );
 }
+
 
