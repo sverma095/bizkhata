@@ -462,8 +462,12 @@ export interface FixedAsset {
   salvageValue: number;
   currentValue: number;
   accumulatedDepreciation: number;
-  status: 'Active' | 'Disposed' | 'Fully Depreciated';
+  status: 'Active' | 'Disposed' | 'Fully Depreciated' | 'CWIP';
   invoiceRef?: string;
+  disposalDate?: string;
+  disposalProceeds?: number;
+  disposalGainLoss?: number;
+  capitalizedDate?: string; // date CWIP was converted to an active asset
 }
 
 // ── Opening Balance Entry ─────────────────────────────────────────────────────
