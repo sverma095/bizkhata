@@ -573,7 +573,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
             </button>
           </div>
 
-          <form id="frm-invoice-draft" onSubmit={(e) => e.preventDefault()} className="space-y-4">
+          <form id="frm-invoice-draft" onSubmit={(e) => e.preventDefault()} className="space-y-4" autoComplete="off">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-1.5">
                 <label id="lbl-fld-cust" className="text-xs text-slate-600 font-medium">Customer Master Record</label>
@@ -1339,12 +1339,12 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                 </button>
               </div>
 
-              <form onSubmit={handleCustomerSubmit} className="space-y-4 text-xs">
+              <form onSubmit={handleCustomerSubmit} className="space-y-4 text-xs" autoComplete="off">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-slate-600 font-medium font-sans">Customer Label / Display Name</label>
                     <input 
-                      type="text" required value={customerFormName} onChange={e => setCustomerFormName(e.target.value)}
+                      type="text" required autoComplete="off" value={customerFormName} onChange={e => setCustomerFormName(e.target.value)}
                       className="w-full bg-white border border-slate-200 px-3 py-2 rounded text-slate-800 placeholder-slate-400 focus:border-blue-500 outline-none"
                       placeholder="e.g. Analytics Vidya"
                     />
@@ -1352,7 +1352,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                   <div className="space-y-1.5">
                     <label className="text-slate-600 font-medium font-sans">Official Legal Registry Name</label>
                     <input 
-                      type="text" required value={customerFormLegalName} onChange={e => setCustomerFormLegalName(e.target.value)}
+                      type="text" required autoComplete="off" value={customerFormLegalName} onChange={e => setCustomerFormLegalName(e.target.value)}
                       className="w-full bg-white border border-slate-200 px-3 py-2 rounded text-slate-800 placeholder-slate-400 focus:border-blue-500 outline-none"
                       placeholder="e.g. Analytics Vidya Educon Private Limited"
                     />
@@ -1377,7 +1377,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                   <div className="space-y-1.5 font-sans">
                     <label className="text-slate-600 font-sans">State location (Place of Supply)</label>
                     <input 
-                      type="text" required value={customerFormState} onChange={e => setCustomerFormState(e.target.value)}
+                      type="text" required autoComplete="off" value={customerFormState} onChange={e => setCustomerFormState(e.target.value)}
                       className="w-full bg-white border border-slate-200 px-3 py-2 rounded text-slate-800 placeholder-slate-400 focus:border-blue-500 outline-none"
                       placeholder="e.g. Haryana"
                     />
@@ -1396,7 +1396,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                   <div className="space-y-1.5">
                     <label className="text-slate-600 font-sans">Customer PAN Tag</label>
                     <input 
-                      type="text" maxLength={10} value={customerFormPan} onChange={e => setCustomerFormPan(e.target.value.toUpperCase())}
+                      type="text" maxLength={10} autoComplete="off" value={customerFormPan} onChange={e => setCustomerFormPan(e.target.value.toUpperCase())}
                       className="w-full bg-white border border-slate-200 px-3 py-2 rounded text-slate-800 placeholder-slate-400 focus:border-blue-500 outline-none tracking-wide"
                       placeholder="e.g. AAMCA5999F"
                     />
@@ -1407,7 +1407,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                   <div className="space-y-1.5">
                     <label className="text-slate-600 font-medium">Primary Contact Email Address</label>
                     <input 
-                      type="email" required value={customerFormEmail} onChange={e => setCustomerFormEmail(e.target.value)}
+                      type="email" required autoComplete="new-password" value={customerFormEmail} onChange={e => setCustomerFormEmail(e.target.value)}
                       className="w-full bg-white border border-slate-200 px-3 py-2 rounded text-slate-800 placeholder-slate-400 focus:border-blue-500 outline-none"
                       placeholder="e.g. finance@analyticsvidya.com"
                     />
@@ -1415,7 +1415,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                   <div className="space-y-1.5">
                     <label className="text-slate-600 font-medium">Authorized Contact Telephone</label>
                     <input 
-                      type="text" required value={customerFormPhone} onChange={e => setCustomerFormPhone(e.target.value)}
+                      type="text" required autoComplete="off" value={customerFormPhone} onChange={e => setCustomerFormPhone(e.target.value)}
                       className="w-full bg-white border border-slate-200 px-3 py-2 rounded text-slate-800 placeholder-slate-400 focus:border-blue-500 outline-none"
                       placeholder="e.g. +91-8888999911"
                     />
@@ -2755,5 +2755,6 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
     </div>
   );
 }
+
 
 
