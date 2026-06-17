@@ -1353,7 +1353,11 @@ export default function App() {
           </div>
 
           {/* Settings */}
-          <button onClick={() => setActiveTab("settings")} className="hover:text-white transition-colors" title="Settings">
+          <button
+            onClick={() => setActiveTab("settings")}
+            className={`transition-colors p-1.5 rounded-lg ${activeTab === "settings" ? "bg-white/20 text-white" : "text-slate-300 hover:text-white hover:bg-white/10"}`}
+            title="Organisation Settings"
+          >
             <Settings className="w-4 h-4" />
           </button>
 
@@ -1566,7 +1570,17 @@ export default function App() {
                 <span className="text-[7.5px] font-black bg-blue-600 text-white rounded px-1.5 py-0.5">{db?.users?.length || 0} / {db?.userSeatsLimit || 10}</span>
               </button>
 
-              {/* 12. SaaS Owner (only for Owner role) */}
+              {/* 12. Settings */}
+              <button
+                id="sidebar-settings"
+                onClick={() => setActiveTab("settings")}
+                className={`w-full flex items-center justify-between px-4 py-2 text-xs font-semibold leading-relaxed transition-all cursor-pointer ${
+                  activeTab === "settings" ? "bg-[#E2EAFC] text-blue-700 font-bold border-l-4 border-blue-600" : "text-slate-650 hover:bg-slate-100/70 hover:text-slate-900"
+                }`}>
+                <span className="flex items-center gap-3"><Settings className="w-4 h-4 text-slate-500" /><span>Organisation Settings</span></span>
+              </button>
+
+              {/* 13. SaaS Owner (only for Owner role) */}
               {activeRole === UserRole.Owner && (
                 <button onClick={() => { setActiveTab("owner_saas"); }}
                   className={`w-full flex items-center justify-between px-4 py-2 text-xs font-semibold leading-relaxed transition-all cursor-pointer ${
@@ -3181,5 +3195,6 @@ export default function App() {
     </div>
   );
 }
+
 
 
