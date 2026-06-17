@@ -51,6 +51,7 @@ export interface Customer {
 export interface Vendor {
   id: string;
   name: string;
+  legalName?: string;
   isRegistered?: boolean;
   gstin: string;
   pan: string;
@@ -58,6 +59,7 @@ export interface Vendor {
   email: string;
   phone: string;
   address: string;
+  billingAddress?: string;
   openingBalance: number;
 }
 
