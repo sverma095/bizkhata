@@ -129,8 +129,8 @@ export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProp
   const finalIncoming = periodPayments.reduce((s,p) => s + (p.amountReceived||0), 0);
   const finalOutgoing = periodExpensesP.reduce((s,e) => s + (e.total||0), 0)
                       + periodBillsP.reduce((s,b) => s + (b.total||0), 0);
-  // Opening balance = bank/cash account balance (no dummy base)
-  const baseStart = db.accounts.filter(a => a.type === "Bank" || a.type === "Cash").reduce((s,a) => s+(a.balance||0), 0);
+  // Opening balance = sum of bank/cash account current balances (no dummy base)
+  const baseStart = (db.bankAccounts || []).reduce((s,a) => s + (a.currentBalance || 0), 0);
   const finalEnd  = baseStart + finalIncoming - finalOutgoing;
 
   // Period receivables
