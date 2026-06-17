@@ -249,12 +249,7 @@ serve(async (req) => {
 
 // ── MODULE 4: GSTR-2B RECONCILIATION ───────────────────────────
 function GSTR2B() {
-  const [data] = useState([
-    { sup: "Sharma Suppliers", gstin: "09XYZAB1234C1Z1", inv: "SS/142", date: "2025-05-10", tax: 85000, itc: 15300, status: "matched" },
-    { sup: "Gupta Wholesale", gstin: "27ABCDE5678F1Z2", inv: "GW-0891", date: "2025-05-18", tax: 42000, itc: 7560, status: "matched" },
-    { sup: "Raj Enterprises", gstin: "07MNOPQ9012G1Z3", inv: "RE-55", date: "2025-05-25", tax: 28000, itc: 5040, status: "unmatched" },
-    { sup: "Krishna Traders", gstin: "09RSTUV3456H1Z4", inv: "KT/890", date: "2025-05-28", tax: 15000, itc: 2700, status: "extra_in_2b" },
-  ]);
+  const [data] = useState([]);
   const matched = data.filter(r => r.status === "matched");
   const itcTotal = matched.reduce((s, r) => s + r.itc, 0);
   const smap = { matched: ["green", "Matched"], unmatched: ["red", "Unmatched"], extra_in_2b: ["amber", "Extra in 2B"] };
@@ -274,11 +269,7 @@ function GSTR2B() {
 
 // ── MODULE 5: PAYMENT REMINDERS ─────────────────────────────────
 function PaymentReminders() {
-  const overdue = [
-    { inv: "INV-0138", cust: "Rahul Traders", email: "rahul@traders.com", amt: 28400, days: 5, last: "2025-06-02" },
-    { inv: "INV-0135", cust: "Mehta & Sons", email: "accounts@mehta.com", amt: 55000, days: 10, last: "2025-06-01" },
-    { inv: "INV-0130", cust: "Singh Enterprises", email: "singh@enterprise.com", amt: 92000, days: 20, last: "2025-06-03" },
-  ];
+  const overdue = [];
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Payment Reminders</h2><p className="text-xs text-gray-500">Auto-send escalating reminders for overdue invoices</p></div><Btn v="primary" onClick={() => alert("Running all reminders…")}>⚡ Run All Now</Btn></div>
@@ -311,12 +302,8 @@ function PaymentReminders() {
 
 // ── MODULE 6: APPROVAL WORKFLOWS ───────────────────────────────
 function ApprovalWorkflows() {
-  const [pending, setPending] = useState([
-    { id: 1, mod: "Invoice", ref: "INV-0145", party: "Singh Enterprises", amt: 85000, by: "Ravi Kumar", time: "Today 09:15" },
-    { id: 2, mod: "PO", ref: "PO-0034", party: "Office Depot", amt: 24500, by: "Priya Sharma", time: "Today 10:02" },
-    { id: 3, mod: "Expense", ref: "EXP-0089", party: "Travel — Bangalore", amt: 12800, by: "Amit Gupta", time: "Yesterday" },
-  ]);
-  const [approved, setApproved] = useState([{ id: 4, mod: "Bill", ref: "BILL-0021", party: "Electricity Board", amt: 8400, by: "Admin", time: "Yesterday 11:30" }]);
+  const [pending, setPending] = useState([]);
+  const [approved, setApproved] = useState([]);
   const approve = id => { const item = pending.find(p => p.id === id); setPending(p => p.filter(x => x.id !== id)); setApproved(p => [{ ...item, by: "You", time: "Just now" }, ...p]); };
   const reject = id => setPending(p => p.filter(x => x.id !== id));
   return (
@@ -357,14 +344,8 @@ function ApprovalWorkflows() {
 // ── MODULES 7-30: Remaining modules (all complete) ─────────────
 
 function BankFeeds() {
-  const [feeds, setFeeds] = useState([
-    { id: 1, date: "06-04", desc: "NEFT CR - RAHUL TRADERS 48291", amt: 28400, cat: "Sales Receipt", ok: true },
-    { id: 2, date: "06-03", desc: "UPI/PHONEPE/RENT/GUPTA", amt: -25000, cat: "Rent Expense", ok: true },
-    { id: 3, date: "06-03", desc: "IMPS DR - SHARMA CONSULT 7391", amt: -76500, cat: null, ok: false },
-    { id: 4, date: "06-02", desc: "NEFT CR - MEHTA AND SONS 55000", amt: 55000, cat: "Sales Receipt", ok: true },
-    { id: 5, date: "06-02", desc: "ATM WDL 001023 HAZRATGANJ", amt: -5000, cat: null, ok: false },
-  ]);
-  const [rules, setRules] = useState([{ id: 1, kw: "RENT", cat: "Rent Expense", on: true }, { id: 2, kw: "NEFT CR", cat: "Sales Receipt", on: true }]);
+  const [feeds, setFeeds] = useState([]);
+  const [rules, setRules] = useState([]);
   const uncat = feeds.filter(f => !f.cat).length;
   const cats = ["Sales Receipt", "Rent Expense", "Salaries", "Office Expenses", "Bank Charges", "Utilities", "Contractor Payment"];
   return (
@@ -396,14 +377,7 @@ function BankFeeds() {
 }
 
 function BudgetModule() {
-  const [lines, setLines] = useState([
-    { id: 1, acc: "Sales - Goods", type: "income", bud: 500000, act: 384000 },
-    { id: 2, acc: "Sales - Services", type: "income", bud: 150000, act: 92000 },
-    { id: 3, acc: "Salaries", type: "expense", bud: 120000, act: 118000 },
-    { id: 4, acc: "Rent", type: "expense", bud: 25000, act: 25000 },
-    { id: 5, acc: "Office Supplies", type: "expense", bud: 15000, act: 21400 },
-    { id: 6, acc: "Marketing", type: "expense", bud: 30000, act: 12000 },
-  ]);
+  const [lines, setLines] = useState([]);
   const bi = lines.filter(l => l.type === "income").reduce((s, l) => s + l.bud, 0);
   const ai = lines.filter(l => l.type === "income").reduce((s, l) => s + l.act, 0);
   const be = lines.filter(l => l.type === "expense").reduce((s, l) => s + l.bud, 0);
@@ -449,15 +423,8 @@ function BudgetModule() {
 
 function ProjectsModule() {
   const [tab, setTab] = useState("projects");
-  const [projects] = useState([
-    { id: 1, name: "GST Filing — Rahul Traders", cust: "Rahul Traders", type: "fixed", bud: 25000, billed: 15000, hrs: 18.5, status: "active" },
-    { id: 2, name: "Accounting — Mehta & Sons", cust: "Mehta & Sons", type: "hourly", bud: 50000, billed: 32000, hrs: 42, status: "active" },
-    { id: 3, name: "Annual Audit Support", cust: "Singh Enterprises", type: "milestone", bud: 80000, billed: 80000, hrs: 96, status: "completed" },
-  ]);
-  const [logs, setLogs] = useState([
-    { proj: "GST Filing", task: "GSTR-1 Prep", user: "Ravi", date: "2025-06-04", hrs: 2.5, bill: true },
-    { proj: "Accounting — Mehta", task: "Bank Recon", user: "Priya", date: "2025-06-04", hrs: 3, bill: true },
-  ]);
+  const [projects] = useState([]);
+  const [logs, setLogs] = useState([]);
   const [timer, setTimer] = useState({ on: false, secs: 0, proj: "", task: "" });
   const ref = useRef(null);
   const fmt = s => `${String(Math.floor(s / 3600)).padStart(2, "0")}:${String(Math.floor((s % 3600) / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
@@ -467,7 +434,7 @@ function ProjectsModule() {
       <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Projects & Time Tracking</h2><p className="text-xs text-gray-500">Track billable hours per project, convert to invoices</p></div><Btn v="primary">+ New Project</Btn></div>
       <Tabs items={[["projects", "Projects"], ["timesheets", "Timesheets"], ["timer", "⏱ Live Timer"]]} active={tab} onChange={setTab} />
       {tab === "projects" && <div className="space-y-3">{projects.map(p => { const pct = Math.round((p.billed / p.bud) * 100); return (<Card key={p.id}><div className="flex items-start justify-between"><div className="flex-1"><div className="flex items-center gap-2 mb-1"><span className="font-medium text-sm">{p.name}</span><Badge c={p.status === "completed" ? "green" : "blue"}>{p.status}</Badge><Badge c="purple">{p.type}</Badge></div><p className="text-xs text-gray-500">{p.cust} · {p.hrs}h logged</p><div className="mt-2"><div className="flex justify-between text-xs text-gray-400 mb-1"><span>₹{p.billed.toLocaleString()} billed</span><span>₹{p.bud.toLocaleString()} budget</span></div><div className="h-1.5 bg-gray-100 rounded-full overflow-hidden"><div className={"h-full rounded-full " + (pct > 90 ? "bg-red-400" : "bg-emerald-500")} style={{ width: Math.min(100, pct) + "%" }} /></div></div></div><div className="flex gap-2 ml-4"><Btn onClick={() => setTab("timesheets")}>Log Time</Btn><Btn v="primary" onClick={() => alert("Creating invoice…")}>Invoice</Btn></div></div></Card>); })}</div>}
-      {tab === "timesheets" && <div className="grid grid-cols-2 gap-4"><Card><p className="text-sm font-medium mb-2">Log Time</p><Label>Project</Label><Select><option>GST Filing — Rahul Traders</option><option>Accounting — Mehta & Sons</option></Select><Label>Task</Label><Input id="pttask" placeholder="e.g. GSTR-1 Preparation" /><Label>Date</Label><Input type="date" id="ptdate" defaultValue={new Date().toISOString().split("T")[0]} /><Label>Hours</Label><Input type="number" id="pthrs" step="0.25" placeholder="2.5" /><label className="flex items-center gap-2 mt-2 text-xs cursor-pointer"><input type="checkbox" id="ptbill" defaultChecked className="accent-emerald-600" /> Billable</label><Btn v="primary" className="w-full mt-3" onClick={() => { const task = document.getElementById("pttask")?.value; const hrs = parseFloat(document.getElementById("pthrs")?.value) || 0; if (hrs) { setLogs(p => [...p, { proj: "GST Filing", task: task || "General", user: "You", date: new Date().toISOString().split("T")[0], hrs, bill: document.getElementById("ptbill")?.checked }]); } }}>Save Entry</Btn></Card><Card><div className="flex justify-between items-center mb-3"><p className="text-sm font-medium">Log</p><span className="text-xs text-gray-500">{billHrs.toFixed(1)}h billable</span></div><Tbl headers={["Project", "Task", "Date", "Hrs", "Bill"]} rows={logs.map(l => [l.proj, l.task, l.date, l.hrs + "h", <Badge c={l.bill ? "green" : "gray"}>{l.bill ? "Yes" : "No"}</Badge>])} /><Btn v="primary" className="w-full mt-3" onClick={() => alert("Invoicing " + billHrs.toFixed(1) + "h…")}>Convert to Invoice</Btn></Card></div>}
+      {tab === "timesheets" && <div className="grid grid-cols-2 gap-4"><Card><p className="text-sm font-medium mb-2">Log Time</p><Label>Project</Label><Select id="ptproj"><option value="">Select Project</option>{projects.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}</Select><Label>Task</Label><Input id="pttask" placeholder="e.g. GSTR-1 Preparation" /><Label>Date</Label><Input type="date" id="ptdate" defaultValue={new Date().toISOString().split("T")[0]} /><Label>Hours</Label><Input type="number" id="pthrs" step="0.25" placeholder="2.5" /><label className="flex items-center gap-2 mt-2 text-xs cursor-pointer"><input type="checkbox" id="ptbill" defaultChecked className="accent-emerald-600" /> Billable</label><Btn v="primary" className="w-full mt-3" onClick={() => { const task = document.getElementById("pttask")?.value; const hrs = parseFloat(document.getElementById("pthrs")?.value) || 0; if (hrs) { const projSel = document.getElementById("ptproj")?.value; setLogs(p => [...p, { proj: projSel || "Unassigned", task: task || "General", user: "You", date: new Date().toISOString().split("T")[0], hrs, bill: document.getElementById("ptbill")?.checked }]); } }}>Save Entry</Btn></Card><Card><div className="flex justify-between items-center mb-3"><p className="text-sm font-medium">Log</p><span className="text-xs text-gray-500">{billHrs.toFixed(1)}h billable</span></div><Tbl headers={["Project", "Task", "Date", "Hrs", "Bill"]} rows={logs.map(l => [l.proj, l.task, l.date, l.hrs + "h", <Badge c={l.bill ? "green" : "gray"}>{l.bill ? "Yes" : "No"}</Badge>])} /><Btn v="primary" className="w-full mt-3" onClick={() => alert("Invoicing " + billHrs.toFixed(1) + "h…")}>Convert to Invoice</Btn></Card></div>}
       {tab === "timer" && <Card className="max-w-xs mx-auto text-center py-6"><div className={"text-5xl font-mono font-medium mb-4 " + (timer.on ? "text-emerald-600" : "text-gray-700")}>{fmt(timer.secs)}</div><Select className="mb-2" value={timer.proj} onChange={e => setTimer(p => ({ ...p, proj: e.target.value }))}><option value="">Select project…</option>{projects.map(p => <option key={p.id}>{p.name}</option>)}</Select><Input className="mb-4" value={timer.task} onChange={e => setTimer(p => ({ ...p, task: e.target.value }))} placeholder="Task (optional)" />{!timer.on ? <Btn v="primary" className="w-full py-2" onClick={() => { if (!timer.proj) return alert("Select project"); ref.current = setInterval(() => setTimer(p => ({ ...p, secs: p.secs + 1 })), 1000); setTimer(p => ({ ...p, on: true })); }}>▶ Start Timer</Btn> : <Btn v="danger" className="w-full py-2" onClick={() => { clearInterval(ref.current); const hrs = (timer.secs / 3600).toFixed(2); setLogs(p => [...p, { proj: timer.proj, task: timer.task || "General", user: "You", date: new Date().toISOString().split("T")[0], hrs: +hrs, bill: true }]); setTimer({ on: false, secs: 0, proj: "", task: "" }); alert("Saved: " + hrs + "h"); }}>⏹ Stop & Save</Btn>}</Card>}
     </div>
   );
@@ -503,7 +470,7 @@ function MultiCurrency() {
 }
 
 function AuditTrail() {
-  const [logs] = useState([{ user: "Admin", action: "created", mod: "Invoice", rec: "INV-0142", detail: "₹28,400 · Rahul Traders", time: "2025-06-04 10:22" }, { user: "Ravi Kumar", action: "updated", mod: "Invoice", rec: "INV-0141", detail: "draft→sent", time: "2025-06-04 09:45" }, { user: "Admin", action: "approved", mod: "PO", rec: "PO-0033", detail: "₹24,500", time: "2025-06-03 16:12" }, { user: "Priya Sharma", action: "created", mod: "Expense", rec: "EXP-0088", detail: "₹3,200", time: "2025-06-03 14:55" }, { user: "Admin", action: "deleted", mod: "Journal", rec: "JV-0021", detail: "Duplicate", time: "2025-06-03 11:30" }]);
+  const [logs] = useState([]);
   const [q, setQ] = useState("");
   const colMap = { created: "green", updated: "blue", deleted: "red", approved: "green", viewed: "gray" };
   const filtered = q ? logs.filter(l => l.user.toLowerCase().includes(q.toLowerCase()) || l.rec.toLowerCase().includes(q.toLowerCase())) : logs;
@@ -517,7 +484,7 @@ function AuditTrail() {
 }
 
 function GRNModule() {
-  const [grns, setGRNs] = useState([{ id: 1, no: "GRN-0012", ven: "Sharma Suppliers", po: "PO-0031", date: "2025-06-03", items: 4, status: "received" }, { id: 2, no: "GRN-0013", ven: "Office Depot", po: "PO-0033", date: "2025-06-04", items: 2, status: "draft" }]);
+  const [grns, setGRNs] = useState([]);
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Goods Receipt Note (GRN)</h2><p className="text-xs text-gray-500">3-way match: PO → GRN → Bill</p></div><Btn v="primary" onClick={() => { const v = prompt("Vendor:"); if (v) setGRNs(p => [...p, { id: Date.now(), no: "GRN-00" + (p.length + 13), ven: v, po: "PO-00" + (30 + p.length), date: new Date().toISOString().split("T")[0], items: Math.floor(Math.random() * 5 + 1), status: "draft" }]); }}>+ New GRN</Btn></div>
@@ -528,7 +495,7 @@ function GRNModule() {
 }
 
 function ReverseCharge() {
-  const [bills, setBills] = useState([{ ven: "Sharma Consulting (Unreg)", amt: 50000, gst: 18, rcm: 9000, date: "2025-06-01", status: "posted" }, { ven: "Freight Carrier Co", amt: 12000, gst: 5, rcm: 600, date: "2025-06-03", status: "pending" }]);
+  const [bills, setBills] = useState([]);
   const [form, setForm] = useState({ ven: "", amt: "", gst: "18", date: new Date().toISOString().split("T")[0] });
   const rcm = form.amt ? ((+form.amt * +form.gst) / 100).toFixed(2) : 0;
   return (
@@ -550,8 +517,8 @@ function ReverseCharge() {
 }
 
 function DepreciationAuto() {
-  const [assets, setAssets] = useState([{ id: 1, name: "Dell Laptop", wdv: 50600, rate: 40, monthly: 1687, last: "2025-05-31", auto: true }, { id: 2, name: "Office Chairs", wdv: 34650, rate: 10, monthly: 289, last: "2025-05-31", auto: true }, { id: 3, name: "Canon Printer", wdv: 22400, rate: 40, monthly: 747, last: "2025-04-30", auto: false }]);
-  const [logs, setLogs] = useState([{ asset: "Dell Laptop", amt: 1687, date: "2025-05-31", jv: "JV-0089" }, { asset: "Office Chairs", amt: 289, date: "2025-05-31", jv: "JV-0090" }]);
+  const [assets, setAssets] = useState([]);
+  const [logs, setLogs] = useState([]);
   const total = assets.filter(a => a.auto).reduce((s, a) => s + a.monthly, 0);
   const run = () => { const nl = assets.filter(a => a.auto).map((a, i) => ({ asset: a.name, amt: a.monthly, date: "2025-06-30", jv: "JV-00" + (91 + i) })); setLogs(p => [...nl, ...p]); setAssets(p => p.map(a => a.auto ? { ...a, wdv: Math.round(a.wdv - a.monthly), last: "2025-06-30" } : a)); alert("✅ " + nl.length + " journals posted"); };
   return (
@@ -566,7 +533,7 @@ function DepreciationAuto() {
 }
 
 function RecurringTxns() {
-  const [list, setList] = useState([{ id: 1, type: "Invoice", name: "Monthly Retainer — Rahul", amt: 15000, freq: "Monthly", next: "2025-07-01", count: 6, on: true }, { id: 2, type: "Bill", name: "Office Rent — Gupta Property", amt: 25000, freq: "Monthly", next: "2025-07-01", count: 14, on: true }, { id: 3, type: "Journal", name: "Monthly Depreciation Provision", amt: 2723, freq: "Monthly", next: "2025-06-30", count: 3, on: true }, { id: 4, type: "Invoice", name: "Quarterly GST — Singh", amt: 25000, freq: "Quarterly", next: "2025-07-01", count: 2, on: false }]);
+  const [list, setList] = useState([]);
   const icons = { Invoice: "🧾", Bill: "📋", Journal: "📔", Expense: "💳" };
   const colors = { Invoice: "green", Bill: "red", Journal: "blue", Expense: "amber" };
   return (
@@ -579,7 +546,7 @@ function RecurringTxns() {
 }
 
 function BillableExpenses() {
-  const [expenses, setExpenses] = useState([{ id: 1, date: "2025-06-02", cat: "Travel", desc: "Flight Delhi — Client meeting", amt: 8200, bill: true, invoiced: false }, { id: 2, date: "2025-06-03", cat: "Meals", desc: "Client lunch — Rahul Traders", amt: 1800, bill: true, invoiced: false }, { id: 3, date: "2025-06-04", cat: "Supplies", desc: "Printer paper for office", amt: 1200, bill: false, invoiced: false }]);
+  const [expenses, setExpenses] = useState([]);
   const [form, setForm] = useState({ date: new Date().toISOString().split("T")[0], cat: "Travel", desc: "", amt: "", bill: false });
   const total = expenses.filter(e => e.bill && !e.invoiced).reduce((s, e) => s + e.amt, 0);
   return (
@@ -604,7 +571,7 @@ function BillableExpenses() {
 }
 
 function AdvancePayments() {
-  const [advances, setAdvances] = useState([{ id: 1, party: "Rahul Traders", type: "customer", amt: 50000, date: "2025-05-15", bal: 21600, mode: "NEFT" }, { id: 2, party: "Office Depot", type: "vendor", amt: 25000, date: "2025-05-28", bal: 25000, mode: "Cheque" }]);
+  const [advances, setAdvances] = useState([]);
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Advance Payments</h2><p className="text-xs text-gray-500">Record and apply customer/vendor advances to invoices</p></div><Btn v="primary" onClick={() => { const p = prompt("Party name:"); if (p) setAdvances(prev => [...prev, { id: Date.now(), party: p, type: "customer", amt: 25000, date: new Date().toISOString().split("T")[0], bal: 25000, mode: "NEFT" }]); }}>+ Record Advance</Btn></div>
@@ -615,7 +582,7 @@ function AdvancePayments() {
 }
 
 function PartialInvoices() {
-  const [orders, setOrders] = useState([{ id: 1, so: "SO-0041", cust: "Rahul Traders", total: 500, invoiced: 200, amt: 125000, status: "partial" }, { id: 2, so: "SO-0042", cust: "Singh Enterprises", total: 1000, invoiced: 0, amt: 240000, status: "open" }, { id: 3, so: "SO-0039", cust: "Mehta & Sons", total: 100, invoiced: 100, amt: 38000, status: "fully_invoiced" }]);
+  const [orders, setOrders] = useState([]);
   return (
     <div className="space-y-4">
       <div><h2 className="text-base font-medium">Partial Invoices</h2><p className="text-xs text-gray-500">Split a Sales Order across multiple invoices for partial dispatches</p></div>
@@ -628,7 +595,7 @@ function PartialInvoices() {
 }
 
 function MilestoneBilling() {
-  const [ms, setMs] = useState([{ id: 1, proj: "Annual Audit", name: "Phase 1: Data Collection", amt: 20000, due: "2025-05-15", status: "invoiced", inv: "INV-0130" }, { id: 2, proj: "Annual Audit", name: "Phase 2: Fieldwork", amt: 35000, due: "2025-06-01", status: "completed", inv: null }, { id: 3, proj: "Annual Audit", name: "Phase 3: Report", amt: 25000, due: "2025-06-30", status: "pending", inv: null }, { id: 4, proj: "ERP Project", name: "Module 1: Setup", amt: 50000, due: "2025-05-10", status: "invoiced", inv: "INV-0128" }, { id: 5, proj: "ERP Project", name: "Module 2: Migration", amt: 40000, due: "2025-06-15", status: "pending", inv: null }]);
+  const [ms, setMs] = useState([]);
   const projs = [...new Set(ms.map(m => m.proj))];
   return (
     <div className="space-y-4">
@@ -641,8 +608,8 @@ function MilestoneBilling() {
 
 function BatchSerial() {
   const [tab, setTab] = useState("batch");
-  const [batches, setBatches] = useState([{ item: "Paracetamol 500mg", batch: "B2025-042", mfg: "2025-01-15", exp: "2027-01-14", qty: 500, rem: 342 }, { item: "Vitamin C Tablets", batch: "VC-2025-11", mfg: "2025-03-01", exp: "2026-02-28", qty: 200, rem: 180 }]);
-  const [serials] = useState([{ item: "Dell Laptop i7", sn: "SN-DELL-48291", sold: "Rahul Traders", inv: "INV-0138", status: "sold" }, { item: "Dell Laptop i7", sn: "SN-DELL-48292", sold: "—", inv: "—", status: "in_stock" }]);
+  const [batches, setBatches] = useState([]);
+  const [serials] = useState([]);
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Batch & Serial Tracking</h2><p className="text-xs text-gray-500">Track items by batch/lot or unique serial number</p></div><Btn v="primary" onClick={() => { if (tab === "batch") { const item = prompt("Item:"); const batch = prompt("Batch #:"); if (item && batch) setBatches(p => [...p, { item, batch, mfg: "2025-06-01", exp: "2027-06-01", qty: 100, rem: 100 }]); } }}>+ Add</Btn></div>
@@ -708,7 +675,7 @@ function HSNSummary() {
 }
 
 function DocumentAttachments() {
-  const [docs, setDocs] = useState([{ mod: "Bill", rec: "BILL-0021", name: "Sharma_Invoice_May.pdf", size: "284 KB", by: "Admin", date: "2025-06-01" }, { mod: "Expense", rec: "EXP-0088", name: "Flight_receipt.jpg", size: "156 KB", by: "Ravi", date: "2025-06-02" }]);
+  const [docs, setDocs] = useState([]);
   const [drag, setDrag] = useState(false);
   return (
     <div className="space-y-4">
@@ -723,7 +690,7 @@ function DocumentAttachments() {
 }
 
 function CustomerPortal() {
-  const customers = [{ name: "Rahul Traders", email: "rahul@traders.com", active: true, login: "2025-06-04", invoices: 2, outstanding: 56800 }, { name: "Mehta & Sons", email: "accounts@mehta.com", active: true, login: "2025-06-02", invoices: 1, outstanding: 28400 }, { name: "Singh Enterprises", email: "singh@enterprise.com", active: false, login: null, invoices: 3, outstanding: 92000 }];
+  const customers = [];
   return (
     <div className="space-y-4">
       <div><h2 className="text-base font-medium">Customer Portal</h2><p className="text-xs text-gray-500">Clients view invoices, make payments, approve estimates online</p></div>
@@ -736,7 +703,7 @@ function CustomerPortal() {
 }
 
 function VendorPortal() {
-  const vendors = [{ name: "Sharma Suppliers", email: "accounts@sharma.com", active: true, pos: 2, login: "2025-06-03" }, { name: "Office Depot", email: "orders@officedepot.com", active: true, pos: 1, login: "2025-06-04" }, { name: "Raj Enterprises", email: "raj@enterprises.com", active: false, pos: 0, login: null }];
+  const vendors = [];
   return (
     <div className="space-y-4">
       <div><h2 className="text-base font-medium">Vendor Portal</h2><p className="text-xs text-gray-500">Suppliers view POs, submit bills, track payments</p></div>
@@ -759,7 +726,7 @@ function PriceLists() {
 }
 
 function MultiGSTIN() {
-  const [gstins, setGSTINs] = useState([{ gstin: "09ABCDE1234F1Z5", state: "Uttar Pradesh", code: "09", primary: true }, { gstin: "27ABCDE1234F1Z3", state: "Maharashtra", code: "27", primary: false }]);
+  const [gstins, setGSTINs] = useState([]);
   const [form, setForm] = useState({ gstin: "", state: "", code: "" });
   return (
     <div className="space-y-4">
@@ -773,7 +740,7 @@ function MultiGSTIN() {
 }
 
 function ReportScheduler() {
-  const [schedules, setSchedules] = useState([{ id: 1, rep: "P&L Statement", freq: "Monthly", to: "admin@co.com", next: "2025-07-01", on: true }, { id: 2, rep: "Outstanding AR", freq: "Weekly", to: "accounts@co.com", next: "2025-06-09", on: true }, { id: 3, rep: "GST Summary", freq: "Monthly", to: "ca@firm.com", next: "2025-07-01", on: false }]);
+  const [schedules, setSchedules] = useState([]);
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Report Scheduler</h2><p className="text-xs text-gray-500">Auto-email financial reports to stakeholders on schedule</p></div><Btn v="primary" onClick={() => { const rep = prompt("Report name:"); const to = prompt("Recipient email:"); if (rep && to) setSchedules(p => [...p, { id: Date.now(), rep, freq: "Monthly", to, next: "2025-07-01", on: true }]); }}>+ Schedule</Btn></div>
@@ -783,7 +750,7 @@ function ReportScheduler() {
 }
 
 function CostCentres() {
-  const [centres, setCentres] = useState([{ name: "Sales - Lucknow", code: "CC-001" }, { name: "Sales - Delhi", code: "CC-002" }, { name: "Operations", code: "CC-003" }, { name: "Marketing", code: "CC-004" }]);
+  const [centres, setCentres] = useState([]);
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Cost Centres / Branches</h2><p className="text-xs text-gray-500">Track P&L by department, branch, or location</p></div><Btn v="primary" onClick={() => { const n = prompt("Centre name:"); if (n) setCentres(p => [...p, { name: n, code: "CC-00" + (p.length + 1) }]); }}>+ Add Centre</Btn></div>
@@ -900,3 +867,4 @@ create table if not exists advance_payments (id uuid primary key default gen_ran
 create table if not exists recurring_transactions (id uuid primary key default gen_random_uuid(), org_id uuid, type text, name text, amount numeric, frequency text, next_date date, is_active boolean default true, times_generated int default 0, created_at timestamptz default now());
 create table if not exists currencies (id uuid primary key default gen_random_uuid(), org_id uuid, code text, name text, exchange_rate numeric, last_updated timestamptz default now());
 */
+
