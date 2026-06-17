@@ -1792,14 +1792,14 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation }:
                         {db.expenses.filter(e => e.status === "Approved").map((exp, idx) => (
                           <React.Fragment key={`exp-log-${exp.id}-${idx}`}>
                             <tr className="hover:bg-slate-50 transition">
-                              <td className="py-2 px-3 text-[#8C867A] font-sans">{exp.date || "2026-05-25"}</td>
+                              <td className="py-2 px-3 text-[#8C867A] font-sans">{exp.date || "—"}</td>
                               <td className="py-2 px-3 font-bold text-slate-800">#EXP-{1000 + idx}</td>
                               <td className="py-2 px-3 font-sans">Business cleared general administrative outgo</td>
                               <td className="py-2 px-3 text-right font-bold text-rose-800">₹{exp.total.toLocaleString()}</td>
                               <td className="py-2 px-3 text-right">-</td>
                             </tr>
                             <tr className="hover:bg-slate-50 transition border-b border-[#E5E1D8]/35">
-                              <td className="py-2 px-3 text-[#8C867A] font-sans">{exp.date || "2026-05-25"}</td>
+                              <td className="py-2 px-3 text-[#8C867A] font-sans">{exp.date || "—"}</td>
                               <td className="py-2 px-3 font-bold text-slate-800">#EXP-{1005 + idx}</td>
                               <td className="py-2 px-3 font-sans pl-6 italic text-[#8C867A]">Petty Cash Account credit allocation</td>
                               <td className="py-2 px-3 text-right">-</td>
@@ -2081,82 +2081,25 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation }:
                 "pl", "pl_sched3", "pl_horiz", "cf", "bs", "bs_horiz", "bs_sched3", 
                 "tb", "ar_summary", "ar_details", "vendor_balance", "ap_aging_summary", 
                 "ap_aging_details", "gst", "gstr3b_details", "budget_vs_actual", 
-                "general_ledger", "detailed_ledger", "day_book", "biz_ratios", "account_tx"
+                "general_ledger", "detailed_ledger", "day_book", "biz_ratios", "account_tx",
+                "sales_by_customer", "sales_by_item", "purchase_by_vendor", "tax_liability",
+                "customer_ledger", "vendor_ledger", "ledger_statement", "gstr1"
               ].includes(selectedReport.id) && (
-                <div id="stat-universal" className="space-y-6 animate-fade-in font-sans">
-                  
-                  {/* Dynamic clean sheet header customized on the fly to match the exact report selected */}
-                  <div className="text-center space-y-1 mb-6 border-b border-dashed border-[#E5E1D8] pb-4">
-                    <span className="text-[10px] font-mono font-bold tracking-widest text-indigo-800 bg-indigo-50 px-2.5 py-0.5 rounded-full uppercase">
-                      Audit Ledger File No: BK-2026-{selectedReport.id.toUpperCase().substring(0,4)}
-                    </span>
-                    <h3 className="text-sm font-black uppercase tracking-widest mt-1.5">{selectedReport.name}</h3>
-                    <p className="text-[10.5px] text-[#8C867A]">Class Category: {selectedReport.category} Register | Automated Ledger Compilation</p>
+                <div id="stat-not-available" className="space-y-4 animate-fade-in font-sans text-center py-16">
+                  <div className="w-14 h-14 mx-auto bg-amber-50 border border-amber-200 rounded-full flex items-center justify-center">
+                    <HelpCircle className="w-6 h-6 text-amber-600" />
                   </div>
-
-                  <div className="p-5 bg-[#FDFBF7] border border-[#E5E1D8] rounded-2xl space-y-3.5 text-xs text-[#2C2C24]">
-                    <div className="flex items-center gap-3 text-[#8C867A] border-b border-[#E5E1D8] pb-2">
-                      <BookOpen className="w-4 h-4 text-slate-500" />
-                      <span className="font-bold uppercase tracking-wider text-[10.5px]">Schedule Narrative Memo</span>
-                    </div>
-                    <p className="leading-relaxed text-[#2C2C24]">
-                      This standard analytical worksheet summarizes active double-entry records extracted from operating journal registers. Active client profiles and suppliers details are dynamically consolidated to build compliance archives matching Government guidelines.
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800">{selectedReport.name}</h3>
+                    <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+                      This report isn't built yet. We're not going to show you estimated or filled-in numbers for it —
+                      that would be misleading for a report you'd use in compliance or audit work.
                     </p>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                      <div className="p-3.5 bg-white border border-[#E5E1D8]/70 rounded-xl space-y-1">
-                        <span className="text-[9px] uppercase font-bold text-[#8C867A]">Corporate Entities Engaged</span>
-                        <div className="text-md font-mono font-black text-slate-800">
-                          {db.customers.length} regular clients // {db.vendors.length} vendors
-                        </div>
-                      </div>
-                      <div className="p-3.5 bg-white border border-[#E5E1D8]/70 rounded-xl space-y-1">
-                        <span className="text-[9px] uppercase font-bold text-[#8C867A]">Transaction Activity Index</span>
-                        <div className="text-md font-mono font-black text-emerald-800">
-                          ₹ {totalRevenue ? totalRevenue.toLocaleString() : "0.00"} posted assets value
-                        </div>
-                      </div>
-                    </div>
                   </div>
-
-                  {/* Simulated detailed accounts records matching the entities of this specific company */}
-                  <div className="space-y-3">
-                    <h4 className="text-[10px] uppercase font-extrabold text-[#8C867A] tracking-wider">Auxiliary Ledger Reconciliation Records</h4>
-                    <div className="overflow-x-auto border border-[#E5E1D8] rounded-xl">
-                      <table className="w-full text-left font-sans text-xs">
-                        <thead>
-                          <tr className="border-b border-[#E5E1D8] bg-[#FDFBF7] text-[10px] font-bold text-[#8C867A] uppercase tracking-wider pb-1">
-                            <th className="py-2.5 px-4">Entity Particulars</th>
-                            <th className="py-2.5 px-4">Compliance ID</th>
-                            <th className="py-2.5 px-4">Description of Account</th>
-                            <th className="py-2.5 px-4 text-right">Accounting Value (FY)</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[#E5E1D8]/30">
-                          {db.customers.slice(0, 3).map((cust, ix) => (
-                            <tr key={`cust-sim-${cust.id}-${ix}`} className="hover:bg-slate-50">
-                              <td className="py-2.5 px-4 font-bold text-slate-800">{cust.name}</td>
-                              <td className="py-2.5 px-4 font-mono text-[10px] text-[#8C867A]">{cust.gstin || "N/A - Trade Partner"}</td>
-                              <td className="py-2.5 px-4 text-[#8C867A]">Sales turnover and credit log mapping</td>
-                              <td className="py-2.5 px-4 text-right font-mono text-emerald-800 font-bold">
-                                ₹{(salesIncome * (ix === 0 ? 0.6 : ix === 1 ? 0.35 : 0.05)).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                              </td>
-                            </tr>
-                          ))}
-                          {db.vendors.slice(0, 3).map((vend, ix) => (
-                            <tr key={`vend-sim-${vend.id}-${ix}`} className="hover:bg-slate-50">
-                              <td className="py-2.5 px-4 font-bold text-slate-800">{vend.name}</td>
-                              <td className="py-2.5 px-4 font-mono text-[10px] text-[#8C867A]">{vend.gstin || "N/A - Material Vendor"}</td>
-                              <td className="py-2.5 px-4 text-[#8C867A]">Vendor bill payables balance accrued</td>
-                              <td className="py-2.5 px-4 text-right font-mono text-rose-800 font-bold">
-                                ₹{(totalExpenses * (ix === 0 ? 0.5 : ix === 1 ? 0.35 : 0.15)).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                  <p className="text-[10.5px] text-slate-400">
+                    Available now: Profit &amp; Loss, Balance Sheet, Cash Flow, Trial Balance, AR/AP Ageing,
+                    GSTR-1, GSTR-3B, Budget vs Actual, General Ledger, and Customer/Vendor Ledger Statements.
+                  </p>
                 </div>
               )}
 
