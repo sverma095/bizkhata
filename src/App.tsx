@@ -331,7 +331,7 @@ export default function App() {
         }
       ],
       auditLogs: [
-        { id: "audit_init", timestamp: new Date().toISOString(), user: "svtiger543939@gmail.com", action: "DATABASE_INITIALIZATION", details: "Client-side fallback initialized safely" }
+        { id: "audit_init", timestamp: new Date().toISOString(), user: "System", action: "DATABASE_INITIALIZATION", details: "Client-side fallback initialized safely" }
       ],
       users: [
         { id: "usr_default_admin", name: "System Administrator", email: "admin@company.com", mobile: "", role: UserRole.Owner, password: "Admin@123" }
@@ -456,18 +456,8 @@ export default function App() {
       setLoginEmail("");
       setLoginPassword("");
       setLoginStep(1);
-    } else if (false) { // legacy SSO check removed
-      // Immediate Admin fail-safe credentials
-      const adminObj = {
-        id: "usr_default_admin",
-        name: "System Administrator (MCA)",
-        email: "svtiger543939@gmail.com",
-        mobile: "8707401846",
-        role: UserRole.Owner,
-        isOwner: true
-      };
-      localStorage.setItem("bizkhata_session_v1", JSON.stringify(adminObj));
-      setCurrentUser(adminObj);
+    } else if (false) {
+      // Dead branch removed — no longer reachable
       setLoginEmail("");
       setLoginPassword("");
       setLoginStep(1);
