@@ -1330,13 +1330,13 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
         <div className="space-y-6">
           {/* A) NEW CLIENT FORM */}
           {showCustomerForm ? (
-            <div className="bg-[#1E293B] border border-slate-700 rounded-2xl p-6 text-slate-200 shadow-xl space-y-4 animate-fade-in">
-              <div className="flex justify-between items-center border-b border-slate-700 pb-3">
-                <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
-                  <Users className="w-4 h-4 text-blue-400" />
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 text-slate-800 shadow-xl space-y-4 animate-fade-in">
+              <div className="flex justify-between items-center border-b border-slate-200 pb-3">
+                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                  <Users className="w-4 h-4 text-blue-600" />
                   {customerFormId ? "Edit Customer Master Record" : "Create New Customer Master Record"}
                 </h3>
-                <button onClick={() => setShowCustomerForm(false)} className="text-slate-400 hover:text-white">
+                <button onClick={() => setShowCustomerForm(false)} className="text-slate-400 hover:text-slate-700">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -1348,7 +1348,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                     <input 
                       type="text" required autoComplete="off" value={customerFormName} onChange={e => setCustomerFormName(e.target.value)}
                       className="w-full bg-white border border-slate-200 px-3 py-2 rounded text-slate-800 placeholder-slate-400 focus:border-blue-500 outline-none"
-                      placeholder="e.g. Analytics Vidya"
+                      placeholder="e.g. Your Customer Pvt Ltd"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -1356,7 +1356,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                     <input 
                       type="text" required autoComplete="off" value={customerFormLegalName} onChange={e => setCustomerFormLegalName(e.target.value)}
                       className="w-full bg-white border border-slate-200 px-3 py-2 rounded text-slate-800 placeholder-slate-400 focus:border-blue-500 outline-none"
-                      placeholder="e.g. Analytics Vidya Educon Private Limited"
+                      placeholder="e.g. Customer Legal Registered Name"
                     />
                   </div>
                 </div>
@@ -1392,7 +1392,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                       type="text" maxLength={15} required={customerFormIsRegistered} disabled={!customerFormIsRegistered}
                       value={customerFormGstin} onChange={e => setCustomerFormGstin(e.target.value.toUpperCase())}
                       className={`w-full border px-3 py-2 rounded placeholder-slate-400 focus:border-blue-500 outline-none tracking-wide ${customerFormIsRegistered ? "bg-white border-slate-200 text-slate-800" : "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"}`}
-                      placeholder={customerFormIsRegistered ? "e.g. 06AAMCA5999F1Z6" : "Not applicable"}
+                      placeholder={customerFormIsRegistered ? "e.g. 22AAAAA0000A1Z5" : "Not applicable"}
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -1400,7 +1400,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                     <input 
                       type="text" maxLength={10} autoComplete="off" value={customerFormPan} onChange={e => setCustomerFormPan(e.target.value.toUpperCase())}
                       className="w-full bg-white border border-slate-200 px-3 py-2 rounded text-slate-800 placeholder-slate-400 focus:border-blue-500 outline-none tracking-wide"
-                      placeholder="e.g. AAMCA5999F"
+                      placeholder="e.g. AAAAA0000A"
                     />
                   </div>
                 </div>
@@ -1411,7 +1411,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                     <input 
                       type="email" required autoComplete="new-password" value={customerFormEmail} onChange={e => setCustomerFormEmail(e.target.value)}
                       className="w-full bg-white border border-slate-200 px-3 py-2 rounded text-slate-800 placeholder-slate-400 focus:border-blue-500 outline-none"
-                      placeholder="e.g. finance@analyticsvidya.com"
+                      placeholder="e.g. accounts@customer.com"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -1419,7 +1419,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                     <input 
                       type="text" required autoComplete="off" value={customerFormPhone} onChange={e => setCustomerFormPhone(e.target.value)}
                       className="w-full bg-white border border-slate-200 px-3 py-2 rounded text-slate-800 placeholder-slate-400 focus:border-blue-500 outline-none"
-                      placeholder="e.g. +91-8888999911"
+                      placeholder="e.g. +91-9000000000"
                     />
                   </div>
                 </div>
@@ -1722,7 +1722,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                           </div>
                           <div className="flex justify-between gap-1.5 border-b border-slate-50 pb-1.5">
                             <span className="text-slate-400 font-medium font-mono">GSTIN</span>
-                            <span className="font-mono font-bold text-blue-700 text-right">{selectedCustomer.gstin || "06AAMCA5999F1Z6"}</span>
+                            <span className="font-mono font-bold text-blue-700 text-right">{selectedCustomer.gstin || "—"}</span>
                           </div>
                           <div className="flex justify-between gap-1.5 font-sans">
                             <span className="text-slate-600 font-medium">Place of Supply</span>
@@ -2172,7 +2172,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                       <tr key={cust.id} className="hover:bg-[#F5F2ED]/40 transition-all">
                         <td className="py-3 px-3 font-bold text-[#2C2C24]">{cust.name}</td>
                         <td className="py-3 px-3">{cust.legalName}</td>
-                        <td className="py-3 px-3 font-mono font-bold text-blue-700">{cust.gstin || "06AAMCA5999F1Z6"}</td>
+                        <td className="py-3 px-3 font-mono font-bold text-blue-700">{cust.gstin || "—"}</td>
                         <td className="py-3 px-3 font-semibold">{cust.state || "Haryana"}</td>
                         <td className="py-3 px-3 text-center font-mono font-bold">₹{(cust.openingBalance || 0).toLocaleString()}</td>
                         <td className="py-3 px-3 text-center">
