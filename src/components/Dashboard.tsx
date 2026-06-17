@@ -564,8 +564,14 @@ export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProp
                     </span>
                     <strong className="font-mono text-emerald-700 font-bold">{formatIndianCurrency(totalIncomeValue || totalSales || 0)}</strong>
                   </div>
+                  {/* Dynamic income bar */}
                   <div className="bg-slate-100 h-2.5 rounded-full overflow-hidden">
-                    <div style={{ width: `78%` }} className="bg-emerald-500 h-full rounded-full" />
+                    {(() => {
+                      const inc = totalIncomeValue || totalSales || 0;
+                      const exp = totalExpenseValue || totalExpenses || 0;
+                      const max = Math.max(inc, exp, 1);
+                      return <div style={{ width: `${Math.min(100, (inc/max)*100)}%` }} className="bg-emerald-500 h-full rounded-full transition-all" />;
+                    })()}
                   </div>
                 </div>
 
@@ -574,17 +580,23 @@ export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProp
                     <span className="text-slate-550 flex items-center gap-1.5">
                       <span className="w-2.5 h-2.5 bg-rose-500 rounded-full inline-block" /> Total Expense
                     </span>
-                    <strong className="font-mono text-rose-700 font-bold">{formatIndianCurrency(totalExpenseValue || totalExpenses || 80000)}</strong>
+                    <strong className="font-mono text-rose-700 font-bold">{formatIndianCurrency(totalExpenseValue || totalExpenses || 0)}</strong>
                   </div>
+                  {/* Dynamic expense bar */}
                   <div className="bg-slate-100 h-2.5 rounded-full overflow-hidden">
-                    <div style={{ width: `42%` }} className="bg-rose-500 h-full rounded-full" />
+                    {(() => {
+                      const inc = totalIncomeValue || totalSales || 0;
+                      const exp = totalExpenseValue || totalExpenses || 0;
+                      const max = Math.max(inc, exp, 1);
+                      return <div style={{ width: `${Math.min(100, (exp/max)*100)}%` }} className="bg-rose-500 h-full rounded-full transition-all" />;
+                    })()}
                   </div>
                 </div>
 
                 <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-xs">
                   <span className="text-slate-550">Net Margin:</span>
                   <span className={`font-mono font-bold  ${estimatedProfit >= 0 ? "text-emerald-700 bg-emerald-50" : "text-rose-700 bg-rose-50"} px-2.5 py-1 rounded-full text-[11px]`}>
-                    {estimatedProfit >= 0 ? "+" : ""}{formatIndianCurrency(estimatedProfit || 70000)}
+                    {estimatedProfit >= 0 ? "+" : ""}{formatIndianCurrency(estimatedProfit || 0)}
                   </span>
                 </div>
               </div>
@@ -692,5 +704,6 @@ export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProp
     </div>
   );
 }
+
 
 
