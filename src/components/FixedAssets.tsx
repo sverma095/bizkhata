@@ -10,6 +10,9 @@ export default function FixedAssets({ db, onSaveAsset }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<FixedAsset | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [disposing, setDisposing] = useState<FixedAsset | null>(null);
+  const [disposalProceeds, setDisposalProceeds] = useState(0);
+  const [disposalDate, setDisposalDate] = useState(new Date().toISOString().split("T")[0]);
 
   const [name, setName] = useState("");
   const [category, setCategory] = useState("Computer & Software");
@@ -19,10 +22,14 @@ export default function FixedAssets({ db, onSaveAsset }: Props) {
   const [usefulLife, setUsefulLife] = useState(5);
   const [salvage, setSalvage] = useState(0);
   const [invoiceRef, setInvoiceRef] = useState("");
+  const [isCwip, setIsCwip] = useState(false);
 
   const assets: FixedAsset[] = (db as any).fixedAssets || [];
 
   const calcDepreciation = (asset: FixedAsset) => {
+    if (asset.status === "CWIP") {
+      return { annual: 0, accumulated: 0, currentValue: asset.cost };
+    }
     const years = (new Date().getFullYear() - new Date(asset.purchaseDate).getFullYear()) + 1;
     if (asset.depreciationMethod === "SLM") {
       const annualDep = (asset.cost - asset.salvageValue) / asset.usefulLife;
@@ -37,19 +44,51 @@ export default function FixedAssets({ db, onSaveAsset }: Props) {
     }
   };
 
-  const resetForm = () => { setName(""); setCategory("Computer & Software"); setPurchaseDate(new Date().toISOString().split("T")[0]); setCost(0); setDepMethod("SLM"); setUsefulLife(5); setSalvage(0); setInvoiceRef(""); setEditing(null); };
+  const resetForm = () => { setName(""); setCategory("Computer & Software"); setPurchaseDate(new Date().toISOString().split("T")[0]); setCost(0); setDepMethod("SLM"); setUsefulLife(5); setSalvage(0); setInvoiceRef(""); setIsCwip(false); setEditing(null); };
 
   const handleEdit = (a: FixedAsset) => { setEditing(a); setName(a.name); setCategory(a.category); setPurchaseDate(a.purchaseDate); setCost(a.cost); setDepMethod(a.depreciationMethod); setUsefulLife(a.usefulLife); setSalvage(a.salvageValue); setInvoiceRef(a.invoiceRef || ""); setShowForm(true); };
 
   const handleSubmit = async () => {
     if (!name || !cost) return alert("Name and cost required.");
-    const depInfo = { cost, salvageValue: salvage, depreciationMethod: depMethod, usefulLife };
-    const mockAsset = { ...depInfo, purchaseDate, name, category } as any;
-    const dep = calcDepreciation({ ...mockAsset, cost, salvageValue: salvage, depreciationMethod: depMethod, usefulLife, id: "", status: "Active", currentValue: cost, accumulatedDepreciation: 0 });
+    const status = isCwip ? "CWIP" : "Active";
+    const dep = isCwip
+      ? { currentValue: cost, accumulated: 0 }
+      : calcDepreciation({ cost, salvageValue: salvage, depreciationMethod: depMethod, usefulLife, purchaseDate, name, category, id: "", status: "Active", currentValue: cost, accumulatedDepreciation: 0 } as any);
     setIsSaving(true);
     try {
-      await onSaveAsset({ name, category, purchaseDate, cost, depreciationMethod: depMethod, usefulLife, salvageValue: salvage, currentValue: dep.currentValue, accumulatedDepreciation: dep.accumulated, status: "Active", invoiceRef: invoiceRef || undefined, ...(editing ? { id: editing.id } : {}) });
+      await onSaveAsset({ name, category, purchaseDate, cost, depreciationMethod: depMethod, usefulLife, salvageValue: salvage, currentValue: dep.currentValue, accumulatedDepreciation: dep.accumulated, status, invoiceRef: invoiceRef || undefined, ...(editing ? { id: editing.id } : {}) });
       setShowForm(false); resetForm();
+    } catch (e: any) { alert(e.message); }
+    finally { setIsSaving(false); }
+  };
+
+  const handleCapitalize = async (a: FixedAsset) => {
+    if (!window.confirm(`Capitalize "${a.name}"? This moves it from CWIP to an Active asset and starts depreciation from today.`)) return;
+    await onSaveAsset({ ...a, status: "Active", purchaseDate: new Date().toISOString().split("T")[0], capitalizedDate: new Date().toISOString().split("T")[0] });
+  };
+
+  const openDisposeModal = (a: FixedAsset) => {
+    setDisposing(a);
+    setDisposalProceeds(0);
+    setDisposalDate(new Date().toISOString().split("T")[0]);
+  };
+
+  const handleConfirmDispose = async () => {
+    if (!disposing) return;
+    const dep = calcDepreciation(disposing);
+    const gainLoss = disposalProceeds - dep.currentValue;
+    setIsSaving(true);
+    try {
+      await onSaveAsset({
+        ...disposing,
+        status: "Disposed",
+        disposalDate,
+        disposalProceeds,
+        disposalGainLoss: gainLoss,
+        currentValue: 0,
+        accumulatedDepreciation: disposing.cost,
+      });
+      setDisposing(null);
     } catch (e: any) { alert(e.message); }
     finally { setIsSaving(false); }
   };
@@ -73,8 +112,14 @@ export default function FixedAssets({ db, onSaveAsset }: Props) {
         <div className="space-y-1"><label className="text-[10px] font-bold text-slate-600 uppercase">Depreciation Method</label><select value={depMethod} onChange={e => setDepMethod(e.target.value as any)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"><option value="SLM">SLM (Straight Line)</option><option value="WDV">WDV (Written Down Value)</option></select></div>
         <div className="space-y-1"><label className="text-[10px] font-bold text-slate-600 uppercase">Useful Life (Years)</label><input type="number" min={1} max={40} value={usefulLife} onChange={e => setUsefulLife(parseInt(e.target.value)||5)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400" /></div>
         <div className="space-y-1"><label className="text-[10px] font-bold text-slate-600 uppercase">Invoice Reference</label><select value={invoiceRef} onChange={e => setInvoiceRef(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"><option value="">— None —</option>{db.bills.map(b=><option key={b.id} value={b.id}>{b.billNumber} — {b.vendorName}</option>)}</select></div>
+        <div className="col-span-2 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg p-3">
+          <input type="checkbox" id="cwip-toggle" checked={isCwip} onChange={e => setIsCwip(e.target.checked)} className="accent-amber-600" />
+          <label htmlFor="cwip-toggle" className="text-xs text-amber-800">
+            <span className="font-bold">Capital Work in Progress (CWIP)</span> — asset is still under construction/installation, not yet ready for use. No depreciation is charged until it's capitalized.
+          </label>
+        </div>
       </div>
-      {cost > 0 && <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs space-y-1"><div className="font-bold text-blue-800">Depreciation Preview</div><div className="text-blue-700">Annual Depreciation: ₹{((cost - salvage) / usefulLife).toLocaleString("en-IN", {maximumFractionDigits:2})} ({depMethod})</div><div className="text-blue-700">Book Value after 1 year: ₹{(cost - (cost - salvage) / usefulLife).toLocaleString("en-IN", {maximumFractionDigits:2})}</div></div>}
+      {cost > 0 && !isCwip && <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs space-y-1"><div className="font-bold text-blue-800">Depreciation Preview</div><div className="text-blue-700">Annual Depreciation: ₹{((cost - salvage) / usefulLife).toLocaleString("en-IN", {maximumFractionDigits:2})} ({depMethod})</div><div className="text-blue-700">Book Value after 1 year: ₹{(cost - (cost - salvage) / usefulLife).toLocaleString("en-IN", {maximumFractionDigits:2})}</div></div>}
       <div className="flex gap-2 justify-end border-t border-slate-200 pt-3">
         <button onClick={() => { setShowForm(false); resetForm(); }} className="px-4 py-2 text-xs border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-100">Cancel</button>
         <button onClick={handleSubmit} disabled={isSaving} className="px-5 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-60">{isSaving ? "Saving..." : (editing ? "Update Asset" : "Add Asset")}</button>
@@ -111,14 +156,67 @@ export default function FixedAssets({ db, onSaveAsset }: Props) {
                   <td className="py-3 px-3"><span className="text-[9px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">{a.depreciationMethod}</span></td>
                   <td className="py-3 px-3 text-right font-mono text-red-600">₹{dep.accumulated.toLocaleString("en-IN",{maximumFractionDigits:0})}</td>
                   <td className="py-3 px-3 text-right font-mono font-bold text-emerald-700">₹{dep.currentValue.toLocaleString("en-IN",{maximumFractionDigits:0})}</td>
-                  <td className="py-3 px-3"><span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${a.status==="Active"?"bg-emerald-100 text-emerald-700":"bg-slate-100 text-slate-500"}`}>{a.status}</span></td>
-                  <td className="py-3 px-3"><div className="flex gap-1"><button onClick={()=>handleEdit(a)} className="p-1 text-slate-400 hover:text-blue-600 rounded"><Edit className="w-3 h-3"/></button>{a.status==="Active"&&<button onClick={()=>onSaveAsset({...a,status:"Disposed"})} className="p-1 text-slate-400 hover:text-red-600 rounded"><X className="w-3 h-3"/></button>}</div></td>
+                  <td className="py-3 px-3">
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                      a.status === "Active" ? "bg-emerald-100 text-emerald-700"
+                      : a.status === "CWIP" ? "bg-amber-100 text-amber-700"
+                      : "bg-slate-100 text-slate-500"
+                    }`}>{a.status}</span>
+                  </td>
+                  <td className="py-3 px-3">
+                    <div className="flex gap-1">
+                      <button onClick={()=>handleEdit(a)} className="p-1 text-slate-400 hover:text-blue-600 rounded"><Edit className="w-3 h-3"/></button>
+                      {a.status === "CWIP" && <button onClick={()=>handleCapitalize(a)} className="text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded">Capitalize</button>}
+                      {a.status === "Active" && <button onClick={()=>openDisposeModal(a)} className="text-[10px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded">Dispose</button>}
+                      {a.status === "Disposed" && a.disposalGainLoss !== undefined && (
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${a.disposalGainLoss >= 0 ? "text-emerald-700 bg-emerald-50" : "text-rose-700 bg-rose-50"}`}>
+                          {a.disposalGainLoss >= 0 ? "Gain" : "Loss"} ₹{Math.abs(a.disposalGainLoss).toLocaleString("en-IN")}
+                        </span>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
       </div>
+
+      {disposing && (
+        <div className="fixed inset-0 bg-slate-700/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-200 pb-3">
+              <h3 className="text-sm font-bold text-slate-800">Dispose Asset: {disposing.name}</h3>
+              <button onClick={()=>setDisposing(null)} className="text-slate-400 hover:text-slate-700"><X className="w-4 h-4"/></button>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-600 uppercase">Disposal Date</label>
+              <input type="date" value={disposalDate} onChange={e=>setDisposalDate(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-600 uppercase">Sale Proceeds (₹)</label>
+              <input type="number" min={0} value={disposalProceeds} onChange={e=>setDisposalProceeds(parseFloat(e.target.value)||0)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs font-mono" placeholder="0 if scrapped with no proceeds" />
+            </div>
+            {(() => {
+              const dep = calcDepreciation(disposing);
+              const gainLoss = disposalProceeds - dep.currentValue;
+              return (
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs space-y-1">
+                  <div className="flex justify-between"><span className="text-slate-500">Net Book Value at disposal:</span><span className="font-mono font-bold">₹{dep.currentValue.toLocaleString("en-IN")}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Sale Proceeds:</span><span className="font-mono font-bold">₹{disposalProceeds.toLocaleString("en-IN")}</span></div>
+                  <div className={`flex justify-between pt-1 border-t border-slate-200 ${gainLoss>=0?"text-emerald-700":"text-rose-600"}`}>
+                    <span className="font-bold">{gainLoss>=0?"Gain":"Loss"} on Disposal:</span><span className="font-mono font-bold">₹{Math.abs(gainLoss).toLocaleString("en-IN")}</span>
+                  </div>
+                </div>
+              );
+            })()}
+            <div className="flex gap-2 justify-end pt-2">
+              <button onClick={()=>setDisposing(null)} className="px-4 py-2 text-xs border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-100">Cancel</button>
+              <button onClick={handleConfirmDispose} disabled={isSaving} className="px-5 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-lg disabled:opacity-60">{isSaving?"Processing...":"Confirm Disposal"}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
