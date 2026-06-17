@@ -529,9 +529,11 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation }:
       const taxable = inv.subtotal;
       const gst = inv.totalGst;
       
-      // HSN summary grouping
+      // HSN summary grouping — only items with a real HSN/SAC code entered are counted.
+      // Missing HSN/SAC is grouped under "Not Specified" instead of being silently
+      // mislabeled with a fabricated services code.
       inv.items.forEach(itm => {
-        const hsn = itm.hsnSac || "998311";
+        const hsn = (itm.hsnSac && itm.hsnSac.trim()) ? itm.hsnSac.trim() : "Not Specified";
         if (!hsnSummaryMap[hsn]) {
           hsnSummaryMap[hsn] = {
             hsn,
@@ -1462,7 +1464,7 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation }:
                           ) : (
                             gstr1Data.hsnSummaryList.map(hsnItm => (
                               <tr key={hsnItm.hsn} className="hover:bg-slate-50 font-medium">
-                                <td className="py-2.5 px-4 font-mono font-bold text-slate-900">{hsnItm.hsn}</td>
+                                <td className={`py-2.5 px-4 font-mono font-bold ${hsnItm.hsn === "Not Specified" ? "text-amber-600" : "text-slate-900"}`}>{hsnItm.hsn}</td>
                                 <td className="py-2.5 px-4">{hsnItm.name}</td>
                                 <td className="py-2.5 px-4 text-center text-slate-400 font-mono">UQC-NOS</td>
                                 <td className="py-2.5 px-4 text-right font-mono text-slate-700">{hsnItm.qty || 0}</td>
