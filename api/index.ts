@@ -135,8 +135,11 @@ const superAdminGuard = (req: any, res: any, next: any) => {
 
 
 // Supabase credentials
-const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "https://zffkvwhvasavenqgkkcx.supabase.co";
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpmZmt2d2h2YXNhdmVucWdra2N4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzNTMxNDMsImV4cCI6MjA5NTkyOTE0M30.Yku2X577pcla2GqpaaNz78sCjIc-uWA9GdLvYyirJTk";
+// Supabase credentials must be supplied via environment variables on Vercel
+// (Project Settings -> Environment Variables). No hardcoded fallback —
+// the app falls back to local file-based storage if these are unset.
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "";
 
 let supabaseStatus: any = { configured: false, connected: false, error: null };
 
