@@ -39,6 +39,8 @@ interface InvoicesProps {
 }
 
 export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCustomer, onTriggerAI, userRole, defaultTab }: InvoicesProps) {
+  // Organisation's GST registration status — when false, GST/tax is not applicable
+  const orgIsGstRegistered = db.company.isGstRegistered !== false;
   const [activeTab, setActiveTab] = useState<"tax" | "proforma" | "notes" | "customers">(defaultTab || "tax");
 
   // Customers / Clients Directory specific states
