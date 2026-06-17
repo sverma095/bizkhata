@@ -419,10 +419,30 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation }:
   // Revenue from filtered invoices (date-aware)
   const filteredSalesRevenue = filteredInvoices.reduce((s: number, inv: any) => s + inv.subtotal, 0);
   const filteredGstCollected = filteredInvoices.reduce((s: number, inv: any) => s + inv.totalGst, 0);
-  const filteredPaymentsReceived = filteredPayments.reduce((s: number, p: any) => s + p.amount, 0);
+  const filteredPaymentsReceived = filteredPayments.reduce((s: number, p: any) => s + (p.amountReceived || 0), 0);
   const filteredBillsTotal = filteredBills.reduce((s: number, b: any) => s + b.total, 0);
-  const filteredExpensesTotal = filteredExpenses.reduce((s: number, e: any) => s + e.amount, 0);
+  const filteredExpensesTotal = filteredExpenses.reduce((s: number, e: any) => s + (e.total || 0), 0);
   const filteredNetProfit = filteredSalesRevenue - filteredExpensesTotal;
+
+  // ── Real MIS KPIs (no fabricated fallbacks) ──
+  // Cost of Goods/Services sold approximated as direct expense accounts; EBITDA adds back
+  // depreciation & interest (both tracked as their own expense account codes if present).
+  const depreciationExpense = getAccountBalance("depreciation_expense");
+  const interestExpense = getAccountBalance("interest_expense");
+  const ebitda = netProfit + depreciationExpense + interestExpense;
+  const ebitdaMargin = totalRevenue > 0 ? (ebitda / totalRevenue) * 100 : null;
+  const grossMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : null;
+
+  // DSO — Days Sales Outstanding: (Accounts Receivable / Total Credit Sales) x days in period
+  const periodDays = Math.max(1, Math.ceil((new Date(toDate).getTime() - new Date(fromDate).getTime()) / 86400000) + 1);
+  const dso = filteredSalesRevenue > 0 ? (receivables / filteredSalesRevenue) * periodDays : null;
+  // DPO — Days Payable Outstanding: (Accounts Payable / Total Credit Purchases) x days in period
+  const dpo = filteredBillsTotal > 0 ? (payables / filteredBillsTotal) * periodDays : null;
+
+  // Collection Efficiency — Payments actually received vs invoices raised in period
+  const collectionEfficiency = filteredSalesRevenue + (filteredInvoices.reduce((s,i)=>s+(i.totalGst||0),0)) > 0
+    ? (filteredPaymentsReceived / (filteredInvoices.reduce((s: number, i: any) => s + i.total, 0) || 1)) * 100
+    : null;
 
   const salesIncome = getAccountBalance("sales_income");
   const serviceIncome = getAccountBalance("service_income");
@@ -2016,62 +2036,277 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation }:
                 <div id="stat-ratios" className="space-y-6 animate-fade-in font-sans">
                   <div className="text-center space-y-1 mb-6 border-b border-dashed border-[#E5E1D8] pb-4">
                     <span className="text-[10px] font-mono font-bold tracking-widest text-[#2D74E6] bg-blue-50 px-2 py-0.5 rounded">Analytical Intelligence</span>
-                    <h3 className="text-sm font-black uppercase tracking-widest mt-1">SaaS Key Performance Ratios</h3>
-                    <p className="text-[10.5px] text-[#8C867A]">Corporate financial health, solvency indexes, and capital allocations indicators.</p>
+                    <h3 className="text-sm font-black uppercase tracking-widest mt-1">Management KPI Dashboard</h3>
+                    <p className="text-[10.5px] text-[#8C867A]">Corporate financial health, solvency indexes, and collection performance — computed from your actual ledger data. Shows "N/A" rather than an estimate when there isn't enough data yet.</p>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div className="bg-[#FDFBF7] p-5 border border-[#E5E1D8] rounded-2xl flex flex-col justify-between">
                       <div>
-                        <span className="text-[10px] font-bold text-[#8C867A] uppercase tracking-wider">Current Liquidity Solvency Ratio (Current Assets / Liabilities)</span>
-                        <p className="text-[10.5px] text-[#8C867A] mt-1">Measures the solvency of short-term cash flows.</p>
+                        <span className="text-[10px] font-bold text-[#8C867A] uppercase tracking-wider">Current Ratio (Assets / Liabilities)</span>
+                        <p className="text-[10.5px] text-[#8C867A] mt-1">Short-term solvency — ability to cover liabilities with assets.</p>
                       </div>
                       <div className="flex items-baseline justify-between mt-4">
                         <span className="text-lg font-mono font-bold text-[#2C2C24]">
-                          {(totalLiabilities > 0 ? (totalAssets / totalLiabilities) : 4.5).toFixed(2)}x
+                          {totalLiabilities > 0 ? `${(totalAssets / totalLiabilities).toFixed(2)}x` : "N/A"}
                         </span>
-                        <span className="text-[9.5px] bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded font-bold uppercase">Optimal Ratio (&gt; 1.5)</span>
+                        {totalLiabilities > 0 && (
+                          <span className={`text-[9.5px] px-2 py-0.5 rounded font-bold uppercase ${(totalAssets/totalLiabilities) >= 1.5 ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-700"}`}>
+                            {(totalAssets/totalLiabilities) >= 1.5 ? "Healthy (> 1.5)" : "Below Target"}
+                          </span>
+                        )}
                       </div>
                     </div>
 
                     <div className="bg-[#FDFBF7] p-5 border border-[#E5E1D8] rounded-2xl flex flex-col justify-between">
                       <div>
-                        <span className="text-[10px] font-bold text-[#8C867A] uppercase tracking-wider">Operating Profit Margin (EBIT / Revenue)</span>
-                        <p className="text-[10.5px] text-[#8C867A] mt-1">Operational margins prior to standard taxation.</p>
+                        <span className="text-[10px] font-bold text-[#8C867A] uppercase tracking-wider">Gross / Net Margin</span>
+                        <p className="text-[10.5px] text-[#8C867A] mt-1">Net profit as a percentage of total revenue.</p>
                       </div>
                       <div className="flex items-baseline justify-between mt-4">
                         <span className="text-lg font-mono font-bold text-[#2C2C24]">
-                          {(totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 42.5).toFixed(1)}%
+                          {grossMargin !== null ? `${grossMargin.toFixed(1)}%` : "N/A"}
                         </span>
-                        <span className="text-[9.5px] bg-indigo-50 text-indigo-805 px-2 py-0.5 rounded font-bold uppercase">Strong Yield (&gt; 25%)</span>
+                        {grossMargin !== null && (
+                          <span className={`text-[9.5px] px-2 py-0.5 rounded font-bold uppercase ${grossMargin >= 0 ? "bg-indigo-50 text-indigo-700" : "bg-rose-50 text-rose-700"}`}>
+                            {grossMargin >= 0 ? "Profitable" : "Loss-making"}
+                          </span>
+                        )}
                       </div>
                     </div>
 
                     <div className="bg-[#FDFBF7] p-5 border border-[#E5E1D8] rounded-2xl flex flex-col justify-between">
                       <div>
-                        <span className="text-[10px] font-bold text-[#8C867A] uppercase tracking-wider">Working Capital Allocation (Dr. Assets - Cr. Liabilities)</span>
-                        <p className="text-[10.5px] text-[#8C867A] mt-1 font-sans">Net in-hand liquid reserves for daily SaaS operations.</p>
+                        <span className="text-[10px] font-bold text-[#8C867A] uppercase tracking-wider">EBITDA Margin</span>
+                        <p className="text-[10.5px] text-[#8C867A] mt-1 font-sans">Net profit before depreciation &amp; interest, as % of revenue.</p>
                       </div>
                       <div className="flex items-baseline justify-between mt-4">
-                        <span className="font-mono font-bold text-emerald-850">
-                          ₹ {(totalAssets - totalLiabilities).toLocaleString()}
+                        <span className="font-mono font-bold text-emerald-800">
+                          {ebitdaMargin !== null ? `${ebitdaMargin.toFixed(1)}%` : "N/A"}
                         </span>
-                        <span className="text-[9.5px] text-slate-550 italic font-bold">Stable reserves compliant</span>
                       </div>
                     </div>
 
                     <div className="bg-[#FDFBF7] p-5 border border-[#E5E1D8] rounded-2xl flex flex-col justify-between">
                       <div>
-                        <span className="text-[10px] font-bold text-[#8C867A] uppercase tracking-wider">Reclamation Receivables Turnover Rate</span>
-                        <p className="text-[10.5px] text-[#8C867A] mt-1">Measures the speed of collecting trade invoicing receivables.</p>
+                        <span className="text-[10px] font-bold text-[#8C867A] uppercase tracking-wider">DSO — Days Sales Outstanding</span>
+                        <p className="text-[10.5px] text-[#8C867A] mt-1">Average days taken to collect receivables for the selected period.</p>
                       </div>
                       <div className="flex items-baseline justify-between mt-4">
                         <span className="text-md font-mono font-bold text-indigo-900">
-                          {(receivables > 0 ? (totalRevenue / receivables) : 10.2).toFixed(1)} Days
+                          {dso !== null ? `${dso.toFixed(1)} Days` : "N/A"}
                         </span>
-                        <span className="text-[9.5px] bg-teal-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold uppercase">Excellent Flow</span>
+                        {dso !== null && (
+                          <span className={`text-[9.5px] px-1.5 py-0.5 rounded font-bold uppercase ${dso <= 45 ? "bg-teal-50 text-emerald-800" : "bg-amber-50 text-amber-700"}`}>
+                            {dso <= 45 ? "Good Flow" : "Slow Collections"}
+                          </span>
+                        )}
                       </div>
                     </div>
+
+                    <div className="bg-[#FDFBF7] p-5 border border-[#E5E1D8] rounded-2xl flex flex-col justify-between">
+                      <div>
+                        <span className="text-[10px] font-bold text-[#8C867A] uppercase tracking-wider">DPO — Days Payable Outstanding</span>
+                        <p className="text-[10.5px] text-[#8C867A] mt-1">Average days taken to pay vendor bills for the selected period.</p>
+                      </div>
+                      <div className="flex items-baseline justify-between mt-4">
+                        <span className="text-md font-mono font-bold text-indigo-900">
+                          {dpo !== null ? `${dpo.toFixed(1)} Days` : "N/A"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="bg-[#FDFBF7] p-5 border border-[#E5E1D8] rounded-2xl flex flex-col justify-between">
+                      <div>
+                        <span className="text-[10px] font-bold text-[#8C867A] uppercase tracking-wider">Collection Efficiency</span>
+                        <p className="text-[10.5px] text-[#8C867A] mt-1">Payments received vs invoices raised in the selected period.</p>
+                      </div>
+                      <div className="flex items-baseline justify-between mt-4">
+                        <span className="text-md font-mono font-bold text-blue-800">
+                          {collectionEfficiency !== null ? `${collectionEfficiency.toFixed(1)}%` : "N/A"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="bg-[#FDFBF7] p-5 border border-[#E5E1D8] rounded-2xl flex flex-col justify-between md:col-span-2 lg:col-span-3">
+                      <div>
+                        <span className="text-[10px] font-bold text-[#8C867A] uppercase tracking-wider">Working Capital (Assets − Liabilities)</span>
+                        <p className="text-[10.5px] text-[#8C867A] mt-1 font-sans">Net liquid reserves available for day-to-day operations.</p>
+                      </div>
+                      <div className="flex items-baseline justify-between mt-4">
+                        <span className="font-mono font-bold text-emerald-850">
+                          ₹ {(totalAssets - totalLiabilities).toLocaleString("en-IN")}
+                        </span>
+                        <span className="text-[9.5px] text-slate-550 italic font-bold">
+                          {(totalAssets - totalLiabilities) >= 0 ? "Positive working capital" : "Negative — review cash position"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SECTION M: TDS SUMMARY — TDS deducted from payments received & expenses paid */}
+              {selectedReport.id === "tds_summary" && (
+                <div className="space-y-6 animate-fade-in font-sans">
+                  <div className="text-center space-y-1 mb-6 border-b border-dashed border-slate-200 pb-4">
+                    <span className="text-[10px] font-mono font-bold tracking-widest text-blue-800 uppercase bg-blue-50 px-2 py-0.5 rounded">Section 194 Compliance</span>
+                    <h3 className="text-sm font-black uppercase tracking-widest mt-1">TDS Summary</h3>
+                    <p className="text-[10.5px] text-slate-500">TDS deducted by customers on payments received, and TDS deducted by you on vendor/expense payments. Period: {fromDate} to {toDate}</p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                      <span className="text-[10px] font-bold text-emerald-700 uppercase">TDS Receivable (deducted by customers)</span>
+                      <p className="text-lg font-mono font-black text-emerald-800 mt-1">
+                        ₹{filteredPayments.reduce((s,p)=>s+(p.tdsDeducted||0),0).toLocaleString("en-IN")}
+                      </p>
+                    </div>
+                    <div className="bg-rose-50 border border-rose-200 rounded-xl p-4">
+                      <span className="text-[10px] font-bold text-rose-700 uppercase">TDS Payable (deducted on your payments)</span>
+                      <p className="text-lg font-mono font-black text-rose-800 mt-1">
+                        ₹{filteredExpenses.reduce((s,e)=>s+(e.tdsAmount||0),0).toLocaleString("en-IN")}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                    <table className="w-full text-left text-xs">
+                      <thead><tr className="border-b border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-500 uppercase">
+                        <th className="py-2.5 px-4">Date</th><th className="py-2.5 px-4">Party</th><th className="py-2.5 px-4">Type</th><th className="py-2.5 px-4 text-right">TDS Amount</th>
+                      </tr></thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {[
+                          ...filteredPayments.filter(p=>(p.tdsDeducted||0)>0).map(p=>({date:p.date, party:p.customerName, type:"Receivable (Customer)", amt:p.tdsDeducted})),
+                          ...filteredExpenses.filter(e=>(e.tdsAmount||0)>0).map(e=>({date:e.date, party:e.vendorName, type:"Payable (Expense)", amt:e.tdsAmount}))
+                        ].sort((a,b)=>a.date.localeCompare(b.date)).map((r,i)=>(
+                          <tr key={i} className="hover:bg-slate-50">
+                            <td className="py-2 px-4 font-mono text-slate-500">{r.date}</td>
+                            <td className="py-2 px-4 font-semibold text-slate-800">{r.party}</td>
+                            <td className="py-2 px-4 text-slate-500">{r.type}</td>
+                            <td className="py-2 px-4 text-right font-mono font-bold">₹{r.amt.toLocaleString("en-IN")}</td>
+                          </tr>
+                        ))}
+                        {filteredPayments.filter(p=>(p.tdsDeducted||0)>0).length + filteredExpenses.filter(e=>(e.tdsAmount||0)>0).length === 0 && (
+                          <tr><td colSpan={4} className="text-center py-8 text-slate-400">No TDS transactions in selected period.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                    This summary doesn't generate Challan 281 or quarterly returns (24Q/26Q/27Q/27EQ) — those require filing on the government TRACES/income-tax portal directly.
+                  </p>
+                </div>
+              )}
+
+              {/* TDS Receivable Summary — drill-down on TDS deducted by customers */}
+              {selectedReport.id === "tds_receivable" && (
+                <div className="space-y-6 animate-fade-in font-sans">
+                  <div className="text-center space-y-1 mb-6 border-b border-dashed border-slate-200 pb-4">
+                    <h3 className="text-sm font-black uppercase tracking-widest mt-1">TDS Receivable Summary</h3>
+                    <p className="text-[10.5px] text-slate-500">Customer-wise TDS deducted on payments received. This is your tax credit — claim it in your Income Tax Return.</p>
+                  </div>
+                  <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                    <table className="w-full text-left text-xs">
+                      <thead><tr className="border-b border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-500 uppercase">
+                        <th className="py-2.5 px-4">Customer</th><th className="py-2.5 px-4 text-right">Gross Receipt</th><th className="py-2.5 px-4 text-right">TDS Deducted</th><th className="py-2.5 px-4 text-right">Net Received</th>
+                      </tr></thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {(() => {
+                          const byCustomer: Record<string, {gross:number, tds:number}> = {};
+                          filteredPayments.forEach(p => {
+                            if (!byCustomer[p.customerName]) byCustomer[p.customerName] = {gross:0, tds:0};
+                            byCustomer[p.customerName].gross += p.amountReceived;
+                            byCustomer[p.customerName].tds += (p.tdsDeducted||0);
+                          });
+                          const rows = Object.entries(byCustomer).filter(([,v])=>v.tds>0);
+                          return rows.length === 0
+                            ? <tr><td colSpan={4} className="text-center py-8 text-slate-400">No TDS deducted by customers in this period.</td></tr>
+                            : rows.map(([name,v]) => (
+                                <tr key={name} className="hover:bg-slate-50">
+                                  <td className="py-2 px-4 font-semibold text-slate-800">{name}</td>
+                                  <td className="py-2 px-4 text-right font-mono">₹{v.gross.toLocaleString("en-IN")}</td>
+                                  <td className="py-2 px-4 text-right font-mono text-emerald-700 font-bold">₹{v.tds.toLocaleString("en-IN")}</td>
+                                  <td className="py-2 px-4 text-right font-mono">₹{(v.gross - v.tds).toLocaleString("en-IN")}</td>
+                                </tr>
+                              ));
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* TCS Payable Summary — placeholder honest state since TCS isn't tracked as a separate field yet */}
+              {selectedReport.id === "tcs_payable" && (
+                <div className="space-y-4 animate-fade-in font-sans text-center py-16">
+                  <div className="w-14 h-14 mx-auto bg-amber-50 border border-amber-200 rounded-full flex items-center justify-center">
+                    <HelpCircle className="w-6 h-6 text-amber-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800">TCS Payable Summary (Form No. 27EQ)</h3>
+                    <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+                      TCS isn't tracked as a separate field on invoices yet, so this report can't be computed accurately.
+                      Once TCS collection is added to the invoice line items, this report will populate automatically.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Reconciliation Status — bank reconciliation completeness by account */}
+              {selectedReport.id === "reconciliation_status" && (
+                <div className="space-y-6 animate-fade-in font-sans">
+                  <div className="text-center space-y-1 mb-6 border-b border-dashed border-slate-200 pb-4">
+                    <h3 className="text-sm font-black uppercase tracking-widest mt-1">Bank Reconciliation Status</h3>
+                    <p className="text-[10.5px] text-slate-500">Matched vs unmatched bank transactions by account.</p>
+                  </div>
+                  <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                    <table className="w-full text-left text-xs">
+                      <thead><tr className="border-b border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-500 uppercase">
+                        <th className="py-2.5 px-4">Bank Account</th><th className="py-2.5 px-4 text-right">Total Txns</th><th className="py-2.5 px-4 text-right">Matched</th><th className="py-2.5 px-4 text-right">Unmatched</th><th className="py-2.5 px-4 text-right">% Reconciled</th>
+                      </tr></thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {(db.bankAccounts && db.bankAccounts.length > 0) ? db.bankAccounts.map(acc => {
+                          const txns = (db.bankTransactions || []).filter((t:any) => t.bankAccountId === acc.id);
+                          const matched = txns.filter((t:any) => t.matched || t.matchedId).length;
+                          const pct = txns.length > 0 ? (matched/txns.length)*100 : 0;
+                          return (
+                            <tr key={acc.id} className="hover:bg-slate-50">
+                              <td className="py-2 px-4 font-semibold text-slate-800">{acc.name} ({acc.bankName})</td>
+                              <td className="py-2 px-4 text-right font-mono">{txns.length}</td>
+                              <td className="py-2 px-4 text-right font-mono text-emerald-700">{matched}</td>
+                              <td className="py-2 px-4 text-right font-mono text-rose-600">{txns.length - matched}</td>
+                              <td className="py-2 px-4 text-right font-mono font-bold">{pct.toFixed(0)}%</td>
+                            </tr>
+                          );
+                        }) : <tr><td colSpan={5} className="text-center py-8 text-slate-400">No bank accounts set up yet.</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Activity Logs & Audit Trail — real server-recorded audit log */}
+              {selectedReport.id === "activity_logs" && (
+                <div className="space-y-6 animate-fade-in font-sans">
+                  <div className="text-center space-y-1 mb-6 border-b border-dashed border-slate-200 pb-4">
+                    <h3 className="text-sm font-black uppercase tracking-widest mt-1">Activity Logs &amp; Audit Trail</h3>
+                    <p className="text-[10.5px] text-slate-500">Chronological record of who did what, for handing to an auditor.</p>
+                  </div>
+                  <div className="overflow-x-auto border border-slate-200 rounded-xl max-h-[480px] overflow-y-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="sticky top-0"><tr className="border-b border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-500 uppercase">
+                        <th className="py-2.5 px-4">Timestamp</th><th className="py-2.5 px-4">User</th><th className="py-2.5 px-4">Action</th><th className="py-2.5 px-4">Details</th>
+                      </tr></thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {(db.auditLogs && db.auditLogs.length > 0) ? db.auditLogs.map(log => (
+                          <tr key={log.id} className="hover:bg-slate-50">
+                            <td className="py-2 px-4 font-mono text-slate-500 whitespace-nowrap">{new Date(log.timestamp).toLocaleString("en-IN")}</td>
+                            <td className="py-2 px-4 font-semibold text-slate-800">{log.user}</td>
+                            <td className="py-2 px-4"><span className="text-[10px] font-bold bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded">{log.action}</span></td>
+                            <td className="py-2 px-4 text-slate-600">{log.details}</td>
+                          </tr>
+                        )) : <tr><td colSpan={4} className="text-center py-8 text-slate-400">No activity recorded yet.</td></tr>}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               )}
@@ -2083,7 +2318,8 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation }:
                 "ap_aging_details", "gst", "gstr3b_details", "budget_vs_actual", 
                 "general_ledger", "detailed_ledger", "day_book", "biz_ratios", "account_tx",
                 "sales_by_customer", "sales_by_item", "purchase_by_vendor", "tax_liability",
-                "customer_ledger", "vendor_ledger", "ledger_statement", "gstr1"
+                "customer_ledger", "vendor_ledger", "ledger_statement", "gstr1",
+                "tds_summary", "tds_receivable", "tcs_payable", "reconciliation_status", "activity_logs"
               ].includes(selectedReport.id) && (
                 <div id="stat-not-available" className="space-y-4 animate-fade-in font-sans text-center py-16">
                   <div className="w-14 h-14 mx-auto bg-amber-50 border border-amber-200 rounded-full flex items-center justify-center">
