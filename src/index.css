@@ -1,1 +1,9 @@
 @import "tailwindcss";
+
+/* Print: only show elements marked .printable-area; hide everything else (sidebar, headers, modal buttons) */
+@media print {
+  body * { visibility: hidden; }
+  .printable-area, .printable-area * { visibility: visible; }
+  .printable-area { position: absolute; left: 0; top: 0; width: 100%; }
+  .no-print { display: none !important; }
+}
