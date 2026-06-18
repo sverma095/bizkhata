@@ -2101,6 +2101,20 @@ app.delete("/api/accounts/:code", async (req: any, res: any) => {
 });
 
 // ── Fixed Assets API ─────────────────────────────────────────────────────────
+app.post("/api/month-end-checklist", async (req: any, res: any) => {
+  try {
+    const db = await readDB();
+    const payload = req.body; // { id, monthLabel, steps }
+    if (!(db as any).monthEndChecklists) (db as any).monthEndChecklists = [];
+    const idx = (db as any).monthEndChecklists.findIndex((c: any) => c.id === payload.id);
+    if (idx >= 0) (db as any).monthEndChecklists[idx] = payload;
+    else (db as any).monthEndChecklists.push(payload);
+    (db as any).auditLogs.unshift({ id: "audit_" + Date.now(), timestamp: new Date().toISOString(), user: req.body.actorEmail || "User", action: "MONTH_END_CHECKLIST_UPDATE", details: `Updated close checklist for ${payload.monthLabel}` });
+    await writeDB(db);
+    res.json({ success: true });
+  } catch(e: any) { res.status(500).json({ error: e.message }); }
+});
+
 app.post("/api/fixed-assets", async (req: any, res: any) => {
   try {
     const db = await readDB();
