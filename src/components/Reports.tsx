@@ -343,6 +343,8 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation }:
     { id: "account_type_tx", name: "Account Type Transactions", category: "Accountant", categoryId: "accountant", createdBy: "System Generated", lastVisited: "-" },
     { id: "day_book", name: "Day Book", category: "Accountant", categoryId: "accountant", createdBy: "System Generated", lastVisited: "-" },
     { id: "ledger_statement", name: "Ledger Statement", category: "Accountant", categoryId: "accountant", createdBy: "System Generated", lastVisited: "-" },
+    { id: "ledger_scrutiny", name: "Ledger Scrutiny (Abnormal Balances)", category: "Accountant", categoryId: "accountant", createdBy: "System Generated", lastVisited: "-" },
+    { id: "advance_reconciliation", name: "Advance & Deposit Reconciliation", category: "Accountant", categoryId: "accountant", createdBy: "System Generated", lastVisited: "-" },
     { id: "customer_ledger", name: "Customer Ledger Statement", category: "Receivables", categoryId: "receivables", createdBy: "System Generated", lastVisited: "-" },
     { id: "vendor_ledger", name: "Vendor Ledger Statement", category: "Payables", categoryId: "payables", createdBy: "System Generated", lastVisited: "-" },
     { id: "general_ledger", name: "General Ledger", category: "Accountant", categoryId: "accountant", createdBy: "System Generated", lastVisited: "-" },
@@ -2370,6 +2372,127 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation }:
                 </div>
               )}
 
+              {/* Ledger Scrutiny — flag accounts with abnormal balance signs */}
+              {selectedReport.id === "ledger_scrutiny" && (
+                <div className="space-y-6 animate-fade-in font-sans">
+                  <div className="text-center space-y-1 mb-6 border-b border-dashed border-slate-200 pb-4">
+                    <h3 className="text-sm font-black uppercase tracking-widest mt-1">Ledger Scrutiny — Abnormal Balances</h3>
+                    <p className="text-[10.5px] text-slate-500">Accounts whose balance sign is unexpected for their type — usually a sign of a wrong posting or a rare-but-legitimate scenario (e.g. a customer credit balance) that should be reviewed.</p>
+                  </div>
+                  {(() => {
+                    // All account types in this system are normalized so a healthy balance is >= 0.
+                    // A negative balance means more was credited than debited (for Asset/Expense)
+                    // or more was debited than credited (for Liability/Income/Equity) than expected.
+                    const abnormal = db.accounts.filter(a => a.balance < 0);
+                    return abnormal.length === 0 ? (
+                      <div className="text-center py-12">
+                        <Check className="w-8 h-8 mx-auto text-emerald-500 mb-2" />
+                        <p className="text-sm font-bold text-emerald-700">No abnormal balances found.</p>
+                        <p className="text-xs text-slate-400 mt-1">All {db.accounts.length} ledger accounts have balances consistent with their account type.</p>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto border border-amber-200 rounded-xl">
+                        <table className="w-full text-left text-xs">
+                          <thead><tr className="border-b border-amber-200 bg-amber-50 text-[10px] font-bold text-amber-700 uppercase">
+                            <th className="py-2.5 px-4">Account</th><th className="py-2.5 px-4">Type</th><th className="py-2.5 px-4 text-right">Balance</th><th className="py-2.5 px-4">Likely Cause</th>
+                          </tr></thead>
+                          <tbody className="divide-y divide-amber-100">
+                            {abnormal.map(a => (
+                              <tr key={a.code} className="hover:bg-amber-50/50">
+                                <td className="py-2 px-4 font-semibold text-slate-800">{a.name}</td>
+                                <td className="py-2 px-4 text-slate-500">{a.type}</td>
+                                <td className="py-2 px-4 text-right font-mono font-bold text-rose-700">₹{a.balance.toLocaleString("en-IN")}</td>
+                                <td className="py-2 px-4 text-slate-500 text-[10.5px]">
+                                  {a.type === "Asset" && "Possible overpayment received or refund recorded twice."}
+                                  {a.type === "Expense" && "Possible refund/credit posted against this expense exceeding amount spent."}
+                                  {(a.type === "Liability" || a.type === "Income" || a.type === "Equity") && "Possible reversal or correction entry posted without an offsetting transaction."}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {/* Advance & Deposit Reconciliation — unapplied customer payments + overpaid vendor bills */}
+              {selectedReport.id === "advance_reconciliation" && (
+                <div className="space-y-6 animate-fade-in font-sans">
+                  <div className="text-center space-y-1 mb-6 border-b border-dashed border-slate-200 pb-4">
+                    <h3 className="text-sm font-black uppercase tracking-widest mt-1">Advance &amp; Deposit Reconciliation</h3>
+                    <p className="text-[10.5px] text-slate-500">Customer payments not yet fully applied to an invoice (advances received), and bills paid above their total (vendor advances). There's no dedicated advance ledger yet — this view is derived from existing payment and bill records.</p>
+                  </div>
+                  {(() => {
+                    const custAdvances = db.payments
+                      .map((p:any) => {
+                        const applied = (p.allocations||[]).reduce((s:number,a:any)=>s+a.amount,0);
+                        const unapplied = p.amountReceived - applied;
+                        return { ...p, unapplied };
+                      })
+                      .filter((p:any) => p.unapplied > 1); // ignore rounding noise
+                    const vendAdvances = db.bills.filter((b:any) => (b.paymentPaid||0) > b.total);
+                    const totalCustAdv = custAdvances.reduce((s:number,p:any)=>s+p.unapplied, 0);
+                    const totalVendAdv = vendAdvances.reduce((s:number,b:any)=>s+((b.paymentPaid||0)-b.total), 0);
+                    return (
+                      <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
+                          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                            <span className="text-[10px] font-bold text-blue-700 uppercase">Customer Advances (Unapplied Receipts)</span>
+                            <p className="text-lg font-mono font-black text-blue-800 mt-1">₹{totalCustAdv.toLocaleString("en-IN")}</p>
+                          </div>
+                          <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
+                            <span className="text-[10px] font-bold text-purple-700 uppercase">Vendor Advances (Bills Overpaid)</span>
+                            <p className="text-lg font-mono font-black text-purple-800 mt-1">₹{totalVendAdv.toLocaleString("en-IN")}</p>
+                          </div>
+                        </div>
+                        <h4 className="text-[10px] uppercase font-extrabold text-slate-500 tracking-wider pt-2">Customer Advances</h4>
+                        <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                          <table className="w-full text-left text-xs">
+                            <thead><tr className="border-b border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-500 uppercase">
+                              <th className="py-2.5 px-4">Receipt #</th><th className="py-2.5 px-4">Customer</th><th className="py-2.5 px-4">Date</th><th className="py-2.5 px-4 text-right">Received</th><th className="py-2.5 px-4 text-right">Unapplied (Advance)</th>
+                            </tr></thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {custAdvances.length === 0 ? <tr><td colSpan={5} className="text-center py-6 text-slate-400">No unapplied customer payments.</td></tr> :
+                                custAdvances.map((p:any) => (
+                                  <tr key={p.id} className="hover:bg-slate-50">
+                                    <td className="py-2 px-4 font-mono font-semibold text-slate-800">{p.receiptNumber}</td>
+                                    <td className="py-2 px-4 text-slate-600">{p.customerName}</td>
+                                    <td className="py-2 px-4 font-mono text-slate-500">{p.date}</td>
+                                    <td className="py-2 px-4 text-right font-mono">₹{p.amountReceived.toLocaleString("en-IN")}</td>
+                                    <td className="py-2 px-4 text-right font-mono font-bold text-blue-700">₹{p.unapplied.toLocaleString("en-IN")}</td>
+                                  </tr>
+                                ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        <h4 className="text-[10px] uppercase font-extrabold text-slate-500 tracking-wider pt-2">Vendor Advances</h4>
+                        <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                          <table className="w-full text-left text-xs">
+                            <thead><tr className="border-b border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-500 uppercase">
+                              <th className="py-2.5 px-4">Bill #</th><th className="py-2.5 px-4">Vendor</th><th className="py-2.5 px-4 text-right">Bill Total</th><th className="py-2.5 px-4 text-right">Paid</th><th className="py-2.5 px-4 text-right">Excess (Advance)</th>
+                            </tr></thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {vendAdvances.length === 0 ? <tr><td colSpan={5} className="text-center py-6 text-slate-400">No overpaid vendor bills.</td></tr> :
+                                vendAdvances.map((b:any) => (
+                                  <tr key={b.id} className="hover:bg-slate-50">
+                                    <td className="py-2 px-4 font-mono font-semibold text-slate-800">{b.billNumber}</td>
+                                    <td className="py-2 px-4 text-slate-600">{b.vendorName}</td>
+                                    <td className="py-2 px-4 text-right font-mono">₹{b.total.toLocaleString("en-IN")}</td>
+                                    <td className="py-2 px-4 text-right font-mono">₹{b.paymentPaid.toLocaleString("en-IN")}</td>
+                                    <td className="py-2 px-4 text-right font-mono font-bold text-purple-700">₹{(b.paymentPaid-b.total).toLocaleString("en-IN")}</td>
+                                  </tr>
+                                ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+
               {/* CMP-08 — Composition Scheme Quarterly Statement */}
               {selectedReport.id === "cmp08" && (
                 db.company.gstScheme !== "Composition" ? (
@@ -2431,7 +2554,7 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation }:
                 "sales_by_customer", "sales_by_item", "purchase_by_vendor", "tax_liability",
                 "customer_ledger", "vendor_ledger", "ledger_statement", "gstr1",
                 "tds_summary", "tds_receivable", "tcs_payable", "reconciliation_status", "activity_logs",
-                "rcm_compliance", "cmp08"
+                "rcm_compliance", "cmp08", "ledger_scrutiny", "advance_reconciliation"
               ].includes(selectedReport.id) && (
                 <div id="stat-not-available" className="space-y-4 animate-fade-in font-sans text-center py-16">
                   <div className="w-14 h-14 mx-auto bg-amber-50 border border-amber-200 rounded-full flex items-center justify-center">
