@@ -317,6 +317,8 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation }:
     { id: "iff_taxes", name: "Invoice Furnishing Facility (IFF)", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "-" },
     { id: "pmt06", name: "PMT-06 (Self Assessment Basis)", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "-" },
     { id: "gstr3b_details", name: "GSTR-3B Summary", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "15 Apr 2026 10:45 AM" },
+    { id: "rcm_compliance", name: "RCM Compliance (Reverse Charge)", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "-" },
+    { id: "cmp08", name: "CMP-08 (Composition Scheme)", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "-" },
     { id: "outward_supplies", name: "Summary of Outward Supplies", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "05 May 2026 03:52 PM" },
     { id: "inward_supplies", name: "Summary of Inward Supplies", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "15 Apr 2026 05:56 PM" },
     { id: "self_invoice", name: "Self Invoice Summary", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "06 Apr 2026 02:53 PM" },
@@ -2311,7 +2313,116 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation }:
                 </div>
               )}
 
-              {/* SECTION L: UNIVERSAL AUXILIARY COMPLIANCE SHEET TEMPLATE FOR OTHER 75 REPORTS */}
+              {/* RCM Compliance — bills marked as Reverse Charge requiring self-assessed GST payment */}
+              {selectedReport.id === "rcm_compliance" && (
+                <div className="space-y-6 animate-fade-in font-sans">
+                  <div className="text-center space-y-1 mb-6 border-b border-dashed border-slate-200 pb-4">
+                    <h3 className="text-sm font-black uppercase tracking-widest mt-1">RCM Compliance (Reverse Charge)</h3>
+                    <p className="text-[10.5px] text-slate-500">Bills where you, as the buyer, are liable to self-assess and deposit GST instead of the vendor charging it.</p>
+                  </div>
+                  {(() => {
+                    const rcmBills = filteredBills.filter((b: any) => b.isReverseCharge);
+                    const totalRcmGst = rcmBills.reduce((s: number, b: any) => s + (b.totalGst || 0), 0);
+                    const unpaidRcmGst = rcmBills.filter((b: any) => !b.rcmGstPaid).reduce((s: number, b: any) => s + (b.totalGst || 0), 0);
+                    return (
+                      <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                            <span className="text-[10px] font-bold text-amber-700 uppercase">Total RCM GST Liability (Period)</span>
+                            <p className="text-lg font-mono font-black text-amber-800 mt-1">₹{totalRcmGst.toLocaleString("en-IN")}</p>
+                          </div>
+                          <div className="bg-rose-50 border border-rose-200 rounded-xl p-4">
+                            <span className="text-[10px] font-bold text-rose-700 uppercase">Not Yet Deposited</span>
+                            <p className="text-lg font-mono font-black text-rose-800 mt-1">₹{unpaidRcmGst.toLocaleString("en-IN")}</p>
+                          </div>
+                        </div>
+                        <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                          <table className="w-full text-left text-xs">
+                            <thead><tr className="border-b border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-500 uppercase">
+                              <th className="py-2.5 px-4">Bill #</th><th className="py-2.5 px-4">Vendor</th><th className="py-2.5 px-4">Date</th><th className="py-2.5 px-4 text-right">Taxable Value</th><th className="py-2.5 px-4 text-right">RCM GST</th><th className="py-2.5 px-4 text-center">Status</th>
+                            </tr></thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {rcmBills.length === 0 ? (
+                                <tr><td colSpan={6} className="text-center py-8 text-slate-400">No RCM bills in this period.</td></tr>
+                              ) : rcmBills.map((b: any) => (
+                                <tr key={b.id} className="hover:bg-slate-50">
+                                  <td className="py-2 px-4 font-mono font-semibold text-slate-800">{b.billNumber}</td>
+                                  <td className="py-2 px-4 text-slate-600">{b.vendorName}</td>
+                                  <td className="py-2 px-4 font-mono text-slate-500">{b.date}</td>
+                                  <td className="py-2 px-4 text-right font-mono">₹{b.subtotal.toLocaleString("en-IN")}</td>
+                                  <td className="py-2 px-4 text-right font-mono font-bold text-amber-700">₹{b.totalGst.toLocaleString("en-IN")}</td>
+                                  <td className="py-2 px-4 text-center">
+                                    <span className={`text-[9.5px] font-bold px-2 py-0.5 rounded-full ${b.rcmGstPaid ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                                      {b.rcmGstPaid ? "Deposited" : "Pending"}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        <p className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                          RCM GST is paid via cash ledger on the GST portal (not adjustable against ITC at the time of payment) and is reported in Table 3.1(d) of GSTR-3B.
+                        </p>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {/* CMP-08 — Composition Scheme Quarterly Statement */}
+              {selectedReport.id === "cmp08" && (
+                db.company.gstScheme !== "Composition" ? (
+                  <div className="space-y-4 animate-fade-in font-sans text-center py-16">
+                    <div className="w-14 h-14 mx-auto bg-blue-50 border border-blue-200 rounded-full flex items-center justify-center">
+                      <HelpCircle className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-800">CMP-08 Not Applicable</h3>
+                      <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+                        CMP-08 is only for businesses registered under the GST Composition Scheme. Your organisation is currently set to {db.company.isGstRegistered === false ? "Unregistered" : "Regular Scheme"} in Organisation Settings.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-6 animate-fade-in font-sans">
+                    <div className="text-center space-y-1 mb-6 border-b border-dashed border-slate-200 pb-4">
+                      <h3 className="text-sm font-black uppercase tracking-widest mt-1">CMP-08 — Composition Scheme Quarterly Statement</h3>
+                      <p className="text-[10.5px] text-slate-500">Self-assessed tax for composition dealers. Filed quarterly on the GST portal — this is a working sheet to prepare the figures.</p>
+                    </div>
+                    {(() => {
+                      // Composition rates: 1% for traders/manufacturers, 5% for restaurants (no ITC, no GST collected from customers)
+                      const turnover = filteredSalesRevenue;
+                      const rate = 0.01; // default trader/manufacturer rate; restaurant-specific rate would need a business-type field
+                      const cgstDue = (turnover * rate) / 2;
+                      const sgstDue = (turnover * rate) / 2;
+                      return (
+                        <>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="bg-[#FDFBF7] border border-[#E5E1D8] rounded-xl p-4">
+                              <span className="text-[10px] font-bold text-slate-500 uppercase">Turnover (Period)</span>
+                              <p className="text-lg font-mono font-black text-slate-800 mt-1">₹{turnover.toLocaleString("en-IN")}</p>
+                            </div>
+                            <div className="bg-[#FDFBF7] border border-[#E5E1D8] rounded-xl p-4">
+                              <span className="text-[10px] font-bold text-slate-500 uppercase">CGST Payable (0.5%)</span>
+                              <p className="text-lg font-mono font-black text-blue-800 mt-1">₹{cgstDue.toLocaleString("en-IN", {maximumFractionDigits:0})}</p>
+                            </div>
+                            <div className="bg-[#FDFBF7] border border-[#E5E1D8] rounded-xl p-4">
+                              <span className="text-[10px] font-bold text-slate-500 uppercase">SGST Payable (0.5%)</span>
+                              <p className="text-lg font-mono font-black text-blue-800 mt-1">₹{sgstDue.toLocaleString("en-IN", {maximumFractionDigits:0})}</p>
+                            </div>
+                          </div>
+                          <p className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                            Assumes the standard 1% trader/manufacturer composition rate. Restaurants (5%) and other special rates aren't auto-detected yet — verify against your actual registration category before filing.
+                          </p>
+                        </>
+                      );
+                    })()}
+                  </div>
+                )
+              )}
+
+
               {![
                 "pl", "pl_sched3", "pl_horiz", "cf", "bs", "bs_horiz", "bs_sched3", 
                 "tb", "ar_summary", "ar_details", "vendor_balance", "ap_aging_summary", 
@@ -2319,7 +2430,8 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation }:
                 "general_ledger", "detailed_ledger", "day_book", "biz_ratios", "account_tx",
                 "sales_by_customer", "sales_by_item", "purchase_by_vendor", "tax_liability",
                 "customer_ledger", "vendor_ledger", "ledger_statement", "gstr1",
-                "tds_summary", "tds_receivable", "tcs_payable", "reconciliation_status", "activity_logs"
+                "tds_summary", "tds_receivable", "tcs_payable", "reconciliation_status", "activity_logs",
+                "rcm_compliance", "cmp08"
               ].includes(selectedReport.id) && (
                 <div id="stat-not-available" className="space-y-4 animate-fade-in font-sans text-center py-16">
                   <div className="w-14 h-14 mx-auto bg-amber-50 border border-amber-200 rounded-full flex items-center justify-center">
