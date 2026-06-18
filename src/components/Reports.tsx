@@ -30,6 +30,7 @@ interface ReportsProps {
   onTriggerAI: (feature: string, payload?: any) => void;
   isLoadingAI?: boolean;
   aiExplanation?: string;
+  onSaveChecklist?: (payload: any) => Promise<void>;
 }
 
 interface ReportItem {
@@ -41,7 +42,7 @@ interface ReportItem {
   lastVisited: string;
 }
 
-export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation }: ReportsProps) {
+export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, onSaveChecklist }: ReportsProps) {
   // Navigation states
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -342,6 +343,7 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation }:
     { id: "account_type_sum", name: "Account Type Summary", category: "Accountant", categoryId: "accountant", createdBy: "System Generated", lastVisited: "-" },
     { id: "account_type_tx", name: "Account Type Transactions", category: "Accountant", categoryId: "accountant", createdBy: "System Generated", lastVisited: "-" },
     { id: "day_book", name: "Day Book", category: "Accountant", categoryId: "accountant", createdBy: "System Generated", lastVisited: "-" },
+    { id: "month_end_close", name: "Month-End Close Checklist", category: "Accountant", categoryId: "accountant", createdBy: "System Generated", lastVisited: "-" },
     { id: "ledger_statement", name: "Ledger Statement", category: "Accountant", categoryId: "accountant", createdBy: "System Generated", lastVisited: "-" },
     { id: "ledger_scrutiny", name: "Ledger Scrutiny (Abnormal Balances)", category: "Accountant", categoryId: "accountant", createdBy: "System Generated", lastVisited: "-" },
     { id: "advance_reconciliation", name: "Advance & Deposit Reconciliation", category: "Accountant", categoryId: "accountant", createdBy: "System Generated", lastVisited: "-" },
@@ -2373,6 +2375,95 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation }:
               )}
 
               {/* Ledger Scrutiny — flag accounts with abnormal balance signs */}
+              {/* Month-End Close Checklist — guided workflow with auto-detected + manual steps */}
+              {selectedReport.id === "month_end_close" && (() => {
+                const now = new Date();
+                const monthId = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+                const monthLabel = now.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+                const existing = (db.monthEndChecklists || []).find(c => c.id === monthId);
+
+                const allBankTxns = db.bankTransactions || [];
+                const bankReconciled = allBankTxns.length > 0 && allBankTxns.every((t: any) => t.matched || t.matchedId);
+                const custLedgerOk = db.customers.every(c => true); // no abnormal flag source yet — informational
+                const abnormalCount = db.accounts.filter(a => a.balance < 0).length;
+                const depreciationPosted = (db.fixedAssets || []).filter(a => a.status === "Active").every(a => a.accumulatedDepreciation > 0 || a.cost === a.salvageValue);
+                const tbBalances = db.accounts.reduce((s, a) => s + (a.type === "Asset" || a.type === "Expense" ? a.balance : -a.balance), 0);
+
+                const autoSteps = [
+                  { key: "bank_recon", label: "Bank Reconciliation — all transactions matched", auto: true, done: bankReconciled },
+                  { key: "ledger_scrutiny", label: "Ledger Scrutiny — no abnormal balances", auto: true, done: abnormalCount === 0 },
+                  { key: "depreciation", label: "Depreciation entries posted for active assets", auto: true, done: depreciationPosted },
+                  { key: "tb_balanced", label: "Trial Balance — debits equal credits", auto: true, done: Math.abs(tbBalances) < 1 },
+                ];
+                const manualKeys = ["vendor_recon","customer_recon","accruals","provisions","payroll_entry","gst_liability","tds_liability"];
+                const manualLabels: Record<string,string> = {
+                  vendor_recon: "Vendor Reconciliation — supplier statements matched",
+                  customer_recon: "Customer Reconciliation — outstanding balances confirmed",
+                  accruals: "Accrual entries posted",
+                  provisions: "Provision entries posted",
+                  payroll_entry: "Payroll journal posted (handled outside BizKhata)",
+                  gst_liability: "GST liability entry posted",
+                  tds_liability: "TDS liability entry posted",
+                };
+                const manualSteps = manualKeys.map(key => {
+                  const found = existing?.steps.find(s => s.key === key);
+                  return { key, label: manualLabels[key], auto: false, done: found?.done || false, doneBy: found?.doneBy, doneAt: found?.doneAt };
+                });
+                const allSteps = [...autoSteps, ...manualSteps];
+                const doneCount = allSteps.filter(s => s.done).length;
+                const pct = Math.round((doneCount / allSteps.length) * 100);
+
+                const toggleManualStep = async (key: string) => {
+                  if (!onSaveChecklist) return;
+                  const updatedManual = manualSteps.map(s => s.key === key
+                    ? { ...s, done: !s.done, doneBy: !s.done ? "You" : undefined, doneAt: !s.done ? new Date().toISOString() : undefined }
+                    : s);
+                  await onSaveChecklist({ id: monthId, monthLabel, steps: updatedManual.map(({auto, ...rest}) => rest) });
+                };
+
+                return (
+                  <div className="space-y-6 animate-fade-in font-sans">
+                    <div className="text-center space-y-1 mb-6 border-b border-dashed border-slate-200 pb-4">
+                      <h3 className="text-sm font-black uppercase tracking-widest mt-1">Month-End Close Checklist — {monthLabel}</h3>
+                      <p className="text-[10.5px] text-slate-500">The first four steps auto-detect from your ledger data. The rest need a manual sign-off since they happen outside automated tracking.</p>
+                    </div>
+
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                      <div className="flex justify-between text-xs mb-1.5"><span className="font-bold text-slate-700">{doneCount} of {allSteps.length} steps complete</span><span className="font-mono font-bold text-blue-700">{pct}%</span></div>
+                      <div className="bg-slate-200 h-2 rounded-full overflow-hidden"><div style={{width:`${pct}%`}} className="bg-blue-600 h-full rounded-full transition-all" /></div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <h4 className="text-[10px] uppercase font-extrabold text-slate-500 tracking-wider">Auto-Detected (from your ledger)</h4>
+                      {autoSteps.map(s => (
+                        <div key={s.key} className={`flex items-center justify-between p-3 rounded-lg border ${s.done ? "bg-emerald-50 border-emerald-200" : "bg-amber-50 border-amber-200"}`}>
+                          <span className="text-xs text-slate-700">{s.label}</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${s.done ? "bg-emerald-600 text-white" : "bg-amber-500 text-white"}`}>{s.done ? "Done" : "Pending"}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="space-y-2">
+                      <h4 className="text-[10px] uppercase font-extrabold text-slate-500 tracking-wider">Manual Sign-Off</h4>
+                      {manualSteps.map(s => (
+                        <button key={s.key} onClick={() => toggleManualStep(s.key)} disabled={!onSaveChecklist}
+                          className={`w-full flex items-center justify-between p-3 rounded-lg border text-left transition ${s.done ? "bg-emerald-50 border-emerald-200" : "bg-white border-slate-200 hover:border-blue-300"}`}>
+                          <span className="text-xs text-slate-700 flex items-center gap-2">
+                            <span className={`w-4 h-4 rounded border flex items-center justify-center ${s.done ? "bg-emerald-600 border-emerald-600" : "border-slate-300"}`}>
+                              {s.done && <Check className="w-3 h-3 text-white" />}
+                            </span>
+                            {s.label}
+                            {s.key === "payroll_entry" && <span className="text-[9px] text-slate-400 italic ml-1">(no payroll module in BizKhata yet)</span>}
+                          </span>
+                          {s.done && s.doneBy && <span className="text-[10px] text-slate-400">by {s.doneBy}</span>}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Ledger Scrutiny — flag accounts with abnormal balance signs */}
               {selectedReport.id === "ledger_scrutiny" && (
                 <div className="space-y-6 animate-fade-in font-sans">
                   <div className="text-center space-y-1 mb-6 border-b border-dashed border-slate-200 pb-4">
@@ -2554,7 +2645,7 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation }:
                 "sales_by_customer", "sales_by_item", "purchase_by_vendor", "tax_liability",
                 "customer_ledger", "vendor_ledger", "ledger_statement", "gstr1",
                 "tds_summary", "tds_receivable", "tcs_payable", "reconciliation_status", "activity_logs",
-                "rcm_compliance", "cmp08", "ledger_scrutiny", "advance_reconciliation"
+                "rcm_compliance", "cmp08", "ledger_scrutiny", "advance_reconciliation", "month_end_close"
               ].includes(selectedReport.id) && (
                 <div id="stat-not-available" className="space-y-4 animate-fade-in font-sans text-center py-16">
                   <div className="w-14 h-14 mx-auto bg-amber-50 border border-amber-200 rounded-full flex items-center justify-center">
