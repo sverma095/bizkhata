@@ -5,6 +5,7 @@ export interface CompanyInfo {
   gstScheme?: 'Regular' | 'Composition';
   gstin: string;
   pan: string;
+  tan?: string; // Tax Deduction Account Number — required for TDS Challan 281 / Form 16A
   address: string;
   state: string;
   currency: string;
@@ -118,6 +119,7 @@ export interface Invoice {
   totalSgst: number;
   totalIgst: number;
   total: number;
+  tcsAmount?: number; // TCS collected under Section 206C(1H), if applicable
   status: 'Draft' | 'Sent' | 'Approved' | 'Paid' | 'Cancelled' | 'E-Invoiced' | 'Digitally Signed' | 'Converted';
   isProforma: boolean; // True if it's a proforma invoice
   paymentReceived: number;
@@ -188,6 +190,7 @@ export interface Expense {
   subtotal: number;
   gstAmount: number;
   tdsAmount: number;
+  tdsSection?: string; // e.g. "194C", "194J", "194I" — required for Challan 281 / Form 16A
   paymentMode: string;
   total: number; // subtotal + gstAmount - tdsAmount
   attachmentUrl?: string;
