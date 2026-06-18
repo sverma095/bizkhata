@@ -251,6 +251,12 @@ export interface AuditLog {
   details: string;
 }
 
+export interface MonthEndChecklist {
+  id: string; // e.g. "2026-06"
+  monthLabel: string; // e.g. "June 2026"
+  steps: { key: string; label: string; done: boolean; doneBy?: string; doneAt?: string }[];
+}
+
 export interface AppUser {
   id: string;
   name: string;
@@ -297,6 +303,7 @@ export interface DatabaseState {
   bills: Bill[];
   journals: JournalEntry[];
   auditLogs: AuditLog[];
+  monthEndChecklists?: MonthEndChecklist[];
   users?: AppUser[];
   userSeatsLimit?: number;
   mailLogs?: MailLog[];
