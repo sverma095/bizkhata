@@ -71,6 +71,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
   const [billDueDate, setBillDueDate] = useState(new Date().toISOString().split('T')[0]);
   const [billSubtotal, setBillSubtotal] = useState(0);
   const [billGstRate, setBillGstRate] = useState(18);
+  const [billIsRcm, setBillIsRcm] = useState(false);
 
   // Bill Pay State
   const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
@@ -133,6 +134,11 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
 
     const sameState = vend.address.toLowerCase().includes(db.company.state.toLowerCase());
 
+    // Under RCM, the vendor does NOT charge GST on the bill — the buyer self-assesses
+    // and pays it directly to the government. The bill total payable to the vendor
+    // therefore excludes GST; the GST liability is tracked separately via isReverseCharge.
+    const billTotal = billIsRcm ? sub : sub + gstAmt;
+
     await onAddBill({
       billNumber,
       vendorId: billVendorId,
@@ -157,9 +163,11 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
       totalCgst: sameState ? gstAmt / 2 : 0,
       totalSgst: sameState ? gstAmt / 2 : 0,
       totalIgst: !sameState ? gstAmt : 0,
-      total: sub + gstAmt,
+      total: billTotal,
       status: "Approved",
-      paymentPaid: 0
+      paymentPaid: 0,
+      isReverseCharge: billIsRcm,
+      rcmGstPaid: false
     });
 
     setShowBillForm(false);
@@ -606,14 +614,24 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                 </select>
               </div>
 
+              <div className="space-y-1.5 col-span-2">
+                <label className="flex items-center gap-2 cursor-pointer bg-amber-50 border border-amber-200 rounded-lg p-3">
+                  <input type="checkbox" checked={billIsRcm} onChange={e => setBillIsRcm(e.target.checked)} className="accent-amber-600" />
+                  <span className="text-xs text-amber-800">
+                    <span className="font-bold">Reverse Charge Mechanism (RCM)</span> — vendor does not charge GST; you self-assess and pay GST directly to the government (e.g. unregistered vendor, GTA, legal services, import of services).
+                  </span>
+                </label>
+              </div>
+
               {/* Calculations review */}
               <div className="bg-slate-100 p-3 rounded border border-slate-200 flex justify-between items-center text-xs font-mono select-none">
                 <div className="text-slate-500">
-                  <p>Incurred GST: ₹{(billSubtotal * billGstRate) / 100}</p>
+                  <p>{billIsRcm ? "Self-Assessed GST (RCM)" : "Incurred GST"}: ₹{(billSubtotal * billGstRate) / 100}</p>
+                  {billIsRcm && <p className="text-[10px] text-amber-600 font-sans">Not paid to vendor — pay this directly via GST portal.</p>}
                 </div>
                 <div className="text-right">
-                  <p className="text-[10px] text-slate-500 font-normal font-sans text-slate-400">Total payable sum:</p>
-                  <p className="text-indigo-400 font-bold">₹{billSubtotal + (billSubtotal * billGstRate) / 100}</p>
+                  <p className="text-[10px] text-slate-500 font-normal font-sans text-slate-400">{billIsRcm ? "Payable to vendor (excl. GST):" : "Total payable sum:"}</p>
+                  <p className="text-indigo-400 font-bold">₹{billIsRcm ? billSubtotal : billSubtotal + (billSubtotal * billGstRate) / 100}</p>
                 </div>
               </div>
             </div>
