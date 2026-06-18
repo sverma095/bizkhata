@@ -61,6 +61,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
   const [expSubtotal, setExpSubtotal] = useState(0);
   const [expGst, setExpGst] = useState(0);
   const [expTds, setExpTds] = useState(0);
+  const [expTdsSection, setExpTdsSection] = useState("194C");
   const [expMode, setExpMode] = useState("Corporate Card");
   const [expAttachmentName, setExpAttachmentName] = useState("");
 
@@ -111,6 +112,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
       subtotal: Number(expSubtotal),
       gstAmount: Number(expGst),
       tdsAmount: Number(expTds),
+      tdsSection: expTds > 0 ? expTdsSection : undefined,
       paymentMode: expMode,
       total: Number(expSubtotal) + Number(expGst) - Number(expTds),
       attachmentName: expAttachmentName || undefined,
@@ -446,6 +448,21 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                   className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 font-mono focus:border-blue-500 outline-none"
                 />
               </div>
+              {expTds > 0 && (
+                <div className="space-y-1.5">
+                  <label className="text-slate-400">TDS Section <span className="text-red-500">*</span></label>
+                  <select value={expTdsSection} onChange={e => setExpTdsSection(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:border-blue-500 outline-none">
+                    <option value="194C">194C — Contractor Payments</option>
+                    <option value="194J">194J — Professional / Technical Fees</option>
+                    <option value="194I">194I — Rent</option>
+                    <option value="194H">194H — Commission / Brokerage</option>
+                    <option value="194A">194A — Interest (other than securities)</option>
+                    <option value="194Q">194Q — Purchase of Goods</option>
+                  </select>
+                  <p className="text-[10px] text-amber-600">Required to generate Challan 281 / Form 16A for this vendor.</p>
+                </div>
+              )}
 
               <div className="space-y-1.5 font-sans">
                 <label className="text-slate-400">Expense Payment Mode</label>
