@@ -2,6 +2,7 @@ export interface CompanyInfo {
   name: string;
   legalName: string;
   isGstRegistered?: boolean;
+  gstScheme?: 'Regular' | 'Composition';
   gstin: string;
   pan: string;
   address: string;
@@ -222,6 +223,8 @@ export interface Bill {
   total: number;
   status: 'Draft' | 'Approved' | 'Paid' | 'Cancelled';
   paymentPaid: number;
+  isReverseCharge?: boolean; // RCM — buyer is liable to self-pay GST on this bill
+  rcmGstPaid?: boolean; // whether the self-assessed RCM GST has been deposited
 }
 
 export interface JournalLine {
