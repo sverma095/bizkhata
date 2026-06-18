@@ -56,6 +56,7 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
   const [name, setName] = useState(db.company.name || "");
   const [legalName, setLegalName] = useState(db.company.legalName || "");
   const [isGstRegistered, setIsGstRegistered] = useState(db.company.isGstRegistered !== false ? (!!db.company.gstin || true) : false);
+  const [gstScheme, setGstScheme] = useState<"Regular"|"Composition">(db.company.gstScheme || "Regular");
   const [gstin, setGstin] = useState(db.company.gstin || "");
   const [pan, setPan] = useState(db.company.pan || "");
   const [address, setAddress] = useState(db.company.address || "Hyderabad head office, Telangana");
@@ -220,6 +221,7 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
       name,
       legalName,
       isGstRegistered,
+      gstScheme: isGstRegistered ? gstScheme : undefined,
       gstin: isGstRegistered ? gstin : "",
       pan,
       address,
@@ -635,6 +637,23 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
                       </label>
                     </div>
                   </div>
+
+                  {isGstRegistered && (
+                    <div className="space-y-1.5 col-span-2">
+                      <label className="text-xs text-slate-500 font-bold">GST Scheme</label>
+                      <div className="flex items-center gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-700">
+                          <input type="radio" name="gstScheme" checked={gstScheme === "Regular"} onChange={() => setGstScheme("Regular")} className="accent-blue-600" />
+                          <span className="font-semibold">Regular Scheme</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-700">
+                          <input type="radio" name="gstScheme" checked={gstScheme === "Composition"} onChange={() => setGstScheme("Composition")} className="accent-blue-600" />
+                          <span className="font-semibold">Composition Scheme</span>
+                        </label>
+                      </div>
+                      {gstScheme === "Composition" && <p className="text-[10px] text-blue-600">Composition dealers file CMP-08 quarterly instead of GSTR-1/GSTR-3B, and cannot claim Input Tax Credit.</p>}
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
