@@ -197,6 +197,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
   const [discountType, setDiscountType] = useState<'percent'|'amount'>('percent');
   const [discountValue, setDiscountValue] = useState(0);
   const [shippingCharge, setShippingCharge] = useState(0);
+  const [applyTcs, setApplyTcs] = useState(false);
   const [otherCharges, setOtherCharges] = useState(0);
   const [paymentTerms, setPaymentTerms] = useState('Net 30');
   const [invoiceNotes, setInvoiceNotes] = useState('');
@@ -360,6 +361,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
       totalSgst: liveResults.sgst,
       totalIgst: liveResults.igst,
       total: liveResults.total,
+      tcsAmount: applyTcs ? Math.round(liveResults.total * 0.001 * 100) / 100 : undefined,
       status: finalStatus,
       isProforma,
       paymentReceived: editingInvoice?.paymentReceived || 0,
@@ -841,6 +843,15 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                     className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-slate-700 text-[10px] font-mono outline-none text-right"
                   />
                 </div>
+              </div>
+
+              {/* TCS Section (Section 206C(1H)) */}
+              <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg p-2.5">
+                <input type="checkbox" id="tcs-toggle" checked={applyTcs} onChange={e => setApplyTcs(e.target.checked)} className="accent-blue-600" />
+                <label htmlFor="tcs-toggle" className="text-xs text-blue-800">
+                  <span className="font-bold">Collect TCS (0.1%)</span> — applies under Section 206C(1H) once this customer's total purchases from you cross ₹50 lakh in the financial year.
+                  {applyTcs && <span className="ml-1 font-mono font-bold">≈ ₹{(liveResults.total * 0.001).toFixed(2)}</span>}
+                </label>
               </div>
 
               {/* TDS Section */}
@@ -2207,7 +2218,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
           <div className="bg-white text-slate-800 w-full max-w-3xl rounded-2xl shadow-2xl border border-slate-200 flex flex-col max-h-[95vh]">
             
             {/* Modal header - clean action bar */}
-            <div className="flex justify-between items-center px-5 py-3 border-b border-slate-200 bg-white rounded-t-2xl sticky top-0 z-10">
+            <div className="flex justify-between items-center px-5 py-3 border-b border-slate-200 bg-white rounded-t-2xl sticky top-0 z-10 no-print">
               <div className="flex items-center gap-2">
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${showViewModal.isProforma ? 'bg-purple-100 text-purple-700' : showViewModal.status === 'Paid' ? 'bg-emerald-100 text-emerald-700' : showViewModal.status === 'Draft' ? 'bg-slate-100 text-slate-600' : 'bg-blue-100 text-blue-700'}`}>{showViewModal.status}</span>
                 <span className="text-xs font-bold text-slate-700">{showViewModal.isProforma ? "Proforma Invoice" : "Tax Invoice"} — {showViewModal.invoiceNumber}</span>
@@ -2232,7 +2243,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
             </div>
 
             {/* ── A4 Invoice Body ── */}
-            <div id="print-sheet-content" className="flex-1 overflow-y-auto bg-white">
+            <div id="print-sheet-content" className="flex-1 overflow-y-auto bg-white printable-area">
               {/* A4 paper wrapper */}
               <div className="max-w-[800px] mx-auto p-8 space-y-0 text-[11px] text-slate-800 print:p-6">
 
