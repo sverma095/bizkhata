@@ -997,6 +997,12 @@ export default function App() {
     if (r.ok) await fetchDB(); else { const e = await r.json(); throw new Error(e.error || "Failed"); }
   };
 
+  // Month-End Close Checklist
+  const handleSaveMonthEndChecklist = async (payload: any) => {
+    const r = await fetch("/api/month-end-checklist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...payload, actorEmail: activeUserEmail }) });
+    if (r.ok) await fetchDB(); else { const e = await r.json(); throw new Error(e.error || "Failed"); }
+  };
+
   // AI OCR integration
   const handleParseRawInvoiceTextAPI = async (rawText: string) => {
     const r = await fetch("/api/ai/parse-invoice", {
@@ -1768,6 +1774,7 @@ export default function App() {
                 onTriggerAI={handleUniversalAITrigger}
                 isLoadingAI={loadingAI}
                 aiExplanation={aiReportExplanation}
+                onSaveChecklist={handleSaveMonthEndChecklist}
               />
             )}
 
