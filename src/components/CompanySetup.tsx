@@ -59,6 +59,7 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
   const [gstScheme, setGstScheme] = useState<"Regular"|"Composition">(db.company.gstScheme || "Regular");
   const [gstin, setGstin] = useState(db.company.gstin || "");
   const [pan, setPan] = useState(db.company.pan || "");
+  const [tan, setTan] = useState(db.company.tan || "");
   const [address, setAddress] = useState(db.company.address || "Hyderabad head office, Telangana");
   const [state, setState] = useState(db.company.state || "Telangana");
   const [currency, setCurrency] = useState(db.company.currency || "INR");
@@ -224,6 +225,7 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
       gstScheme: isGstRegistered ? gstScheme : undefined,
       gstin: isGstRegistered ? gstin : "",
       pan,
+      tan,
       address,
       state,
       currency,
@@ -685,6 +687,18 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
                         className="w-full bg-slate-50 border border-slate-200 focus:bg-white rounded-lg px-3.5 py-2 text-slate-800 text-xs font-mono tracking-wider focus:border-[#006EE5] outline-none transition"
                         placeholder="e.g. ABCDE1234F"
                       />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs text-slate-500 font-bold">Tax Deduction Account Number (TAN)</label>
+                      <input 
+                        type="text"
+                        maxLength={10}
+                        value={tan}
+                        onChange={(e) => setTan(e.target.value.toUpperCase())}
+                        className="w-full bg-slate-50 border border-slate-200 focus:bg-white rounded-lg px-3.5 py-2 text-slate-800 text-xs font-mono tracking-wider focus:border-[#006EE5] outline-none transition"
+                        placeholder="e.g. DELA12345B"
+                      />
+                      <p className="text-[10px] text-slate-400">Required to generate TDS Challan 281 and Form 16A.</p>
                     </div>
                   </div>
 
