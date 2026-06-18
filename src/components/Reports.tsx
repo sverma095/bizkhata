@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { DatabaseState, Account, Invoice, Bill, Expense } from "../types.js";
+import TdsDocuments from "./TdsDocuments.js";
 import { 
   TrendingUp, 
   BarChart2, 
@@ -46,6 +47,7 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
   // Navigation states
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [tdsDocModal, setTdsDocModal] = useState<{ mode: "challan" | "form16a"; expense: any } | null>(null);
   const [favorites, setFavorites] = useState<string[]>([
     "pl", "bs", "cf", "tb", "gstr1", "ar_summary", "ap_aging_summary", "gst", "budget_vs_actual"
   ]);
@@ -2177,22 +2179,36 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
                   <div className="overflow-x-auto border border-slate-200 rounded-xl">
                     <table className="w-full text-left text-xs">
                       <thead><tr className="border-b border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-500 uppercase">
-                        <th className="py-2.5 px-4">Date</th><th className="py-2.5 px-4">Party</th><th className="py-2.5 px-4">Type</th><th className="py-2.5 px-4 text-right">TDS Amount</th>
+                        <th className="py-2.5 px-4">Date</th><th className="py-2.5 px-4">Party</th><th className="py-2.5 px-4">Type</th><th className="py-2.5 px-4 text-right">TDS Amount</th><th className="py-2.5 px-4 text-center">Documents</th>
                       </tr></thead>
                       <tbody className="divide-y divide-slate-100">
                         {[
-                          ...filteredPayments.filter(p=>(p.tdsDeducted||0)>0).map(p=>({date:p.date, party:p.customerName, type:"Receivable (Customer)", amt:p.tdsDeducted})),
-                          ...filteredExpenses.filter(e=>(e.tdsAmount||0)>0).map(e=>({date:e.date, party:e.vendorName, type:"Payable (Expense)", amt:e.tdsAmount}))
+                          ...filteredPayments.filter(p=>(p.tdsDeducted||0)>0).map(p=>({date:p.date, party:p.customerName, type:"Receivable (Customer)", amt:p.tdsDeducted, raw:null})),
+                          ...filteredExpenses.filter(e=>(e.tdsAmount||0)>0).map(e=>({date:e.date, party:e.vendorName, type:"Payable (Expense)", amt:e.tdsAmount, raw:e}))
                         ].sort((a,b)=>a.date.localeCompare(b.date)).map((r,i)=>(
                           <tr key={i} className="hover:bg-slate-50">
                             <td className="py-2 px-4 font-mono text-slate-500">{r.date}</td>
                             <td className="py-2 px-4 font-semibold text-slate-800">{r.party}</td>
                             <td className="py-2 px-4 text-slate-500">{r.type}</td>
                             <td className="py-2 px-4 text-right font-mono font-bold">₹{r.amt.toLocaleString("en-IN")}</td>
+                            <td className="py-2 px-4 text-center">
+                              {r.raw ? (
+                                <div className="flex gap-1 justify-center">
+                                  <button onClick={() => setTdsDocModal({ mode: "challan", expense: r.raw })} disabled={!r.raw.tdsSection}
+                                    className="text-[9.5px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 disabled:opacity-40 disabled:cursor-not-allowed px-2 py-1 rounded" title={!r.raw.tdsSection ? "TDS section not set on this expense" : ""}>
+                                    Challan 281
+                                  </button>
+                                  <button onClick={() => setTdsDocModal({ mode: "form16a", expense: r.raw })} disabled={!r.raw.tdsSection}
+                                    className="text-[9.5px] font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 disabled:opacity-40 disabled:cursor-not-allowed px-2 py-1 rounded" title={!r.raw.tdsSection ? "TDS section not set on this expense" : ""}>
+                                    Form 16A
+                                  </button>
+                                </div>
+                              ) : <span className="text-slate-300 text-[10px]">—</span>}
+                            </td>
                           </tr>
                         ))}
                         {filteredPayments.filter(p=>(p.tdsDeducted||0)>0).length + filteredExpenses.filter(e=>(e.tdsAmount||0)>0).length === 0 && (
-                          <tr><td colSpan={4} className="text-center py-8 text-slate-400">No TDS transactions in selected period.</td></tr>
+                          <tr><td colSpan={5} className="text-center py-8 text-slate-400">No TDS transactions in selected period.</td></tr>
                         )}
                       </tbody>
                     </table>
@@ -2243,17 +2259,47 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
 
               {/* TCS Payable Summary — placeholder honest state since TCS isn't tracked as a separate field yet */}
               {selectedReport.id === "tcs_payable" && (
-                <div className="space-y-4 animate-fade-in font-sans text-center py-16">
-                  <div className="w-14 h-14 mx-auto bg-amber-50 border border-amber-200 rounded-full flex items-center justify-center">
-                    <HelpCircle className="w-6 h-6 text-amber-600" />
+                <div className="space-y-6 animate-fade-in font-sans">
+                  <div className="text-center space-y-1 mb-6 border-b border-dashed border-slate-200 pb-4">
+                    <span className="text-[10px] font-mono font-bold tracking-widest text-blue-800 uppercase bg-blue-50 px-2 py-0.5 rounded">Section 206C(1H)</span>
+                    <h3 className="text-sm font-black uppercase tracking-widest mt-1">TCS Payable Summary (Form No. 27EQ)</h3>
+                    <p className="text-[10.5px] text-slate-500">TCS collected from customers on invoices marked for TCS. Period: {fromDate} to {toDate}</p>
                   </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-800">TCS Payable Summary (Form No. 27EQ)</h3>
-                    <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-                      TCS isn't tracked as a separate field on invoices yet, so this report can't be computed accurately.
-                      Once TCS collection is added to the invoice line items, this report will populate automatically.
-                    </p>
-                  </div>
+                  {(() => {
+                    const tcsInvoices = filteredInvoices.filter((i: any) => (i.tcsAmount || 0) > 0);
+                    const totalTcs = tcsInvoices.reduce((s: number, i: any) => s + (i.tcsAmount || 0), 0);
+                    return (
+                      <>
+                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
+                          <span className="text-[10px] font-bold text-blue-700 uppercase">Total TCS Collected (Period)</span>
+                          <p className="text-lg font-mono font-black text-blue-800 mt-1">₹{totalTcs.toLocaleString("en-IN")}</p>
+                        </div>
+                        <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                          <table className="w-full text-left text-xs">
+                            <thead><tr className="border-b border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-500 uppercase">
+                              <th className="py-2.5 px-4">Invoice #</th><th className="py-2.5 px-4">Customer</th><th className="py-2.5 px-4">Date</th><th className="py-2.5 px-4 text-right">Invoice Value</th><th className="py-2.5 px-4 text-right">TCS Collected</th>
+                            </tr></thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {tcsInvoices.length === 0 ? (
+                                <tr><td colSpan={5} className="text-center py-8 text-slate-400">No TCS-applicable invoices in this period.</td></tr>
+                              ) : tcsInvoices.map((i: any) => (
+                                <tr key={i.id} className="hover:bg-slate-50">
+                                  <td className="py-2 px-4 font-mono font-semibold text-slate-800">{i.invoiceNumber}</td>
+                                  <td className="py-2 px-4 text-slate-600">{i.customerName}</td>
+                                  <td className="py-2 px-4 font-mono text-slate-500">{i.date}</td>
+                                  <td className="py-2 px-4 text-right font-mono">₹{i.total.toLocaleString("en-IN")}</td>
+                                  <td className="py-2 px-4 text-right font-mono font-bold text-blue-700">₹{i.tcsAmount.toLocaleString("en-IN")}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        <p className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                          This summary doesn't generate Form 27EQ for filing — that requires the TRACES/income-tax e-filing portal. TCS applicability (₹50 lakh threshold per buyer per year) must be checked manually before marking an invoice; this report only totals what's been marked.
+                        </p>
+                      </>
+                    );
+                  })()}
                 </div>
               )}
 
@@ -2758,6 +2804,10 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
           </div>
 
         </div>
+      )}
+
+      {tdsDocModal && (
+        <TdsDocuments db={db} mode={tdsDocModal.mode} expense={tdsDocModal.expense} onClose={() => setTdsDocModal(null)} />
       )}
     </div>
   );
