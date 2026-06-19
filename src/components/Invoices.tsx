@@ -856,7 +856,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
 
               {/* TDS Section */}
               <div className="border-t border-slate-800 pt-2 space-y-1.5">
-                <label className="text-[10px] text-amber-400 font-semibold uppercase tracking-wide">TDS Deduction (Income Tax)</label>
+                <label className="text-[10px] text-amber-400 font-semibold uppercase tracking-wide">TDS Deduction (Income Tax Act, 2025 — Section 393)</label>
                 <select
                   value={tdsSection}
                   onChange={(e) => {
@@ -866,8 +866,8 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                       "194C_ind": 1, "194C_huf": 1, "194C_comp": 2,
                       "194J_prof": 10, "194J_tech": 2,
                       "194I_land": 10, "194I_plant": 2,
-                      "194A": 10, "194H": 5, "194IA": 1,
-                      "194IB": 5, "194IC": 10, "194M": 5,
+                      "194A": 10, "194H": 2, "194IA": 1,
+                      "194IB": 2, "194IC": 10, "194M": 5,
                       "194N": 2, "194O": 1, "194Q": 0.1, "206C": 1
                     };
                     const rate = rateMap[sec] || 0;
@@ -877,31 +877,34 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                   className="w-full bg-amber-50 border border-amber-200 rounded px-2 py-1 text-slate-700 text-[10px] outline-none"
                 >
                   <option value="">No TDS</option>
-                  <optgroup label="Contract Payments">
-                    <option value="194C_ind">Sec 194C – Contractor (Individual/HUF) @ 1%</option>
-                    <option value="194C_comp">Sec 194C – Contractor (Company) @ 2%</option>
+                  <optgroup label="Contract Payments — Sec 393(1) Table Sl.6 (was 194C)">
+                    <option value="194C_ind">Contractor (Individual/HUF) @ 1%</option>
+                    <option value="194C_comp">Contractor (Company) @ 2%</option>
                   </optgroup>
-                  <optgroup label="Professional/Technical">
-                    <option value="194J_prof">Sec 194J – Professional Services @ 10%</option>
-                    <option value="194J_tech">Sec 194J – Technical Services @ 2%</option>
+                  <optgroup label="Professional/Technical — Sec 393(1) Table Sl.12 (was 194J)">
+                    <option value="194J_prof">Professional Services @ 10%</option>
+                    <option value="194J_tech">Technical Services @ 2%</option>
                   </optgroup>
-                  <optgroup label="Rent">
-                    <option value="194I_land">Sec 194I – Rent (Land/Building) @ 10%</option>
-                    <option value="194I_plant">Sec 194I – Rent (Plant/Machinery) @ 2%</option>
-                    <option value="194IB">Sec 194IB – Rent (Individual) @ 5%</option>
-                    <option value="194IC">Sec 194IC – JDA Payment @ 10%</option>
+                  <optgroup label="Rent — Sec 393(1) Table Sl.2 (was 194I/194IB)">
+                    <option value="194I_land">Rent — Land/Building @ 10%</option>
+                    <option value="194I_plant">Rent — Plant/Machinery @ 2%</option>
+                    <option value="194IB">Rent by Individual/HUF @ 2% (reduced from 5% under new Act)</option>
+                    <option value="194IC">JDA Payment @ 10%</option>
                   </optgroup>
-                  <optgroup label="Other Payments">
-                    <option value="194A">Sec 194A – Interest (Non-Bank) @ 10%</option>
-                    <option value="194H">Sec 194H – Commission/Brokerage @ 5%</option>
-                    <option value="194IA">Sec 194IA – Immovable Property @ 1%</option>
-                    <option value="194M">Sec 194M – Certain Payments @ 5%</option>
-                    <option value="194O">Sec 194O – E-Commerce @ 1%</option>
-                    <option value="194Q">Sec 194Q – Purchase of Goods @ 0.1%</option>
-                    <option value="194N">Sec 194N – Cash Withdrawal @ 2%</option>
-                    <option value="206C">Sec 206C – TCS on Sales @ 1%</option>
+                  <optgroup label="Other Payments — Sec 393 (was 194A/H/IA/M/O/Q/N, 206C)">
+                    <option value="194A">Interest, Non-Bank @ 10%</option>
+                    <option value="194H">Commission/Brokerage @ 2%</option>
+                    <option value="194IA">Immovable Property — Sec 393(1) Table Sl.3 @ 1%</option>
+                    <option value="194M">Certain Payments by Individual/HUF @ 5%</option>
+                    <option value="194O">E-Commerce @ 1%</option>
+                    <option value="194Q">Purchase of Goods @ 0.1%</option>
+                    <option value="194N">Cash Withdrawal @ 2%</option>
+                    <option value="206C">TCS-equivalent on Sales (Sec 394) @ 1%</option>
                   </optgroup>
                 </select>
+                <p className="text-[9px] text-amber-600">
+                  Payments made/credited on or after 1 Apr 2026 fall under the Income Tax Act, 2025 (Section 393). The old section labels above are shown for reference only — the official return/challan (Form 141) now references the Section 393 table entry, not these old numbers.
+                </p>
                 {tdsSection && (
                   <div className="flex items-center gap-2">
                     <span className="text-amber-400 text-[10px]">TDS @ {tdsRate}% = ₹</span>
