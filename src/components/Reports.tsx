@@ -1146,7 +1146,7 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
                             <span className="font-mono text-slate-800">₹{gstPayable.toLocaleString('en-IN')}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span>TDS Liabilities Code (194C/J):</span>
+                            <span>TDS Liabilities (Sec 393, Income Tax Act 2025):</span>
                             <span className="font-mono text-slate-800">₹{tdsPayable.toLocaleString('en-IN')}</span>
                           </div>
                           <hr className="border-[#E5E1D8] border-dashed" />
@@ -2158,7 +2158,7 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
               {selectedReport.id === "tds_summary" && (
                 <div className="space-y-6 animate-fade-in font-sans">
                   <div className="text-center space-y-1 mb-6 border-b border-dashed border-slate-200 pb-4">
-                    <span className="text-[10px] font-mono font-bold tracking-widest text-blue-800 uppercase bg-blue-50 px-2 py-0.5 rounded">Section 194 Compliance</span>
+                    <span className="text-[10px] font-mono font-bold tracking-widest text-blue-800 uppercase bg-blue-50 px-2 py-0.5 rounded">Section 393 Compliance (Income Tax Act, 2025)</span>
                     <h3 className="text-sm font-black uppercase tracking-widest mt-1">TDS Summary</h3>
                     <p className="text-[10.5px] text-slate-500">TDS deducted by customers on payments received, and TDS deducted by you on vendor/expense payments. Period: {fromDate} to {toDate}</p>
                   </div>
@@ -2214,7 +2214,7 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
                     </table>
                   </div>
                   <p className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-3">
-                    This summary doesn't generate Challan 281 or quarterly returns (24Q/26Q/27Q/27EQ) — those require filing on the government TRACES/income-tax portal directly.
+                    This summary doesn't generate the actual filing forms. For transactions before 1 Apr 2026, use Challan 281 and the old quarterly returns (24Q/26Q/27Q/27EQ). For transactions on or after 1 Apr 2026, use Form 141 (challan-cum-statement) and the new quarterly returns (Form 138/139/140) under the Income Tax Act, 2025 — all filed directly on the TRACES/income-tax e-filing portal. Use the Challan 281 / Form 16A buttons above to generate a working draft that auto-detects which Act applies based on the transaction date.
                   </p>
                 </div>
               )}
