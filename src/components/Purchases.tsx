@@ -453,12 +453,12 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                   <label className="text-slate-400">TDS Section <span className="text-red-500">*</span></label>
                   <select value={expTdsSection} onChange={e => setExpTdsSection(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:border-blue-500 outline-none">
-                    <option value="194C">194C — Contractor Payments</option>
-                    <option value="194J">194J — Professional / Technical Fees</option>
-                    <option value="194I">194I — Rent</option>
-                    <option value="194H">194H — Commission / Brokerage</option>
-                    <option value="194A">194A — Interest (other than securities)</option>
-                    <option value="194Q">194Q — Purchase of Goods</option>
+                    <option value="194C">Sec 393(1) Table Sl.6(i) — Contractor Payments (was 194C)</option>
+                    <option value="194J">Sec 393(1) Table Sl.12 — Professional / Technical Fees (was 194J)</option>
+                    <option value="194I">Sec 393(1) Table Sl.8 — Rent (was 194I)</option>
+                    <option value="194H">Sec 393(1) Table Sl.10 — Commission / Brokerage (was 194H)</option>
+                    <option value="194A">Sec 393(1) Table Sl.4 — Interest, other than securities (was 194A)</option>
+                    <option value="194Q">Sec 393(1) Table — Purchase of Goods (was 194Q)</option>
                   </select>
                   <p className="text-[10px] text-amber-600">Required to generate Challan 281 / Form 16A for this vendor.</p>
                 </div>
