@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Users, Sliders, Shield, Key, History, PlusCircle, CreditCard,
   UserPlus, Edit3, Trash2, ShieldAlert, CheckCircle2, Lock,
-  Lock as ResetIcon, UserX, UserCheck, LogOut, ArrowUpRight, CheckCircle
+  Lock as ResetIcon, UserX, UserCheck, LogOut, ArrowUpRight, CheckCircle, ArrowLeft
 } from 'lucide-react';
 import { User, Organization, SeatRequest, AuditLog, CustomRole, ALL_PERMISSIONS } from '../types.js';
 
@@ -10,10 +10,11 @@ interface AdminDashboardProps {
   token: string;
   activeUser: User;
   onLogout: () => void;
+  onBackToDashboard?: () => void;
 }
 
 export default function AdminDashboard(props: AdminDashboardProps) {
-  const { token, activeUser, onLogout } = props;
+  const { token, activeUser, onLogout, onBackToDashboard } = props;
 
   // Tenant State
   const [company, setCompany] = useState<Organization | null>(null);
@@ -443,6 +444,20 @@ export default function AdminDashboard(props: AdminDashboardProps) {
             </button>
           </nav>
         </div>
+
+        {/* Back to normal dashboard — exits console without logging out */}
+        {onBackToDashboard && (
+          <div className="px-4 pb-2">
+            <button
+              id="admin-btn-back-to-dashboard"
+              onClick={onBackToDashboard}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 transition duration-150 cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Back to Normal Dashboard
+            </button>
+          </div>
+        )}
 
         {/* User profile footer inside side layout */}
         <div className="p-4 border-t border-slate-200 bg-[#F3F4F7] flex flex-col gap-3">
