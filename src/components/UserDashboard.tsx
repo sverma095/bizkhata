@@ -186,31 +186,31 @@ export default function UserDashboard(props: UserDashboardProps) {
   const checkStyle = (valid: boolean) => valid ? 'text-emerald-600 font-semibold' : 'text-slate-400';
 
   return (
-    <div id="user-dashboard" className="min-h-screen bg-slate-50 dark:bg-slate-900/40 text-slate-900 dark:text-slate-100 font-sans flex flex-col">
+    <div id="user-dashboard" className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col">
       
       {/* Top bar corporate shell */}
-      <header className="bg-white dark:bg-slate-950 border-b border-slate-150 dark:border-slate-800 shadow-2xs">
+      <header className="bg-white border-b border-slate-150 shadow-2xs">
         <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <span className="p-1 px-2 rounded text-[10px] bg-slate-150 dark:bg-slate-900 text-slate-700 dark:text-slate-355 font-mono font-bold uppercase tracking-wider border border-slate-200 dark:border-slate-800">
+              <span className="p-1 px-2 rounded text-[10px] bg-slate-150 text-slate-700 font-mono font-bold uppercase tracking-wider border border-slate-200">
                 EMPLOYEE PORTAL SECURITY
               </span>
               <span className="text-slate-300">•</span>
-              <span className="text-xs font-mono font-bold text-slate-600 dark:text-slate-400 uppercase">{company?.name || "Company Tenant"}</span>
+              <span className="text-xs font-mono font-bold text-slate-600 uppercase">{company?.name || "Company Tenant"}</span>
             </div>
-            <h1 className="text-lg font-bold font-sans tracking-tight text-slate-900 dark:text-white mt-1">
+            <h1 className="text-lg font-bold font-sans tracking-tight text-slate-900 mt-1">
               Welcome, {activeUser.fullName}
             </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Assigned role: <span className="font-extrabold text-sky-600 dark:text-sky-450 uppercase">{activeUser.role}</span> | Department: <span className="font-bold">{activeUser.department || 'N/A'}</span>
+            <p className="text-xs text-slate-500">
+              Assigned role: <span className="font-extrabold text-sky-600 uppercase">{activeUser.role}</span> | Department: <span className="font-bold">{activeUser.department || 'N/A'}</span>
             </p>
           </div>
 
           <button
             id="user-btn-logout"
             onClick={onLogout}
-            className="text-xs font-semibold px-4 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/30 dark:hover:bg-rose-950/50 dark:text-rose-400 transition flex items-center gap-1.5"
+            className="text-xs font-semibold px-4 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 transition flex items-center gap-1.5"
           >
             <LogOut className="w-3.5 h-3.5" /> Log Out
           </button>
@@ -222,14 +222,14 @@ export default function UserDashboard(props: UserDashboardProps) {
 
         {/* Real-time Operation Warning Alerts */}
         {successMsg && (
-          <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-250 dark:border-emerald-900 text-emerald-805 dark:text-emerald-400 text-xs rounded-xl flex items-start gap-2.5 shadow-2xs transition animate-fade-in" id="user-p-success-banner">
+          <div className="p-4 bg-emerald-50 border border-emerald-250 text-emerald-805 text-xs rounded-xl flex items-start gap-2.5 shadow-2xs transition animate-fade-in" id="user-p-success-banner">
             <CheckCircle2 className="w-4.5 h-4.5 shrink-0 text-emerald-500 mt-0.5" />
             <div className="leading-relaxed font-sans">{successMsg}</div>
           </div>
         )}
 
         {errorMsg && (
-          <div className="p-4 bg-rose-50 dark:bg-rose-950/25 border border-rose-250 dark:border-rose-900 text-rose-800 dark:text-rose-400 text-xs rounded-xl flex items-start gap-2.5 shadow-2xs transition animate-fade-in" id="user-p-access-block-banner">
+          <div className="p-4 bg-rose-50 border border-rose-250 text-rose-800 text-xs rounded-xl flex items-start gap-2.5 shadow-2xs transition animate-fade-in" id="user-p-access-block-banner">
             <LockKeyhole className="w-4.5 h-4.5 shrink-0 text-rose-500 mt-0.5" />
             <div className="leading-relaxed font-mono">{errorMsg}</div>
           </div>
@@ -241,8 +241,8 @@ export default function UserDashboard(props: UserDashboardProps) {
           <div className="lg:col-span-8 space-y-8">
             
             {/* Active Permissions visual block list */}
-            <div className="bg-white dark:bg-slate-950 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-3xs" id="user-clearances-matrix">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3 flex items-center gap-1.5">
+            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-3xs" id="user-clearances-matrix">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
                 <ShieldCheck className="w-4.5 h-4.5 text-sky-500" />
                 Active Dynamic Permission Matrix (PBAC)
               </h3>
@@ -258,8 +258,8 @@ export default function UserDashboard(props: UserDashboardProps) {
                       key={perm.id} 
                       className={`p-2.5 rounded-xl border text-xs flex items-center justify-between ${
                         hasClearance 
-                          ? 'bg-emerald-50/20 dark:bg-emerald-950/10 border-emerald-100 dark:border-emerald-900/60 text-slate-800 dark:text-slate-205 font-bold' 
-                          : 'bg-slate-50/50 dark:bg-slate-900/50 border-slate-150 dark:border-slate-900 text-slate-400 line-through decoration-slate-300'
+                          ? 'bg-emerald-50/20 border-emerald-100 text-slate-800 font-bold' 
+                          : 'bg-slate-50/50 border-slate-150 text-slate-400 line-through decoration-slate-300'
                       }`}
                     >
                       <span className="font-sans">{perm.label}</span>
@@ -271,41 +271,41 @@ export default function UserDashboard(props: UserDashboardProps) {
             </div>
 
             {/* Simulated interactive billing module */}
-            <div className="bg-white dark:bg-slate-950 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-3xs" id="user-interactive-workspace">
+            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-3xs" id="user-interactive-workspace">
               <div className="flex justify-between items-center mb-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                   <FileText className="w-4.5 h-4.5 text-sky-500" />
                   BizKhata Interactive Invoices Playground
                 </h3>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-900 font-mono text-slate-400">SANDBOX SIMULATION</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 font-mono text-slate-400">SANDBOX SIMULATION</span>
               </div>
               <p className="text-xs text-slate-400 mb-6 leading-relaxed">
                 Experience full-stack Permission-Based Access Control in action! Click different invoice commands below to verify server-level credential mapping checks.
               </p>
 
-              <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden mb-6">
-                <div className="bg-slate-50 dark:bg-slate-900/50 p-3 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center text-xs">
+              <div className="border border-slate-200 rounded-xl overflow-hidden mb-6">
+                <div className="bg-slate-50 p-3 border-b border-slate-200 flex justify-between items-center text-xs">
                   <span className="font-bold">Dummy Invoices Register (#TX-808)</span>
                   <span className="text-[10px] font-mono text-slate-400">Total: ₹45,210.00</span>
                 </div>
                 <div className="p-4 space-y-3.5">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs bg-slate-50/50 dark:bg-slate-900/20 p-3 rounded-lg border border-slate-100 dark:border-slate-900">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs bg-slate-50/50 p-3 rounded-lg border border-slate-100">
                     <div>
-                      <div className="font-bold text-slate-850 dark:text-white">INV-2026-001 (Acme Corp)</div>
+                      <div className="font-bold text-slate-850">INV-2026-001 (Acme Corp)</div>
                       <div className="text-[10px] text-slate-400">Raised: 2026-06-01 | Due: 2026-06-15</div>
                     </div>
                     <div className="flex gap-1">
                       <button 
                         id="test-action-view"
                         onClick={() => tryPerformAction('view_invoices', "Viewing detailed invoice breakdown specs for Invoice INV-2026-001")}
-                        className="p-1 px-2.5 text-[10px] font-extrabold bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 shadow-2xs hover:bg-slate-50 rounded"
+                        className="p-1 px-2.5 text-[10px] font-extrabold bg-white border border-slate-200 shadow-2xs hover:bg-slate-50 rounded"
                       >
                         View Invoice
                       </button>
                       <button 
                         id="test-action-edit"
                         onClick={() => tryPerformAction('edit_invoices', "Opened editing layout matrix for Acme Corp ledger entries")}
-                        className="p-1 px-2.5 text-[10px] font-extrabold bg-white dark:bg-slate-905 border border-slate-200 dark:border-slate-800 text-sky-600 dark:text-sky-400 rounded"
+                        className="p-1 px-2.5 text-[10px] font-extrabold bg-white border border-slate-200 text-sky-600 rounded"
                       >
                         Edit Ledger
                       </button>
@@ -326,7 +326,7 @@ export default function UserDashboard(props: UserDashboardProps) {
                     </div>
                   </div>
                   
-                  <div className="flex justify-between items-center border-t border-slate-100 dark:border-slate-900 pt-3 flex-wrap gap-2">
+                  <div className="flex justify-between items-center border-t border-slate-100 pt-3 flex-wrap gap-2">
                     <span className="text-[11px] text-slate-500 font-mono">Create new file register? </span>
                     <button 
                       id="test-action-create"
@@ -344,18 +344,18 @@ export default function UserDashboard(props: UserDashboardProps) {
                 <button
                   id="test-action-reports"
                   onClick={() => tryPerformAction('view_reports', "Downloaded comprehensive ledger diagnostics PDF sheets")}
-                  className="p-4 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl transition text-center space-y-1 block cursor-pointer"
+                  className="p-4 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition text-center space-y-1 block cursor-pointer"
                 >
-                  <span className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider block">Fetch Corporate Reports</span>
+                  <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">Fetch Corporate Reports</span>
                   <span className="text-[10px] text-slate-400 block leading-normal">Requires 'view_reports' permission.</span>
                 </button>
 
                 <button
                   id="test-action-export"
                   onClick={() => tryPerformAction('export_data', "Platform database serialization output finalized successfully (RAW_JSON/XLSX)")}
-                  className="p-4 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl transition text-center space-y-1 block cursor-pointer"
+                  className="p-4 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition text-center space-y-1 block cursor-pointer"
                 >
-                  <span className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider block">Database Bulk Export</span>
+                  <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">Database Bulk Export</span>
                   <span className="text-[10px] text-slate-400 block leading-normal">Requires 'export_data' permission.</span>
                 </button>
               </div>
@@ -368,8 +368,8 @@ export default function UserDashboard(props: UserDashboardProps) {
           <div className="lg:col-span-4 space-y-6">
             
             {/* 2-Factor authentication switch */}
-            <div className="bg-white dark:bg-slate-950 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-3xs" id="user-2fa-panel">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1.5">
+            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-3xs" id="user-2fa-panel">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5 flex items-center gap-1.5">
                 <Key className="w-4 h-4 text-sky-505" />
                 Two-Factor Security (2FA)
               </h3>
@@ -377,7 +377,7 @@ export default function UserDashboard(props: UserDashboardProps) {
                 Adding OTP verification credentials protects your accounting database against unauthorized intrusions.
               </p>
 
-              <label className="flex items-center space-x-3 p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-850 cursor-pointer transition hover:bg-slate-100/50">
+              <label className="flex items-center space-x-3 p-3 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer transition hover:bg-slate-100/50">
                 <input
                   type="checkbox"
                   id="user-toggle-2fa"
@@ -393,8 +393,8 @@ export default function UserDashboard(props: UserDashboardProps) {
             </div>
 
             {/* ChangePassword Form (Section 12) */}
-            <div className="bg-white dark:bg-slate-950 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-3xs hover:shadow-xs transition duration-200" id="user-password-panel">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3 flex items-center gap-1.5">
+            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-3xs hover:shadow-xs transition duration-200" id="user-password-panel">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
                 <Lock className="w-4 h-4 text-sky-500" />
                 Update Security Password
               </h3>
@@ -412,7 +412,7 @@ export default function UserDashboard(props: UserDashboardProps) {
                       analyzePassword(e.target.value);
                     }}
                     placeholder="••••••••"
-                    className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded focus:outline-hidden"
+                    className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded focus:outline-hidden"
                   />
                 </div>
 
@@ -425,12 +425,12 @@ export default function UserDashboard(props: UserDashboardProps) {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded focus:outline-hidden"
+                    className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded focus:outline-hidden"
                   />
                 </div>
 
                 {/* Password Policy visually shown explicitly (Section 12) */}
-                <div className="bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded border border-slate-200 dark:border-slate-850 text-[10px] space-y-1">
+                <div className="bg-slate-50 p-2.5 rounded border border-slate-200 text-[10px] space-y-1">
                   <span className="font-bold text-slate-450 uppercase tracking-wider block mb-1">Policy Specifications:</span>
                   <div className="space-y-0.5">
                     <div className={checkStyle(policyChecks.length)}>• 8+ Characters</div>
@@ -452,8 +452,8 @@ export default function UserDashboard(props: UserDashboardProps) {
             </div>
 
             {/* Session Management controls (Section 12) */}
-            <div className="bg-white dark:bg-slate-950 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-3xs" id="user-sessions-panel">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1.5">
+            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-3xs" id="user-sessions-panel">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5 flex items-center gap-1.5">
                 <Sliders className="w-4 h-4 text-sky-505" />
                 Active Device Sessions
               </h3>
@@ -461,7 +461,7 @@ export default function UserDashboard(props: UserDashboardProps) {
                 Review logins and force immediate terminations of any external logs.
               </p>
 
-              <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-850 space-y-2 mt-2 text-xs">
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2 mt-2 text-xs">
                 <div>
                   <span className="font-bold block">Current Browser Simulator</span>
                   <span className="text-[10px] text-slate-450 block font-mono">Last log: {activeUser.lastLogin ? new Date(activeUser.lastLogin).toLocaleTimeString() : 'Just now'}</span>
