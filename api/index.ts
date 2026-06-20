@@ -271,7 +271,13 @@ app.use(express.json());
 // route runs, and saves it after any mutating request completes. This is what makes
 // pending registration approvals, seat requests, etc. survive across Vercel cold starts.
 const USER_DB_ROUTES = ["/api/auth/", "/api/superadmin/", "/api/users", "/api/seat-requests", "/api/audit-logs", "/api/custom-roles"];
+// /api/users/add and /api/users/remove are a separate, already-persistent legacy system
+// that mutates db.users (per-organization ledger team members) via readDB()/writeDB(),
+// not USER_DB.users (the SaaS-wide super-admin/admin layer) — exclude them so they don't
+// trigger an unnecessary extra Supabase round-trip on every call.
+const USER_DB_EXCLUDED_ROUTES = ["/api/users/add", "/api/users/remove"];
 app.use(async (req: any, res: any, next: any) => {
+  if (USER_DB_EXCLUDED_ROUTES.some(p => req.path === p)) return next();
   if (!USER_DB_ROUTES.some(p => req.path.startsWith(p))) return next();
   try {
     await loadUserDB();
