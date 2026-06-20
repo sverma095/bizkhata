@@ -47,6 +47,85 @@ const USER_DB: {
   notifications: []
 };
 
+// USER_DB (multi-tenant SaaS state: orgs, registrations, seat requests, etc.) must be
+// persisted the same way the main accounting ledger is — otherwise it resets on every
+// Vercel cold start, which silently drops pending registration approvals, seat requests,
+// and audit logs. Persisted under a separate row in the same bizkhata_state table.
+let userDbLoaded = false;
+
+async function loadUserDB(): Promise<void> {
+  if (userDbLoaded) return; // already loaded into this warm instance
+  try {
+    if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+      const url = `${SUPABASE_URL}/rest/v1/bizkhata_state?id=eq.superadmin_state&select=state`;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 6000);
+      const res = await fetch(url, {
+        headers: {
+          "apikey": SUPABASE_ANON_KEY,
+          "Authorization": `Bearer ${SUPABASE_ANON_KEY}`
+        },
+        signal: controller.signal
+      });
+      clearTimeout(timer);
+      if (res.ok) {
+        const rows = await res.json();
+        if (Array.isArray(rows) && rows.length > 0 && rows[0].state) {
+          Object.assign(USER_DB, rows[0].state);
+          userDbLoaded = true;
+          return;
+        }
+      }
+    }
+  } catch (err) {
+    console.error("loadUserDB: Supabase read failed, falling back to local file:", err);
+  }
+  // Local-dev fallback (also used if Supabase is unreachable)
+  try {
+    const userDbFile = process.env.VERCEL === "1" ? "/tmp/bizkhata_superadmin.json" : path.join(process.cwd(), "bizkhata_superadmin.json");
+    if (fs.existsSync(userDbFile)) {
+      const raw = fs.readFileSync(userDbFile, "utf8");
+      Object.assign(USER_DB, JSON.parse(raw));
+    }
+  } catch (err) {
+    console.error("loadUserDB: local file read failed:", err);
+  }
+  userDbLoaded = true;
+}
+
+async function saveUserDB(): Promise<void> {
+  try {
+    if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+      const url = `${SUPABASE_URL}/rest/v1/bizkhata_state`;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 6000);
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": SUPABASE_ANON_KEY,
+          "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+          "Prefer": "return=minimal,resolution=merge-duplicates"
+        },
+        body: JSON.stringify({ id: "superadmin_state", state: USER_DB }),
+        signal: controller.signal
+      });
+      clearTimeout(timer);
+      if (res.ok || res.status === 204) return;
+      console.error("saveUserDB: Supabase write failed with status", res.status, await res.text());
+    }
+  } catch (err) {
+    console.error("saveUserDB: Supabase write failed, falling back to local file:", err);
+  }
+  // Local-dev fallback
+  try {
+    const userDbFile = process.env.VERCEL === "1" ? "/tmp/bizkhata_superadmin.json" : path.join(process.cwd(), "bizkhata_superadmin.json");
+    fs.writeFileSync(userDbFile, JSON.stringify(USER_DB, null, 2), "utf8");
+  } catch (err) {
+    console.error("saveUserDB: local file write failed:", err);
+  }
+}
+
 const addAuditLog = (orgId: string | null, userName: string, role: string, action: string, details?: string, ip?: string) => {
   USER_DB.auditLogs.unshift({
     id: generateId("log"),
@@ -60,6 +139,22 @@ const addAuditLog = (orgId: string | null, userName: string, role: string, actio
   });
   if (USER_DB.auditLogs.length > 500) USER_DB.auditLogs.pop();
 };
+
+// Supabase credentials must be supplied via environment variables on Vercel
+// (Project Settings -> Environment Variables). No hardcoded fallback —
+// the app falls back to local file-based storage if these are unset.
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "";
+
+// Super Admin seed credentials — configurable via environment variables so the real
+// platform-owner email/password are not committed to source control. Set
+// SUPERADMIN_EMAIL / SUPERADMIN_NAME / SUPERADMIN_PASSWORD in Vercel Project Settings.
+// NOTE: these must be declared before seedUserDB() is called below — esbuild compiles
+// `const` to `var` for this CJS bundle, which hoists the declaration but not the
+// assignment, so calling seedUserDB() before this line would silently seed `undefined`.
+const SUPERADMIN_EMAIL = process.env.SUPERADMIN_EMAIL || "owner@bizkhata.app";
+const SUPERADMIN_NAME = process.env.SUPERADMIN_NAME || "Platform Owner";
+const SUPERADMIN_PASSWORD = process.env.SUPERADMIN_PASSWORD || "Admin@123";
 
 // Seed default users on cold start
 const seedUserDB = () => {
@@ -134,20 +229,6 @@ const superAdminGuard = (req: any, res: any, next: any) => {
 };
 
 
-// Supabase credentials
-// Supabase credentials must be supplied via environment variables on Vercel
-// (Project Settings -> Environment Variables). No hardcoded fallback —
-// the app falls back to local file-based storage if these are unset.
-const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "";
-
-// Super Admin seed credentials — configurable via environment variables so the real
-// platform-owner email/password are not committed to source control. Set
-// SUPERADMIN_EMAIL / SUPERADMIN_NAME / SUPERADMIN_PASSWORD in Vercel Project Settings.
-const SUPERADMIN_EMAIL = process.env.SUPERADMIN_EMAIL || "owner@bizkhata.app";
-const SUPERADMIN_NAME = process.env.SUPERADMIN_NAME || "Platform Owner";
-const SUPERADMIN_PASSWORD = process.env.SUPERADMIN_PASSWORD || "Admin@123";
-
 let supabaseStatus: any = { configured: false, connected: false, error: null };
 
 let supabase: any = null;
@@ -184,6 +265,28 @@ app.use((req: any, res: any, next: any) => {
   next();
 });
 app.use(express.json());
+
+// USER_DB persistence middleware — loads the multi-tenant SaaS state (orgs, users,
+// registration requests, seat requests, audit logs, custom roles) before any relevant
+// route runs, and saves it after any mutating request completes. This is what makes
+// pending registration approvals, seat requests, etc. survive across Vercel cold starts.
+const USER_DB_ROUTES = ["/api/auth/", "/api/superadmin/", "/api/users", "/api/seat-requests", "/api/audit-logs", "/api/custom-roles"];
+app.use(async (req: any, res: any, next: any) => {
+  if (!USER_DB_ROUTES.some(p => req.path.startsWith(p))) return next();
+  try {
+    await loadUserDB();
+  } catch (err) {
+    console.error("USER_DB middleware: load failed", err);
+  }
+  if (req.method !== "GET") {
+    const originalJson = res.json.bind(res);
+    res.json = (body: any) => {
+      saveUserDB().catch(err => console.error("USER_DB middleware: save failed", err));
+      return originalJson(body);
+    };
+  }
+  next();
+});
 
 // Raw Supabase connectivity test
 app.get("/api/test-supabase", async (req: any, res: any) => {
