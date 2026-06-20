@@ -174,21 +174,21 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
     <div id="superadmin-dashboard" className="min-h-screen bg-slate-55 text-slate-800 font-sans flex flex-col md:flex-row">
       
       {/* Sleek LEFT SIDEBAR - Sticky on Desktop, stacks on Mobile */}
-      <aside className="w-full md:w-64 bg-slate-950 text-slate-100 flex flex-col shrink-0 border-b md:border-b-0 md:border-r border-slate-850 justify-between md:h-screen md:sticky md:top-0 shadow-lg">
+      <aside className="w-full md:w-64 bg-[#F3F4F7] text-slate-700 flex flex-col shrink-0 border-b md:border-b-0 md:border-r border-slate-200 justify-between md:h-screen md:sticky md:top-0 shadow-sm">
         <div>
           {/* Logo Brand Header */}
-          <div className="p-6 border-b border-slate-900">
+          <div className="p-6 border-b border-slate-200">
             <div className="flex items-center gap-3">
-              <div className="w-7 h-7 bg-sky-500 rounded-lg flex items-center justify-center font-bold text-white shadow-xs">
+              <div className="w-7 h-7 bg-rose-600 rounded-lg flex items-center justify-center font-bold text-white shadow-xs">
                 BK
               </div>
               <div>
-                <span className="text-base font-extrabold text-white tracking-tight">BizKhata</span>
-                <span className="block text-[9px] text-[#38bdf8] font-mono font-bold tracking-widest uppercase mt-0.5">PLATFORM CONTROL</span>
+                <span className="text-base font-extrabold text-slate-800 tracking-tight">BizKhata</span>
+                <span className="block text-[9px] text-rose-600 font-mono font-bold tracking-widest uppercase mt-0.5">PLATFORM CONTROL</span>
               </div>
             </div>
             <div className="mt-3">
-              <span className="px-2 py-0.5 rounded text-[9px] bg-rose-950 text-rose-300 font-mono font-bold uppercase tracking-wider border border-rose-900/60 inline-block font-sans">
+              <span className="px-2 py-0.5 rounded text-[9px] bg-rose-50 text-rose-700 font-mono font-bold uppercase tracking-wider border border-rose-200 inline-block font-sans">
                 SUPER ADMIN CLEARANCE
               </span>
             </div>
@@ -201,15 +201,15 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
               onClick={() => { setActiveTab('orgs'); setSearchQuery(''); }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-xs font-bold uppercase tracking-wider transition duration-150 cursor-pointer text-left ${
                 activeTab === 'orgs'
-                  ? 'bg-slate-900 text-sky-400 border-r-4 border-sky-400 font-extrabold'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-900/50'
+                  ? 'bg-[#FCE7E9] text-rose-700 border-r-4 border-rose-600 font-extrabold'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
               }`}
             >
               <div className="flex items-center gap-3">
-                <Building2 className="w-4 h-4 text-sky-400" />
+                <Building2 className="w-4 h-4 text-rose-600" />
                 <span>Deployments</span>
               </div>
-              <span className="font-mono text-[10px] bg-slate-800 px-1.5 py-0.5 rounded-full text-slate-300">
+              <span className="font-mono text-[10px] bg-slate-200 px-1.5 py-0.5 rounded-full text-slate-600">
                 {organizations.length}
               </span>
             </button>
@@ -219,20 +219,20 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
               onClick={() => { setActiveTab('tickets'); setSearchQuery(''); }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-xs font-bold uppercase tracking-wider transition duration-150 cursor-pointer text-left relative ${
                 activeTab === 'tickets'
-                  ? 'bg-slate-900 text-sky-400 border-r-4 border-sky-400 font-extrabold'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-900/50'
+                  ? 'bg-[#FCE7E9] text-rose-700 border-r-4 border-rose-600 font-extrabold'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
               }`}
             >
               <div className="flex items-center gap-3">
-                <FileText className="w-4 h-4 text-emerald-400" />
+                <FileText className="w-4 h-4 text-emerald-600" />
                 <span>Onboardings</span>
               </div>
               {pendingRegistrations > 0 ? (
-                <span className="px-2 py-0.5 text-[9px] bg-amber-500 text-slate-950 font-black rounded-full animate-bounce">
+                <span className="px-2 py-0.5 text-[9px] bg-amber-500 text-white font-black rounded-full animate-bounce">
                   {pendingRegistrations}
                 </span>
               ) : (
-                <span className="font-mono text-[10px] bg-slate-800 px-1.5 py-0.5 rounded-full text-slate-300">
+                <span className="font-mono text-[10px] bg-slate-200 px-1.5 py-0.5 rounded-full text-slate-600">
                   {registrations.length}
                 </span>
               )}
@@ -243,12 +243,12 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
               onClick={() => { setActiveTab('seats'); setSearchQuery(''); }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-xs font-bold uppercase tracking-wider transition duration-150 cursor-pointer text-left ${
                 activeTab === 'seats'
-                  ? 'bg-slate-900 text-sky-400 border-r-4 border-sky-400 font-extrabold'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-900/50'
+                  ? 'bg-[#FCE7E9] text-rose-700 border-r-4 border-rose-600 font-extrabold'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
               }`}
             >
               <div className="flex items-center gap-3">
-                <Sliders className="w-4 h-4 text-purple-400" />
+                <Sliders className="w-4 h-4 text-purple-600" />
                 <span>Seat Tickets</span>
               </div>
               {pendingSeatTickets > 0 ? (
@@ -256,7 +256,7 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                   {pendingSeatTickets}
                 </span>
               ) : (
-                <span className="font-mono text-[10px] bg-slate-800 px-1.5 py-0.5 rounded-full text-slate-300">
+                <span className="font-mono text-[10px] bg-slate-200 px-1.5 py-0.5 rounded-full text-slate-600">
                   {seatRequests.length}
                 </span>
               )}
@@ -267,15 +267,15 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
               onClick={() => { setActiveTab('audits'); setSearchQuery(''); }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-xs font-bold uppercase tracking-wider transition duration-150 cursor-pointer text-left ${
                 activeTab === 'audits'
-                  ? 'bg-slate-900 text-sky-400 border-r-4 border-sky-400 font-extrabold'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-900/50'
+                  ? 'bg-[#FCE7E9] text-rose-700 border-r-4 border-rose-600 font-extrabold'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
               }`}
             >
               <div className="flex items-center gap-3">
-                <Clock className="w-4 h-4 text-amber-500" />
+                <Clock className="w-4 h-4 text-amber-600" />
                 <span>Audit Trails</span>
               </div>
-              <span className="font-mono text-[10px] bg-slate-800 px-1.5 py-0.5 rounded-full text-slate-300">
+              <span className="font-mono text-[10px] bg-slate-200 px-1.5 py-0.5 rounded-full text-slate-600">
                 {auditLogs.length}
               </span>
             </button>
@@ -283,21 +283,21 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
         </div>
 
         {/* User profile footer built inside the sidebar */}
-        <div className="p-4 border-t border-slate-900 bg-slate-950 flex flex-col gap-3">
+        <div className="p-4 border-t border-slate-200 bg-[#F3F4F7] flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-slate-850 border border-slate-700 font-sans font-bold text-sky-405 flex items-center justify-center text-xs">
+              <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 font-sans font-bold text-rose-600 flex items-center justify-center text-xs">
                 {activeUser.fullName.substring(0, 2).toUpperCase()}
               </div>
               <div className="min-w-0">
-                <div className="text-xs font-bold text-white truncate leading-none">{activeUser.fullName}</div>
-                <div className="text-[10px] text-slate-400 mt-1 truncate">Platform Admin</div>
+                <div className="text-xs font-bold text-slate-800 truncate leading-none">{activeUser.fullName}</div>
+                <div className="text-[10px] text-slate-500 mt-1 truncate">Platform Admin</div>
               </div>
             </div>
             <button
               id="su-btn-logout"
               onClick={onLogout}
-              className="p-1.5 rounded-lg bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 hover:text-rose-350 transition duration-150 cursor-pointer"
+              className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 transition duration-150 cursor-pointer"
               title="Sign Out"
             >
               <LogOut className="w-3.5 h-3.5" />
@@ -403,8 +403,8 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
             <div className="space-y-6">
               <div className="flex justify-between items-center gap-4 flex-wrap">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-widest">Active Client Databases</h3>
-                  <p className="text-xs text-slate-400 dark:text-slate-500 font-medium">Suspend profiles or adjust hard organizational seat scales manually.</p>
+                  <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest">Active Client Databases</h3>
+                  <p className="text-xs text-slate-400 font-medium">Suspend profiles or adjust hard organizational seat scales manually.</p>
                 </div>
                 <div className="relative max-w-xs w-full">
                   <input
@@ -413,7 +413,7 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                     placeholder="Search by company or GSTIN..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:outline-hidden rounded-lg"
+                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 focus:outline-hidden rounded-lg"
                   />
                   <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-slate-400" />
                 </div>
@@ -421,8 +421,8 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
 
               {/* Org list table */}
               <div className="overflow-x-auto">
-                <table className="w-full text-xs text-left text-slate-600 dark:text-slate-400">
-                  <thead className="bg-slate-50 dark:bg-slate-900/50 uppercase tracking-widest text-[10px] text-slate-400 border-b border-slate-100 dark:border-slate-800">
+                <table className="w-full text-xs text-left text-slate-600">
+                  <thead className="bg-slate-50 uppercase tracking-widest text-[10px] text-slate-400 border-b border-slate-100">
                     <tr>
                       <th className="p-3">Org Details</th>
                       <th className="p-3">GSTIN Number</th>
@@ -432,25 +432,25 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                       <th className="p-3 text-right">Operational Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-900 font-mono">
+                  <tbody className="divide-y divide-slate-100 font-mono">
                     {organizations
                       .filter(o => o.name.toLowerCase().includes(searchQuery.toLowerCase()) || o.gstNumber.toLowerCase().includes(searchQuery.toLowerCase()))
                       .map((org) => (
-                        <tr key={org.id} id={`row-org-${org.id}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/20">
+                        <tr key={org.id} id={`row-org-${org.id}`} className="hover:bg-slate-50/50">
                           <td className="p-3">
-                            <div className="font-bold text-slate-860 dark:text-slate-200 font-sans text-sm">{org.name}</div>
+                            <div className="font-bold text-slate-860 font-sans text-sm">{org.name}</div>
                             <div className="text-[10px] text-slate-400">UUID: {org.id}</div>
                           </td>
-                          <td className="p-3 uppercase font-semibold text-slate-700 dark:text-slate-300">{org.gstNumber}</td>
+                          <td className="p-3 uppercase font-semibold text-slate-700">{org.gstNumber}</td>
                           <td className="p-3">
-                            <span className="font-bold text-slate-800 dark:text-slate-200">{org.usedSeats}</span>
+                            <span className="font-bold text-slate-800">{org.usedSeats}</span>
                             <span className="text-slate-400 text-[10px]"> / {org.allocatedSeats} seats utilized</span>
                           </td>
                           <td className="p-3">
                             <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
                               org.status === 'Active' 
-                                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' 
-                                : 'bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400'
+                                ? 'bg-emerald-50 text-emerald-700' 
+                                : 'bg-rose-50 text-rose-700'
                             }`} id={`org-status-${org.id}`}>
                               {org.status}
                             </span>
@@ -464,7 +464,7 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                                 setEditSeats(org.allocatedSeats);
                                 setEditStatus(org.status as any);
                               }}
-                              className="px-2.5 py-1 text-slate-700 hover:text-sky-600 bg-slate-100 hover:bg-sky-50 dark:bg-slate-950 dark:hover:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded font-sans font-bold transition"
+                              className="px-2.5 py-1 text-slate-700 hover:text-sky-600 bg-slate-100 hover:bg-sky-50 border border-slate-200 rounded font-sans font-bold transition"
                             >
                               Configure limits
                             </button>
@@ -478,7 +478,7 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
 
               {/* Edit Modal simulated embedded */}
               {editingOrg && (
-                <div className="p-5 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3" id="su-edit-limits-form-container">
+                <div className="p-5 bg-slate-50 rounded-xl border border-slate-200 space-y-3" id="su-edit-limits-form-container">
                   <h4 className="text-xs font-bold uppercase tracking-widest text-slate-500">Configure Client Limits: {editingOrg.name}</h4>
                   <form onSubmit={handleUpdateOrg} className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
                     <div>
@@ -488,7 +488,7 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                         id="su-edit-seats-input"
                         required
                         min={editingOrg.usedSeats}
-                        className="w-full px-3 py-1.5 text-xs bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded font-bold"
+                        className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded font-bold"
                         value={editSeats}
                         onChange={(e) => setEditSeats(Number(e.target.value))}
                       />
@@ -497,7 +497,7 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                       <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Operational setting</label>
                       <select
                         id="su-edit-status-select"
-                        className="w-full px-3 py-1.5 text-xs bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded font-bold"
+                        className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded font-bold"
                         value={editStatus}
                         onChange={(e) => setEditStatus(e.target.value as any)}
                       >
@@ -509,7 +509,7 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                       <button
                         type="button"
                         onClick={() => setEditingOrg(null)}
-                        className="px-3 py-1.5 text-xs font-bold text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 rounded transition"
+                        className="px-3 py-1.5 text-xs font-bold text-slate-500 hover:bg-slate-200 rounded transition"
                       >
                         Cancel
                       </button>
@@ -532,8 +532,8 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
           {activeTab === 'tickets' && (
             <div className="space-y-6">
               <div>
-                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-widest">Business Approval Pipeline</h3>
-                <p className="text-xs text-slate-400 dark:text-slate-500 font-medium">Verify incoming merchant credential filings to provision secure organizational nodes.</p>
+                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest">Business Approval Pipeline</h3>
+                <p className="text-xs text-slate-400 font-medium">Verify incoming merchant credential filings to provision secure organizational nodes.</p>
               </div>
 
               <div className="space-y-4">
@@ -546,30 +546,30 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                       id={`ticket-reg-${reg.id}`}
                       className={`p-4 rounded-xl border transition ${
                         reg.status === 'Pending' 
-                          ? 'bg-amber-50/20 dark:bg-amber-950/10 border-amber-200 dark:border-amber-900/50' 
+                          ? 'bg-amber-50/20 border-amber-200' 
                           : reg.status === 'Approved' 
-                            ? 'bg-emerald-50/10 dark:bg-emerald-950/5 border-emerald-200 dark:border-emerald-900/30 opacity-75' 
-                            : 'bg-slate-100/50 dark:bg-slate-900/10 border-slate-200 dark:border-slate-800 opacity-60'
+                            ? 'bg-emerald-50/10 border-emerald-200 opacity-75' 
+                            : 'bg-slate-100/50 border-slate-200 opacity-60'
                       }`}
                     >
                       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
-                            <h4 className="text-sm font-extrabold text-slate-800 dark:text-white font-sans">{reg.companyName}</h4>
-                            <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded-full font-bold bg-slate-200 dark:bg-slate-800" id={`reg-badge-status-${reg.id}`}>
+                            <h4 className="text-sm font-extrabold text-slate-800 font-sans">{reg.companyName}</h4>
+                            <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded-full font-bold bg-slate-200" id={`reg-badge-status-${reg.id}`}>
                               {reg.status}
                             </span>
                           </div>
                           
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400 font-mono">
-                            <div><span className="font-semibold text-slate-400">GSTIN:</span> <span className="uppercase text-slate-700 dark:text-slate-350">{reg.gstNumber}</span></div>
-                            <div><span className="font-semibold text-slate-400">Admin Owner:</span> <span className="text-slate-700 dark:text-slate-350">{reg.adminName}</span></div>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1 text-xs text-slate-500 font-mono">
+                            <div><span className="font-semibold text-slate-400">GSTIN:</span> <span className="uppercase text-slate-700">{reg.gstNumber}</span></div>
+                            <div><span className="font-semibold text-slate-400">Admin Owner:</span> <span className="text-slate-700">{reg.adminName}</span></div>
                             <div><span className="font-semibold text-slate-400">Contact:</span> <span className="text-slate-750">{reg.email}</span></div>
                             <div><span className="font-semibold text-slate-400">Asked seats:</span> <span className="font-bold text-sky-600">{reg.numberOfRequiredSeats} Seats</span></div>
                           </div>
 
                           {reg.additionalInfoRequest && (
-                            <p className="text-[11px] text-amber-700 dark:text-amber-400 font-mono bg-amber-50 dark:bg-amber-950/20 p-2 rounded">
+                            <p className="text-[11px] text-amber-700 font-mono bg-amber-50 p-2 rounded">
                               <span className="font-bold">Asked for details:</span> "{reg.additionalInfoRequest}"
                             </p>
                           )}
@@ -617,23 +617,23 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
 
               {/* Reg decision sheet container (simulated drawer modal embedded) */}
               {pendingActionReg && (
-                <div className="p-5 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3" id="su-reg-action-container">
+                <div className="p-5 bg-slate-50 rounded-xl border border-slate-200 space-y-3" id="su-reg-action-container">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Confirm Action for: <span className="text-slate-850 dark:text-slate-100 p-1 px-2 rounded bg-white dark:bg-slate-950 font-mono">{pendingActionReg.companyName}</span>
+                    Confirm Action for: <span className="text-slate-850 p-1 px-2 rounded bg-white font-mono">{pendingActionReg.companyName}</span>
                   </h4>
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Feedback response notes (Optional / Required to query or reject)</label>
                     <textarea
                       id="su-reg-feedback-textarea"
                       placeholder="Comment text details here..."
-                      className="w-full text-xs p-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded font-mono"
+                      className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded font-mono"
                       rows={2}
                       value={actionFeedback}
                       onChange={(e) => setActionFeedback(e.target.value)}
                     />
                   </div>
                   <div className="flex gap-2 justify-end">
-                    <button onClick={() => setPendingActionReg(null)} className="px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 rounded">Cancel</button>
+                    <button onClick={() => setPendingActionReg(null)} className="px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-200 rounded">Cancel</button>
                     <button onClick={() => handleRegAction('RequestInfo')} className="px-4 py-1.5 text-xs font-bold text-white bg-amber-500 hover:bg-amber-400 rounded">Submit query</button>
                     <button id="su-btn-confirm-reject" onClick={() => handleRegAction('Reject')} className="px-4 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 rounded">Confirm rejection</button>
                     <button id="su-btn-confirm-approve" onClick={() => handleRegAction('Approve')} className="px-4 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded">Authorize approval</button>
@@ -648,8 +648,8 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
           {activeTab === 'seats' && (
             <div className="space-y-6">
               <div>
-                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-widest">Subscriber Seats Tickets</h3>
-                <p className="text-xs text-slate-400 dark:text-slate-500 font-medium">Verify additional seat requests raised by organization admins depending on headcount.</p>
+                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest">Subscriber Seats Tickets</h3>
+                <p className="text-xs text-slate-400 font-medium">Verify additional seat requests raised by organization admins depending on headcount.</p>
               </div>
 
               <div className="space-y-4">
@@ -664,22 +664,22 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                         id={`seat-req-${seat.id}`}
                         className={`p-4 rounded-xl border transition ${
                           seat.status === 'Pending' 
-                            ? 'bg-purple-50/10 dark:bg-purple-950/10 border-purple-200 dark:border-purple-900/50' 
-                            : 'bg-slate-100/50 dark:bg-slate-900/10 border-slate-200 dark:border-slate-800 opacity-60'
+                            ? 'bg-purple-50/10 border-purple-200' 
+                            : 'bg-slate-100/50 border-slate-200 opacity-60'
                         }`}
                       >
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                           <div className="space-y-1">
                             <div className="flex items-center gap-1.5">
-                              <span className="text-xs font-bold text-slate-900 dark:text-white">{orgName}</span>
+                              <span className="text-xs font-bold text-slate-900">{orgName}</span>
                               <span className="text-slate-300">|</span>
                               <span className="text-[11px] font-mono font-medium text-slate-500">Requested by: {seat.requestedBy}</span>
                             </div>
-                            <p className="text-xs text-slate-600 dark:text-slate-350 italic font-sans">
+                            <p className="text-xs text-slate-600 italic font-sans">
                               "Reason: {seat.reason}"
                             </p>
                             <div className="flex items-center gap-4 text-[10px] font-mono text-slate-400 mt-1.5">
-                              <div>Current Capacity: <span className="font-bold text-slate-600 dark:text-slate-300">{seat.currentSeatCount} Licenses</span></div>
+                              <div>Current Capacity: <span className="font-bold text-slate-600">{seat.currentSeatCount} Licenses</span></div>
                               <div>Requested Expansion: <span className="font-extrabold text-purple-600 underline">+{seat.additionalSeatsRequested} seats</span></div>
                               <div>Requested on: <span>{new Date(seat.createdAt).toLocaleDateString()}</span></div>
                             </div>
@@ -691,7 +691,7 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                                 <button
                                   id={`btn-seat-reject-${seat.id}`}
                                   onClick={() => handleSeatApproval(seat.id, 'Reject')}
-                                  className="px-2.5 py-1 text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 rounded font-mono font-bold transition"
+                                  className="px-2.5 py-1 text-slate-500 hover:text-rose-600 bg-slate-100 hover:bg-slate-200 rounded font-mono font-bold transition"
                                 >
                                   Decline
                                 </button>
@@ -705,7 +705,7 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                               </>
                             ) : (
                               <span className={`text-[10px] font-bold uppercase tracking-wider font-mono p-1 px-2.5 rounded-full ${
-                                seat.status === 'Approved' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400' : 'bg-slate-100 text-slate-500'
+                                seat.status === 'Approved' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
                               }`}>
                                 {seat.status}
                               </span>
@@ -726,8 +726,8 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
             <div className="space-y-6">
               <div className="flex justify-between items-center gap-4 flex-wrap">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-widest">Platform-wide Audit Trails</h3>
-                  <p className="text-xs text-slate-400 dark:text-slate-500 font-medium">Capture system logins, updates, allocations, and organizational state transitions.</p>
+                  <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest">Platform-wide Audit Trails</h3>
+                  <p className="text-xs text-slate-400 font-medium">Capture system logins, updates, allocations, and organizational state transitions.</p>
                 </div>
                 <div className="relative max-w-xs w-full mr-2">
                   <input
@@ -736,16 +736,16 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                     placeholder="Search query by action / user..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:outline-hidden rounded-lg font-mono"
+                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 focus:outline-hidden rounded-lg font-mono"
                   />
                   <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-slate-400" />
                 </div>
               </div>
 
-              <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-2xs">
+              <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
                 <div className="max-h-[350px] overflow-y-auto pr-1">
-                  <table className="w-full text-xs text-left text-slate-600 dark:text-slate-400">
-                    <thead className="bg-slate-50 dark:bg-slate-900/50 uppercase tracking-wider text-[10px] text-slate-400 border-b border-slate-150 dark:border-slate-800 sticky top-0 md:bg-white dark:md:bg-slate-950">
+                  <table className="w-full text-xs text-left text-slate-600">
+                    <thead className="bg-slate-50 uppercase tracking-wider text-[10px] text-slate-400 border-b border-slate-150 sticky top-0 md:bg-white">
                       <tr>
                         <th className="p-3">Event Date</th>
                         <th className="p-3">User context</th>
@@ -754,7 +754,7 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                         <th className="p-3 font-mono">Gateway IP Address</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-900 font-mono text-[11px]">
+                    <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
                       {auditLogs
                         .filter(log => 
                           log.actionPerformed.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -762,16 +762,16 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                           (log.details && log.details.toLowerCase().includes(searchQuery.toLowerCase()))
                         )
                         .map((log) => (
-                          <tr key={log.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/20">
+                          <tr key={log.id} className="hover:bg-slate-50/50">
                             <td className="p-3 text-slate-500 whitespace-nowrap">{new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</td>
                             <td className="p-3">
-                              <div className="font-bold text-slate-800 dark:text-slate-200">{log.userName}</div>
-                              <span className="text-[10px] uppercase font-bold text-slate-400 px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800">{log.role}</span>
+                              <div className="font-bold text-slate-800">{log.userName}</div>
+                              <span className="text-[10px] uppercase font-bold text-slate-400 px-1.5 py-0.2 rounded bg-slate-100">{log.role}</span>
                             </td>
                             <td className="p-3">
-                              <span className="font-bold text-sky-600 dark:text-sky-400">{log.actionPerformed}</span>
+                              <span className="font-bold text-sky-600">{log.actionPerformed}</span>
                             </td>
-                            <td className="p-3 font-sans text-slate-700 dark:text-slate-300 leading-normal max-w-xs">{log.details || 'N/A'}</td>
+                            <td className="p-3 font-sans text-slate-700 leading-normal max-w-xs">{log.details || 'N/A'}</td>
                             <td className="p-3 text-slate-500">{log.ipAddress}</td>
                           </tr>
                         ))
