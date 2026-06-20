@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Building2, Users, FileText, CheckCircle2, XCircle, AlertCircle, 
-  Settings, LogOut, Search, Clock, Plus, Edit2, ShieldAlert,
+  Settings, LogOut, Search, Clock, Plus, Edit2, ShieldAlert, ArrowLeft,
   Sliders, ShieldAlert as AlertIcon, Eye, CheckCircle, Shield
 } from 'lucide-react';
 import { Organization, User, AuditLog, SeatRequest, RegistrationRequest } from '../types.js';
@@ -10,10 +10,11 @@ interface SuperAdminDashboardProps {
   token: string;
   activeUser: User;
   onLogout: () => void;
+  onBackToDashboard?: () => void;
 }
 
 export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
-  const { token, activeUser, onLogout } = props;
+  const { token, activeUser, onLogout, onBackToDashboard } = props;
 
   // Domain data logs state
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -281,6 +282,20 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
             </button>
           </nav>
         </div>
+
+        {/* Back to normal dashboard — exits console without logging out */}
+        {onBackToDashboard && (
+          <div className="px-4 pb-2">
+            <button
+              id="su-btn-back-to-dashboard"
+              onClick={onBackToDashboard}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 transition duration-150 cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Back to Normal Dashboard
+            </button>
+          </div>
+        )}
 
         {/* User profile footer built inside the sidebar */}
         <div className="p-4 border-t border-slate-200 bg-[#F3F4F7] flex flex-col gap-3">
