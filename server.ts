@@ -80,12 +80,12 @@ const seedUserDB = () => {
     {
       id: "user_superadmin",
       organizationId: null,
-      fullName: "Sudhanshu Verma",
-      email: "svtiger543939@gmail.com",
-      mobileNumber: "+919876543210",
+      fullName: SUPERADMIN_NAME,
+      email: SUPERADMIN_EMAIL,
+      mobileNumber: process.env.SUPERADMIN_MOBILE || "",
       role: "Super Admin",
       status: "Active",
-      password: "Admin@123",
+      password: SUPERADMIN_PASSWORD,
       permissions: ALL_PERMISSIONS_LIST.map(p => p.id),
       twoFactorEnabled: false,
       twoFactorVerified: false,
@@ -140,6 +140,13 @@ const superAdminGuard = (req: any, res: any, next: any) => {
 // the app falls back to local file-based storage if these are unset.
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "";
+
+// Super Admin seed credentials — configurable via environment variables so the real
+// platform-owner email/password are not committed to source control. Set
+// SUPERADMIN_EMAIL / SUPERADMIN_NAME / SUPERADMIN_PASSWORD in Vercel Project Settings.
+const SUPERADMIN_EMAIL = process.env.SUPERADMIN_EMAIL || "owner@bizkhata.app";
+const SUPERADMIN_NAME = process.env.SUPERADMIN_NAME || "Platform Owner";
+const SUPERADMIN_PASSWORD = process.env.SUPERADMIN_PASSWORD || "Admin@123";
 
 let supabaseStatus: any = { configured: false, connected: false, error: null };
 
@@ -524,7 +531,7 @@ app.post("/api/auth/register-request", (req: any, res: any) => {
   }
   const newReg = { id: generateId("reg"), companyName, gstNumber, adminName, email, mobileNumber, numberOfRequiredSeats: Number(numberOfRequiredSeats), status: "Pending", createdAt: new Date().toISOString() };
   USER_DB.registrationRequests.unshift(newReg);
-  USER_DB.notifications.unshift({ id: generateId("notif"), to: "svtiger543939@gmail.com", subject: "New Registration Request", body: `Company '${companyName}' registered by '${adminName}'.`, type: "Email", timestamp: new Date().toISOString() });
+  USER_DB.notifications.unshift({ id: generateId("notif"), to: USER_DB.users.find((u: any) => u.role === "Super Admin")?.email || "owner@bizkhata.app", subject: "New Registration Request", body: `Company '${companyName}' registered by '${adminName}'.`, type: "Email", timestamp: new Date().toISOString() });
   res.status(201).json(newReg);
 });
 
@@ -712,7 +719,7 @@ app.post("/api/seat-requests", authGuard, (req: any, res: any) => {
   if (!org) { res.status(404).json({ error: "Organization not found." }); return; }
   const newReq = { id: generateId("req_seat"), organizationId: org.id, requestedBy: user.fullName, currentSeatCount: org.allocatedSeats, additionalSeatsRequested: Number(additionalSeatsRequested), reason, status: "Pending", createdAt: new Date().toISOString() };
   USER_DB.seatRequests.unshift(newReq);
-  USER_DB.notifications.unshift({ id: generateId("notif"), to: "svtiger543939@gmail.com", subject: "Seat Request", body: `'${org.name}' needs ${additionalSeatsRequested} more seats. Reason: ${reason}`, type: "Email", timestamp: new Date().toISOString() });
+  USER_DB.notifications.unshift({ id: generateId("notif"), to: USER_DB.users.find((u: any) => u.role === "Super Admin")?.email || "owner@bizkhata.app", subject: "Seat Request", body: `'${org.name}' needs ${additionalSeatsRequested} more seats. Reason: ${reason}`, type: "Email", timestamp: new Date().toISOString() });
   addAuditLog(org.id, user.fullName, user.role, "Seat Request Submitted", `Requested ${additionalSeatsRequested} seats.`);
   res.status(201).json(newReq);
 });
@@ -1498,7 +1505,7 @@ app.post("/api/users/remove", async (req, res) => {
   const targetUser = db.users[targetIdx];
 
   // Prevent self-deletion or default admin system accounts
-  if (targetUser.email === "svtiger543939@gmail.com" || targetUser.isOwner) {
+  if (targetUser.role === "Super Admin" || targetUser.isOwner) {
     return res.status(400).json({ error: "Access Denied: The system owner administrator account cannot be deleted." });
   }
 
