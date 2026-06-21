@@ -330,6 +330,28 @@ app.get("/api/health", async (req: any, res: any) => {
       checks.supabaseReachable = false;
       checks.supabaseError = e.message;
     }
+
+    // Check the superadmin_state row used for USER_DB persistence (registration
+    // approvals, seat requests, etc.). This is what confirms the registration-
+    // approval persistence fix is actually wired up correctly in this deployment.
+    try {
+      const url = `${SUPABASE_URL}/rest/v1/bizkhata_state?id=eq.superadmin_state&select=id`;
+      const r = await fetch(url, {
+        headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
+        signal: AbortSignal.timeout(6000)
+      });
+      const rows2 = r.ok ? await r.json() : null;
+      checks.superAdminStateReachable = r.ok;
+      checks.superAdminStateRowExists = Array.isArray(rows2) && rows2.length > 0;
+      checks.superAdminStateHttpStatus = r.status;
+      if (!r.ok) checks.superAdminStateError = await r.text();
+    } catch (e: any) {
+      checks.superAdminStateReachable = false;
+      checks.superAdminStateError = e.message;
+    }
+  } else {
+    checks.superAdminStateReachable = false;
+    checks.superAdminStateError = "Supabase not configured — registrations will not survive cold starts";
   }
   res.json(checks);
 });
