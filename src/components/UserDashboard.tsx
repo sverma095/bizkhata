@@ -374,20 +374,21 @@ export default function UserDashboard(props: UserDashboardProps) {
                 Two-Factor Security (2FA)
               </h3>
               <p className="text-xs text-slate-400 mb-4 leading-normal font-sans">
-                Adding OTP verification credentials protects your accounting database against unauthorized intrusions.
+                Email OTP verification on sign-in is in development and not yet enforced — turning this on
+                does not currently add a security check. We'll announce when it's live.
               </p>
 
-              <label className="flex items-center space-x-3 p-3 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer transition hover:bg-slate-100/50">
+              <label className="flex items-center space-x-3 p-3 bg-slate-50 rounded-xl border border-slate-200 cursor-not-allowed opacity-60">
                 <input
                   type="checkbox"
                   id="user-toggle-2fa"
-                  checked={twoFactorInput}
-                  onChange={(e) => handleToggleTwoFactor(e.target.checked)}
+                  checked={false}
+                  disabled
                   className="accent-sky-500"
                 />
                 <div className="text-xs font-semibold">
                   <span className="block font-bold">Require Email OTP on Sign-In</span>
-                  <span className="text-[10px] text-slate-400 block mt-0.5">Enforces continuous identity checks.</span>
+                  <span className="text-[10px] text-amber-600 block mt-0.5">Coming soon — not yet enforced.</span>
                 </div>
               </label>
             </div>
