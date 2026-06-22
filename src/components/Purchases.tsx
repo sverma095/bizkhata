@@ -83,20 +83,24 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
   // Submit Handlers
   const handleVendorSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await onAddVendor({
-      name: vendorName,
-      isRegistered: vendorIsRegistered,
-      gstin: vendorIsRegistered ? vendorGstin : "",
-      pan: vendorPan,
-      msmeStatus,
-      email: vendorEmail,
-      phone: vendorPhone,
-      address: vendorAddress,
-      openingBalance: 0
-    });
-    setShowVendorForm(false);
-    // clean
-    setVendorName(""); setVendorGstin(""); setVendorPan(""); setMsmeStatus("Micro"); setVendorEmail(""); setVendorPhone(""); setVendorAddress(""); setVendorIsRegistered(true);
+    try {
+      await onAddVendor({
+        name: vendorName,
+        isRegistered: vendorIsRegistered,
+        gstin: vendorIsRegistered ? vendorGstin : "",
+        pan: vendorPan,
+        msmeStatus,
+        email: vendorEmail,
+        phone: vendorPhone,
+        address: vendorAddress,
+        openingBalance: 0
+      });
+      setShowVendorForm(false);
+      // clean
+      setVendorName(""); setVendorGstin(""); setVendorPan(""); setMsmeStatus("Micro"); setVendorEmail(""); setVendorPhone(""); setVendorAddress(""); setVendorIsRegistered(true);
+    } catch (err: any) {
+      alert(err.message || "Could not save vendor. Please check your connection and try again.");
+    }
   };
 
   const handleExpenseSubmit = async (e: React.FormEvent, overrideStatus?: 'Draft' | 'Pending Approval' | 'Approved') => {
@@ -105,23 +109,27 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
     
     const finalStatus = overrideStatus || "Approved";
 
-    await onAddExpense({
-      date: expDate,
-      vendorName: expVendor,
-      category: expCategory,
-      subtotal: Number(expSubtotal),
-      gstAmount: Number(expGst),
-      tdsAmount: Number(expTds),
-      tdsSection: expTds > 0 ? expTdsSection : undefined,
-      paymentMode: expMode,
-      total: Number(expSubtotal) + Number(expGst) - Number(expTds),
-      attachmentName: expAttachmentName || undefined,
-      status: finalStatus
-    });
+    try {
+      await onAddExpense({
+        date: expDate,
+        vendorName: expVendor,
+        category: expCategory,
+        subtotal: Number(expSubtotal),
+        gstAmount: Number(expGst),
+        tdsAmount: Number(expTds),
+        tdsSection: expTds > 0 ? expTdsSection : undefined,
+        paymentMode: expMode,
+        total: Number(expSubtotal) + Number(expGst) - Number(expTds),
+        attachmentName: expAttachmentName || undefined,
+        status: finalStatus
+      });
 
-    setShowExpenseForm(false);
-    // clean
-    setExpVendor(""); setExpSubtotal(0); setExpGst(0); setExpTds(0); setExpAttachmentName("");
+      setShowExpenseForm(false);
+      // clean
+      setExpVendor(""); setExpSubtotal(0); setExpGst(0); setExpTds(0); setExpAttachmentName("");
+    } catch (err: any) {
+      alert(err.message || "Could not save expense. Please check your connection and try again.");
+    }
   };
 
   const handleBillSubmit = async (e: React.FormEvent) => {
@@ -141,56 +149,64 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
     // therefore excludes GST; the GST liability is tracked separately via isReverseCharge.
     const billTotal = billIsRcm ? sub : sub + gstAmt;
 
-    await onAddBill({
-      billNumber,
-      vendorId: billVendorId,
-      vendorName: vend.name,
-      date: billDate,
-      dueDate: billDueDate,
-      items: [
-        {
-          itemId: "item_2", // stationery default
-          name: "Procured Supplies / Raw Materials",
-          qty: 1,
-          rate: sub,
-          gstRate: gstPct,
-          amount: sub,
-          cgst: sameState ? gstAmt / 2 : 0,
-          sgst: sameState ? gstAmt / 2 : 0,
-          igst: !sameState ? gstAmt : 0
-        }
-      ],
-      subtotal: sub,
-      totalGst: gstAmt,
-      totalCgst: sameState ? gstAmt / 2 : 0,
-      totalSgst: sameState ? gstAmt / 2 : 0,
-      totalIgst: !sameState ? gstAmt : 0,
-      total: billTotal,
-      status: "Approved",
-      paymentPaid: 0,
-      isReverseCharge: billIsRcm,
-      rcmGstPaid: false
-    });
+    try {
+      await onAddBill({
+        billNumber,
+        vendorId: billVendorId,
+        vendorName: vend.name,
+        date: billDate,
+        dueDate: billDueDate,
+        items: [
+          {
+            itemId: "item_2", // stationery default
+            name: "Procured Supplies / Raw Materials",
+            qty: 1,
+            rate: sub,
+            gstRate: gstPct,
+            amount: sub,
+            cgst: sameState ? gstAmt / 2 : 0,
+            sgst: sameState ? gstAmt / 2 : 0,
+            igst: !sameState ? gstAmt : 0
+          }
+        ],
+        subtotal: sub,
+        totalGst: gstAmt,
+        totalCgst: sameState ? gstAmt / 2 : 0,
+        totalSgst: sameState ? gstAmt / 2 : 0,
+        totalIgst: !sameState ? gstAmt : 0,
+        total: billTotal,
+        status: "Approved",
+        paymentPaid: 0,
+        isReverseCharge: billIsRcm,
+        rcmGstPaid: false
+      });
 
-    setShowBillForm(false);
-    // clean
-    setBillNumber(""); setBillSubtotal(0);
+      setShowBillForm(false);
+      // clean
+      setBillNumber(""); setBillSubtotal(0);
+    } catch (err: any) {
+      alert(err.message || "Could not save bill. Please check your connection and try again.");
+    }
   };
 
   const handleBillPaySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!showPayBillForm) return;
 
-    await onPayBill({
-      billId: showPayBillForm.id,
-      date: payDate,
-      paymentMode: payMode,
-      referenceNumber: payRef,
-      amountPaid: Number(payAmount)
-    });
+    try {
+      await onPayBill({
+        billId: showPayBillForm.id,
+        date: payDate,
+        paymentMode: payMode,
+        referenceNumber: payRef,
+        amountPaid: Number(payAmount)
+      });
 
-    setShowPayBillForm(null);
-    setPayRef(""); setPayAmount(0);
+      setShowPayBillForm(null);
+      setPayRef(""); setPayAmount(0);
+    } catch (err: any) {
+      alert(err.message || "Could not record payment. Please check your connection and try again.");
+    }
   };
 
   return (
