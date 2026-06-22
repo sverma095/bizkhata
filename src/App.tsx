@@ -491,13 +491,16 @@ export default function App() {
     const newCompany = {
       name: signupCompany,
       legalName: signupLegal || (signupCompany + " Pvt Ltd"),
-      gstin: "29AAAAA" + Math.floor(1000 + Math.random() * 9000) + "A1Z1",
-      pan: "AAAAA" + Math.floor(1000 + Math.random() * 9000) + "A",
-      address: "Corporate Headquarters Suite, Karnataka, India",
+      isGstRegistered: false, // new organisations start unregistered — no fabricated GSTIN.
+      // The user must explicitly set their real GST registration status and number in
+      // Organisation Settings; we never invent compliance data on their behalf.
+      gstin: "",
+      pan: "",
+      address: "",
       state: "Karnataka",
       currency: "INR",
       financialYear: "2026-2027"
-    };
+    } as any;
 
     // Update state memory
     const updatedDb = {
@@ -519,19 +522,21 @@ export default function App() {
 
     try {
       // Sync configurations with Node backend express layers
-      await fetch("/api/company", {
+      const companyRes = await fetch("/api/company", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newCompany)
       });
+      if (!companyRes.ok) throw new Error("Could not create your organisation profile. Please try again.");
 
-      await fetch("/api/user-seats/update", {
+      const seatsRes = await fetch("/api/user-seats/update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ seatsLimit: requestedSeats, author: signupEmail })
       });
+      if (!seatsRes.ok) throw new Error("Could not set up your user seats. Please try again.");
 
-      await fetch("/api/users/add", {
+      const userRes = await fetch("/api/users/add", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -542,10 +547,13 @@ export default function App() {
           author: "Self System Init"
         })
       });
+      if (!userRes.ok) throw new Error("Could not create your admin account. Please try again.");
 
       await fetchDB();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to sync structural registration server-side:", err);
+      setAuthError(err.message || "Something went wrong while setting up your organisation. Please try again, or contact support if this keeps happening.");
+      return; // Do not proceed to sign-in view — the org wasn't actually created successfully.
     }
 
     setDb(updatedDb);
