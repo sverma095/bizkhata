@@ -8,6 +8,7 @@ import {
   Globe, 
   Edit, 
   RefreshCw, 
+  Download,
   Layers, 
   Search, 
   X, 
@@ -288,6 +289,7 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
   // Filter menu features based on search box input
   const linksList = [
     { title: "Profile", section: "profile", cat: "Organization", desc: "Change Brand Name, Operating State, Address and GSTIN" },
+    { title: "Data Export", section: "data-export", cat: "Organization", desc: "Download a complete copy of your accounting data — your data is always yours to keep" },
     { title: "Users", section: "users", cat: "Users & Roles", desc: "Invite team members and allocate seats permissions" },
     { title: "Taxes", section: "taxes", cat: "Taxes & Compliance", desc: "Indian GST Treatment, IGST rates and TDS settings" },
     { title: "Estimates Form", section: "estimate-form", cat: "Sales Modules", desc: "Screenshot 3 - Standard customer quotation ledger creator" },
@@ -819,6 +821,89 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
                     <RefreshCw className="w-3.5 h-3.5" /> Rebuild Sandboxed DB
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* ------------------------ SECTION: DATA EXPORT ------------------------ */}
+          {activeSection === "data-export" && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="bg-white border border-slate-200 rounded-2xl p-6 lg:col-span-2 space-y-6 shadow-xs">
+                <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+                  <Download className="text-slate-800 w-5 h-5" />
+                  <div>
+                    <h3 className="font-bold text-slate-900">Export Your Data</h3>
+                    <p className="text-[11px] text-slate-500">Your data belongs to you. Download a complete copy any time — no questions asked, no waiting for support.</p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const blob = new Blob([JSON.stringify(db, null, 2)], { type: "application/json" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `bizkhata-export-${db.company.name.replace(/[^a-z0-9]/gi, "_")}-${new Date().toISOString().split("T")[0]}.json`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      URL.revokeObjectURL(url);
+                    }}
+                    className="w-full flex items-center justify-between bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl p-4 transition cursor-pointer text-left"
+                  >
+                    <div>
+                      <p className="text-xs font-bold text-slate-800">Full Account Export (JSON)</p>
+                      <p className="text-[10.5px] text-slate-500 mt-0.5">Everything — invoices, bills, customers, vendors, payments, journals, fixed assets, audit logs. One file, machine-readable.</p>
+                    </div>
+                    <Download className="w-4 h-4 text-slate-500 shrink-0 ml-3" />
+                  </button>
+
+                  {([
+                    { label: "Invoices (CSV)", rows: db.invoices, cols: ["invoiceNumber","customerName","date","dueDate","subtotal","totalGst","total","status"] },
+                    { label: "Bills (CSV)", rows: db.bills, cols: ["billNumber","vendorName","date","dueDate","subtotal","totalGst","total","status"] },
+                    { label: "Customers (CSV)", rows: db.customers, cols: ["name","legalName","gstin","email","phone","openingBalance"] },
+                    { label: "Vendors (CSV)", rows: db.vendors, cols: ["name","gstin","pan","email","phone","openingBalance"] },
+                    { label: "Payments Received (CSV)", rows: db.payments, cols: ["receiptNumber","customerName","date","amountReceived","paymentMode"] },
+                  ] as const).map(({ label, rows, cols }) => (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => {
+                        const header = cols.join(",");
+                        const lines = (rows as any[]).map(r => cols.map(c => {
+                          const v = r[c];
+                          const s = v === undefined || v === null ? "" : String(v);
+                          return s.includes(",") || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s;
+                        }).join(","));
+                        const csv = [header, ...lines].join("\n");
+                        const blob = new Blob([csv], { type: "text/csv" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `bizkhata-${label.split(" ")[0].toLowerCase()}-${new Date().toISOString().split("T")[0]}.csv`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                      }}
+                      className="w-full flex items-center justify-between bg-white hover:bg-slate-50 border border-slate-200 rounded-xl p-3.5 transition cursor-pointer text-left"
+                    >
+                      <span className="text-xs font-semibold text-slate-700">{label} <span className="text-slate-400 font-normal">({(rows as any[]).length} records)</span></span>
+                      <FileSpreadsheet className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5 space-y-2">
+                <Shield className="w-5 h-5 text-blue-600" />
+                <h4 className="text-xs font-bold text-blue-800">No lock-in, ever</h4>
+                <p className="text-[10.5px] text-blue-700 leading-relaxed">
+                  If you ever decide to leave BizKhata, your data leaves with you. We don't hold your
+                  accounting records hostage to keep you subscribed.
+                </p>
               </div>
             </div>
           )}
