@@ -250,7 +250,10 @@ if (SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL !== "MY_SUPABASE_URL") {
   }
 }
 
-let cachedDb: any = null;
+// Per-organization in-memory cache. Keyed by organizationId. Each organization's
+// accounting ledger is fully isolated — this was previously a single shared `cachedDb`,
+// which meant every signed-up organization read and wrote the exact same books.
+const cachedDbByOrg: Map<string, any> = new Map();
 
 // __dirname fallback for CJS/ESM compatibility
 const __filename = (() => { try { return fileURLToPath(import.meta.url); } catch { return ''; } })();
@@ -322,7 +325,7 @@ app.get("/api/health", async (req: any, res: any) => {
   };
   if (SUPABASE_URL && SUPABASE_ANON_KEY) {
     try {
-      const rows = await supabaseREST("GET");
+      const rows = await supabaseREST("GET", "__health_check__");
       checks.supabaseReachable = Array.isArray(rows);
       checks.supabaseRowExists = Array.isArray(rows) && rows.length > 0;
       checks.supabaseError = null;
@@ -357,10 +360,15 @@ app.get("/api/health", async (req: any, res: any) => {
 });
 
 const PORT = 3000;
-// On Vercel, process.cwd() is read-only; use /tmp for ephemeral file fallback
-const DB_FILE = process.env.VERCEL === "1"
-  ? "/tmp/bizkhata_db.json"
-  : path.join(process.cwd(), "bizkhata_db.json");
+// On Vercel, process.cwd() is read-only; use /tmp for ephemeral file fallback.
+// File path is now per-organization — each org gets its own local-dev fallback file,
+// mirroring the per-org Supabase row used in production.
+function getDbFilePath(orgId: string): string {
+  const safeId = orgId.replace(/[^a-zA-Z0-9_-]/g, "_");
+  return process.env.VERCEL === "1"
+    ? `/tmp/bizkhata_db_${safeId}.json`
+    : path.join(process.cwd(), `bizkhata_db_${safeId}.json`);
+}
 
 // Inline types to avoid cross-directory import issues in Vercel serverless
 enum UserRole {
@@ -477,8 +485,9 @@ function withTimeout(promise: Promise<any> | any, timeoutMs: number, errorMsg: s
 }
 
 // Direct REST helper — bypasses Supabase JS client entirely, avoids RLS hangs
-async function supabaseREST(method: string, body?: any): Promise<any> {
+async function supabaseREST(method: string, orgId: string, body?: any): Promise<any> {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) throw new Error("Supabase not configured");
+  const rowId = `org_ledger_${orgId}`;
   const url = `${SUPABASE_URL}/rest/v1/bizkhata_state`;
   const headers: any = {
     "Content-Type": "application/json",
@@ -489,11 +498,12 @@ async function supabaseREST(method: string, body?: any): Promise<any> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 6000);
   try {
-    const endpoint = method === "GET" ? `${url}?id=eq.default_ledger&select=state` : url;
+    const endpoint = method === "GET" ? `${url}?id=eq.${rowId}&select=state` : url;
+    const finalBody = body ? { ...body, id: rowId } : body;
     const res = await fetch(endpoint, {
       method,
       headers,
-      body: body ? JSON.stringify(body) : undefined,
+      body: finalBody ? JSON.stringify(finalBody) : undefined,
       signal: controller.signal
     });
     clearTimeout(timer);
@@ -508,31 +518,31 @@ async function supabaseREST(method: string, body?: any): Promise<any> {
   }
 }
 
-async function readDB(): Promise<DatabaseState> {
+async function readDB(orgId: string): Promise<DatabaseState> {
   try {
-    if (cachedDb) {
-      return cachedDb;
+    if (cachedDbByOrg.has(orgId)) {
+      return cachedDbByOrg.get(orgId);
     }
 
     // Lazy load from Supabase via direct REST (bypasses RLS/JS-client hangs)
     if (SUPABASE_URL && SUPABASE_ANON_KEY) {
       try {
-        console.log("Pulling state from Supabase REST API...");
-        const rows = await supabaseREST("GET");
+        console.log(`Pulling state for org ${orgId} from Supabase REST API...`);
+        const rows = await supabaseREST("GET", orgId);
         if (Array.isArray(rows) && rows.length > 0 && rows[0].state && Object.keys(rows[0].state).length > 0) {
-          cachedDb = rows[0].state;
+          cachedDbByOrg.set(orgId, rows[0].state);
           supabaseStatus.connected = true;
           supabaseStatus.error = null;
-          console.log("State loaded from Supabase successfully.");
-          return cachedDb;
+          console.log(`State loaded from Supabase for org ${orgId}.`);
+          return rows[0].state;
         } else {
           // Row exists but empty {} OR no row — seed with full initial state
-          console.log("Empty or missing state in Supabase. Seeding full initial state...");
+          console.log(`Empty or missing state for org ${orgId} in Supabase. Seeding fresh initial state...`);
           const init = getInitialState();
-          cachedDb = init;
-          // Use PATCH to update existing empty row, POST if missing
+          cachedDbByOrg.set(orgId, init);
+          const rowId = `org_ledger_${orgId}`;
           try {
-            const patchUrl = `${SUPABASE_URL}/rest/v1/bizkhata_state?id=eq.default_ledger`;
+            const patchUrl = `${SUPABASE_URL}/rest/v1/bizkhata_state?id=eq.${rowId}`;
             const controller = new AbortController();
             setTimeout(() => controller.abort(), 6000);
             const r = await fetch(patchUrl, {
@@ -548,45 +558,47 @@ async function readDB(): Promise<DatabaseState> {
             });
             if (!r.ok && r.status !== 204) {
               // Fallback to POST
-              await supabaseREST("POST", { id: "default_ledger", state: init });
+              await supabaseREST("POST", orgId, { state: init });
             }
           } catch(e) {
-            await supabaseREST("POST", { id: "default_ledger", state: init }).catch(() => {});
+            await supabaseREST("POST", orgId, { state: init }).catch(() => {});
           }
           supabaseStatus.connected = true;
           supabaseStatus.error = null;
-          console.log("Initial state seeded to Supabase.");
-          return cachedDb;
+          console.log(`Initial state seeded to Supabase for org ${orgId}.`);
+          return init;
         }
       } catch (err: any) {
         supabaseStatus.connected = false;
         supabaseStatus.error = { message: err?.message || String(err) };
-        console.error("Supabase REST read failed, falling back to local:", err);
+        console.error(`Supabase REST read failed for org ${orgId}, falling back to local file:`, err);
       }
     }
 
-    if (!fs.existsSync(DB_FILE)) {
+    const dbFile = getDbFilePath(orgId);
+    if (!fs.existsSync(dbFile)) {
       const init = getInitialState();
       try {
-        fs.writeFileSync(DB_FILE, JSON.stringify(init, null, 2), "utf8");
+        fs.writeFileSync(dbFile, JSON.stringify(init, null, 2), "utf8");
       } catch (writeErr) {
         console.warn("Read-only filesystem detected on initial write, caching state in memory.");
       }
-      cachedDb = init;
+      cachedDbByOrg.set(orgId, init);
       return init;
     }
-    const raw = fs.readFileSync(DB_FILE, "utf8");
-    cachedDb = JSON.parse(raw);
-    return cachedDb;
+    const raw = fs.readFileSync(dbFile, "utf8");
+    const parsed = JSON.parse(raw);
+    cachedDbByOrg.set(orgId, parsed);
+    return parsed;
   } catch (err) {
-    console.error("Error reading db.json, returning default:", err);
+    console.error(`Error reading ledger for org ${orgId}, returning default:`, err);
     const fallback = getInitialState();
-    cachedDb = fallback;
+    cachedDbByOrg.set(orgId, fallback);
     return fallback;
   }
 }
 
-async function writeDB(state: DatabaseState): Promise<void> {
+async function writeDB(orgId: string, state: DatabaseState): Promise<void> {
   try {
     // Audit check: calculate accounts balances dynamically from journals as specified by rule!
     // "Rule: Reports must be generated from journal entries."
@@ -612,20 +624,21 @@ async function writeDB(state: DatabaseState): Promise<void> {
     });
 
     state.accounts = updatedAccounts;
-    cachedDb = state;
+    cachedDbByOrg.set(orgId, state);
 
     try {
-      fs.writeFileSync(DB_FILE, JSON.stringify(state, null, 2), "utf8");
+      fs.writeFileSync(getDbFilePath(orgId), JSON.stringify(state, null, 2), "utf8");
     } catch (writeErr) {
       // Ignore read-only errors on serverless deploys
     }
 
     // Push state to Supabase asynchronously (fire-and-forget, non-blocking)
     if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-      supabaseREST("POST", { id: "default_ledger", state })
+      const rowId = `org_ledger_${orgId}`;
+      supabaseREST("POST", orgId, { state })
         .then(() => { supabaseStatus.connected = true; supabaseStatus.error = null; })
         .catch(() => {
-          const patchUrl = SUPABASE_URL + "/rest/v1/bizkhata_state?id=eq.default_ledger";
+          const patchUrl = SUPABASE_URL + `/rest/v1/bizkhata_state?id=eq.${rowId}`;
           const ctrl = new AbortController();
           setTimeout(() => ctrl.abort(), 6000);
           fetch(patchUrl, {
@@ -638,7 +651,7 @@ async function writeDB(state: DatabaseState): Promise<void> {
         });
     }
   } catch (err) {
-    console.error("Error writing db.json inside writeDB:", err);
+    console.error(`Error writing ledger for org ${orgId}:`, err);
   }
 }
 
@@ -893,8 +906,10 @@ app.get("/api/permissions", (req: any, res: any) => res.json(ALL_PERMISSIONS_LIS
 // ── End User Management Routes ────────────────────────────────────────────────
 
 
-app.get("/api/db", async (req, res) => {
-  const db = await readDB();
+app.get("/api/db", authGuard, async (req: any, res: any) => {
+  const orgId = req.user.organizationId;
+  if (!orgId) { res.status(400).json({ error: "Your account isn't linked to an organization." }); return; }
+  const db = await readDB(orgId);
   res.json(db);
 });
 
@@ -902,7 +917,7 @@ app.get("/api/supabase-status", async (req, res) => {
   // Always do a live probe to get accurate status
   if (SUPABASE_URL && SUPABASE_ANON_KEY) {
     try {
-      const rows = await supabaseREST("GET");
+      const rows = await supabaseREST("GET", "__health_check__");
       const connected = Array.isArray(rows);
       supabaseStatus.configured = true;
       supabaseStatus.connected = connected;
@@ -916,8 +931,10 @@ app.get("/api/supabase-status", async (req, res) => {
 });
 
 // Secure API endpoint to provisions new sub-users with random single-sign-on credentials
-app.post("/api/users/add", async (req, res) => {
-  const db = await readDB();
+app.post("/api/users/add", authGuard, async (req: any, res: any) => {
+  const orgId = req.user.organizationId;
+  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
+  const db = await readDB(orgId);
   const { name, email, mobile, role, author } = req.body;
   
   if (!name || !email || !mobile) {
@@ -979,13 +996,15 @@ app.post("/api/users/add", async (req, res) => {
     details: `Authorized tenant seat for ${name} (${email}) as ${role || "Viewer"} with automated password mailing.`
   });
 
-  await writeDB(db);
+  await writeDB(orgId, db);
   res.json({ success: true, db, newUser, password });
 });
 
 // Secure API endpoint to update corporate license capacity slots on-demand
-app.post("/api/user-seats/update", async (req, res) => {
-  const db = await readDB();
+app.post("/api/user-seats/update", authGuard, async (req: any, res: any) => {
+  const orgId = req.user.organizationId;
+  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
+  const db = await readDB(orgId);
   const { seatsLimit, author } = req.body;
   if (!seatsLimit || isNaN(Number(seatsLimit))) {
     return res.status(400).json({ error: "Seats capacity limit must be a valid numeric integer." });
@@ -1002,12 +1021,14 @@ app.post("/api/user-seats/update", async (req, res) => {
     details: `Updated corporate scale capacity to ${limitNumber} user seats.`
   });
 
-  await writeDB(db);
+  await writeDB(orgId, db);
   res.json({ success: true, db });
 });
 
-app.post("/api/company", async (req, res) => {
-  const db = await readDB();
+app.post("/api/company", authGuard, async (req: any, res: any) => {
+  const orgId = req.user.organizationId;
+  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
+  const db = await readDB(orgId);
   db.company = { ...db.company, ...req.body };
   db.auditLogs.unshift({
     id: uuid(),
@@ -1016,12 +1037,14 @@ app.post("/api/company", async (req, res) => {
     action: "Company Config Setup",
     details: `Updated company details to ${db.company.name}`
   });
-  await writeDB(db);
+  await writeDB(orgId, db);
   res.json({ success: true, db });
 });
 
-app.post("/api/customers", async (req, res) => {
-  const db = await readDB();
+app.post("/api/customers", authGuard, async (req: any, res: any) => {
+  const orgId = req.user.organizationId;
+  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
+  const db = await readDB(orgId);
   const index = db.customers.findIndex(c => c.id === req.body.id);
   const user = req.body.authorUser || "User";
 
@@ -1045,12 +1068,14 @@ app.post("/api/customers", async (req, res) => {
       details: `Created customer master record for ${req.body.name}`
     });
   }
-  await writeDB(db);
+  await writeDB(orgId, db);
   res.json({ success: true, db });
 });
 
-app.post("/api/vendors", async (req, res) => {
-  const db = await readDB();
+app.post("/api/vendors", authGuard, async (req: any, res: any) => {
+  const orgId = req.user.organizationId;
+  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
+  const db = await readDB(orgId);
   const index = db.vendors.findIndex(v => v.id === req.body.id);
   const user = req.body.authorUser || "User";
 
@@ -1074,12 +1099,14 @@ app.post("/api/vendors", async (req, res) => {
       details: `Created vendor master record for ${req.body.name}`
     });
   }
-  await writeDB(db);
+  await writeDB(orgId, db);
   res.json({ success: true, db });
 });
 
-app.post("/api/items", async (req, res) => {
-  const db = await readDB();
+app.post("/api/items", authGuard, async (req: any, res: any) => {
+  const orgId = req.user.organizationId;
+  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
+  const db = await readDB(orgId);
   const index = db.items.findIndex(i => i.id === req.body.id);
   const user = req.body.authorUser || "User";
 
@@ -1103,7 +1130,7 @@ app.post("/api/items", async (req, res) => {
       details: `Added new service/product item: ${req.body.name}`
     });
   }
-  await writeDB(db);
+  await writeDB(orgId, db);
   res.json({ success: true, db });
 });
 
@@ -1158,8 +1185,10 @@ function createInvoiceJournal(invoice: any, company: any) {
   };
 }
 
-app.post("/api/invoices", async (req, res) => {
-  const db = await readDB();
+app.post("/api/invoices", authGuard, async (req: any, res: any) => {
+  const orgId = req.user.organizationId;
+  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
+  const db = await readDB(orgId);
   const invoiceData = req.body;
   const user = req.body.authorUser || "User";
 
@@ -1194,13 +1223,15 @@ app.post("/api/invoices", async (req, res) => {
     details: `Generated standard billing number ${invoiceData.invoiceNumber} for client ₹${invoiceData.total}`
   });
 
-  await writeDB(db);
+  await writeDB(orgId, db);
   res.json({ success: true, db });
 });
 
 // Payments Recorder Double-Entry
-app.post("/api/payments", async (req, res) => {
-  const db = await readDB();
+app.post("/api/payments", authGuard, async (req: any, res: any) => {
+  const orgId = req.user.organizationId;
+  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
+  const db = await readDB(orgId);
   const payment = req.body;
   const user = req.body.authorUser || "User";
 
@@ -1273,13 +1304,15 @@ app.post("/api/payments", async (req, res) => {
     details: `Allocated ₹${payment.amountReceived} received (TDS ₹${payment.tdsDeducted}) to settle receivable balances.`
   });
 
-  await writeDB(db);
+  await writeDB(orgId, db);
   res.json({ success: true, db });
 });
 
 // Credit note issuer Double-Entry
-app.post("/api/credit-notes", async (req, res) => {
-  const db = await readDB();
+app.post("/api/credit-notes", authGuard, async (req: any, res: any) => {
+  const orgId = req.user.organizationId;
+  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
+  const db = await readDB(orgId);
   const cn = req.body;
   const user = req.body.authorUser || "User";
 
@@ -1349,13 +1382,15 @@ app.post("/api/credit-notes", async (req, res) => {
     details: `Refund adjustment ${cn.creditNoteNumber} issued on ${cn.invoiceNumber} for ₹${cn.total}`
   });
 
-  await writeDB(db);
+  await writeDB(orgId, db);
   res.json({ success: true, db });
 });
 
 // Quick Expenses Entries Double-Entry
-app.post("/api/expenses", async (req, res) => {
-  const db = await readDB();
+app.post("/api/expenses", authGuard, async (req: any, res: any) => {
+  const orgId = req.user.organizationId;
+  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
+  const db = await readDB(orgId);
   const exp = req.body;
   const user = req.body.authorUser || "User";
 
@@ -1440,13 +1475,15 @@ app.post("/api/expenses", async (req, res) => {
     });
   }
 
-  await writeDB(db);
+  await writeDB(orgId, db);
   res.json({ success: true, db });
 });
 
 // Bills Double-Entry
-app.post("/api/bills", async (req, res) => {
-  const db = await readDB();
+app.post("/api/bills", authGuard, async (req: any, res: any) => {
+  const orgId = req.user.organizationId;
+  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
+  const db = await readDB(orgId);
   const bill = req.body;
   const user = req.body.authorUser || "User";
 
@@ -1523,12 +1560,14 @@ app.post("/api/bills", async (req, res) => {
     });
   }
 
-  await writeDB(db);
+  await writeDB(orgId, db);
   res.json({ success: true, db });
 });
 
-app.post("/api/bills/pay", async (req, res) => {
-  const db = await readDB();
+app.post("/api/bills/pay", authGuard, async (req: any, res: any) => {
+  const orgId = req.user.organizationId;
+  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
+  const db = await readDB(orgId);
   const { billId, date, paymentMode, referenceNumber, amountPaid, authorUser } = req.body;
   const user = authorUser || "User";
 
@@ -1564,13 +1603,15 @@ app.post("/api/bills/pay", async (req, res) => {
     details: `Settle payable ₹${amountPaid} for supplier bill ${bill.billNumber}`
   });
 
-  await writeDB(db);
+  await writeDB(orgId, db);
   res.json({ success: true, db });
 });
 
 // Post Manual Journal entry
-app.post("/api/journals", async (req, res) => {
-  const db = await readDB();
+app.post("/api/journals", authGuard, async (req: any, res: any) => {
+  const orgId = req.user.organizationId;
+  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
+  const db = await readDB(orgId);
   const { date, reference, description, lines, user } = req.body;
 
   if (!date || !reference || !lines || !Array.isArray(lines) || lines.length === 0) {
@@ -1613,13 +1654,15 @@ app.post("/api/journals", async (req, res) => {
     details: `Posted balanced accounting entries for ${reference} (₹${totalDebit.toLocaleString()}) to general accounts.`
   });
 
-  await writeDB(db);
+  await writeDB(orgId, db);
   res.json({ success: true, db });
 });
 
 // Secure API endpoint to delete sub-users from Corporate Team Directory
-app.post("/api/users/remove", async (req, res) => {
-  const db = await readDB();
+app.post("/api/users/remove", authGuard, async (req: any, res: any) => {
+  const orgId = req.user.organizationId;
+  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
+  const db = await readDB(orgId);
   const { id, author } = req.body;
 
   if (!id) {
@@ -1650,13 +1693,15 @@ app.post("/api/users/remove", async (req, res) => {
     details: `Revoked corporate authorization and deleted user credentials for ${targetUser.name} (${targetUser.email}).`
   });
 
-  await writeDB(db);
+  await writeDB(orgId, db);
   res.json({ success: true, db });
 });
 
 // Owner SaaS Console APIs
-app.post("/api/owner/organization/add", async (req, res) => {
-  const db = await readDB();
+app.post("/api/owner/organization/add", authGuard, async (req: any, res: any) => {
+  const orgId = req.user.organizationId;
+  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
+  const db = await readDB(orgId);
   const { name, legalName, pan, gstin, purchasedSeats, packageType, pricingMonthly, purchaseStatus, registeredEmail } = req.body;
 
   if (!name || !legalName || !registeredEmail) {
@@ -1688,12 +1733,14 @@ app.post("/api/owner/organization/add", async (req, res) => {
     details: `Enrolled new customer organization '${name}' licensed for ${purchasedSeats} corporate user seats.`
   });
 
-  await writeDB(db);
+  await writeDB(orgId, db);
   res.json({ success: true, db });
 });
 
-app.post("/api/owner/organization/update", async (req, res) => {
-  const db = await readDB();
+app.post("/api/owner/organization/update", authGuard, async (req: any, res: any) => {
+  const orgId = req.user.organizationId;
+  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
+  const db = await readDB(orgId);
   const { id, name, legalName, pan, gstin, purchasedSeats, packageType, pricingMonthly, purchaseStatus, registeredEmail } = req.body;
 
   if (!id) {
@@ -1736,12 +1783,14 @@ app.post("/api/owner/organization/update", async (req, res) => {
     db.userSeatsLimit = updatedOrg.purchasedSeats;
   }
 
-  await writeDB(db);
+  await writeDB(orgId, db);
   res.json({ success: true, db });
 });
 
-app.post("/api/owner/organization/delete", async (req, res) => {
-  const db = await readDB();
+app.post("/api/owner/organization/delete", authGuard, async (req: any, res: any) => {
+  const orgId = req.user.organizationId;
+  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
+  const db = await readDB(orgId);
   const { id } = req.body;
 
   if (!id) {
@@ -1766,43 +1815,40 @@ app.post("/api/owner/organization/delete", async (req, res) => {
     details: `Suspended cloud tenant tracing for organization '${deletedOrg.name}' (${deletedOrg.registeredEmail}).`
   });
 
-  await writeDB(db);
+  await writeDB(orgId, db);
   res.json({ success: true, db });
 });
 
 // Update Role API
-app.post("/api/role", async (req, res) => {
-  const db = await readDB();
+app.post("/api/role", authGuard, async (req: any, res: any) => {
+  const orgId = req.user.organizationId;
+  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
+  const db = await readDB(orgId);
   db.role = req.body.role;
-  await writeDB(db);
+  await writeDB(orgId, db);
   res.json({ success: true, db });
 });
 
-// Reset database
-app.post("/api/reset", async (req, res) => {
+// Reset database — wipes ONLY the calling user's own organization's ledger back to a
+// clean initial state. Scoped by orgId so this can never affect another tenant's books.
+app.post("/api/reset", authGuard, async (req: any, res: any) => {
+  const orgId = req.user.organizationId;
+  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
   const fresh = getInitialState();
-  await writeDB(fresh);
+  await writeDB(orgId, fresh);
   res.json(fresh);
 });
 
 // Server-side AI Services utilizing Google Gemini API 3.5 Flash
-app.post("/api/ai/invoice-create", async (req, res) => {
+app.post("/api/ai/invoice-create", authGuard, async (req: any, res: any) => {
   const { prompt } = req.body;
   if (!prompt) {
     return res.status(400).json({ error: "No prompts provided." });
   }
 
   if (!ai) {
-    // Elegant fallback simulation
-    return res.json({
-      fallback: true,
-      message: "Please configure your GEMINI_API_KEY in the Settings tab to enjoy real-time AI extract. Here is a simulated parse based on common client details:",
-      data: {
-        customerName: "Rajesh Khanna & Sons",
-        items: [
-          { name: "Consulting Consulting Rate Hours", qty: 10, rate: 5000, gstRate: 18 }
-        ]
-      }
+    return res.status(503).json({
+      error: "AI invoice parsing isn't available right now — no GEMINI_API_KEY is configured. Add one in your environment settings, or enter the invoice details manually."
     });
   }
 
@@ -1855,13 +1901,15 @@ app.post("/api/ai/invoice-create", async (req, res) => {
   }
 });
 
-app.post("/api/ai/reconcile", async (req, res) => {
+app.post("/api/ai/reconcile", authGuard, async (req: any, res: any) => {
   const { bankFeed } = req.body;
   if (!bankFeed) {
     return res.status(400).json({ error: "Feed prompt is required." });
   }
 
-  const db = await readDB();
+  const orgId = req.user.organizationId;
+  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
+  const db = await readDB(orgId);
   const outstandingInvoices = db.invoices.filter(i => i.status !== "Paid");
 
   if (!ai) {
@@ -1911,7 +1959,7 @@ app.post("/api/ai/reconcile", async (req, res) => {
   }
 });
 
-app.post("/api/ai/categorize", async (req, res) => {
+app.post("/api/ai/categorize", authGuard, async (req: any, res: any) => {
   const { text } = req.body;
   if (!ai) {
     return res.json({
@@ -1956,7 +2004,7 @@ app.post("/api/ai/categorize", async (req, res) => {
   }
 });
 
-app.post("/api/ai/explain-report", async (req, res) => {
+app.post("/api/ai/explain-report", authGuard, async (req: any, res: any) => {
   const { reportType, data } = req.body;
   if (!ai) {
     return res.json({
@@ -1984,7 +2032,7 @@ app.post("/api/ai/explain-report", async (req, res) => {
   }
 });
 
-app.post("/api/ai/generate-reminder", async (req, res) => {
+app.post("/api/ai/generate-reminder", authGuard, async (req: any, res: any) => {
   const { invoiceNum, clientName, dueDate, amount } = req.body;
   const tonePrompt = `Draft a professional, yet gentle payment outstanding email reminder for Indian invoice number ${invoiceNum}. Client: ${clientName}, Due date: ${dueDate}, Balance outstanding: ₹${amount}. Write a helpful subject line and email body.`;
 
@@ -2021,9 +2069,11 @@ app.post("/api/ai/generate-reminder", async (req, res) => {
 // Serve frontend assets and start listening wrapped in an async IIFE
 // On Vercel, skip Vite/static setup — Vercel serves the dist/ as static output separately
 // ── Sales Orders API ────────────────────────────────────────────────────────
-app.post("/api/sales-orders", async (req: any, res: any) => {
+app.post("/api/sales-orders", authGuard, async (req: any, res: any) => {
   try {
-    const db = await readDB();
+    const orgId = req.user.organizationId;
+  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
+  const db = await readDB(orgId);
     const payload = req.body;
     if (!db.salesOrders) db.salesOrders = [];
     if (payload.id) {
@@ -2035,15 +2085,17 @@ app.post("/api/sales-orders", async (req: any, res: any) => {
       const soNumber = `SO-${new Date().getFullYear()}-${String(soCount).padStart(3, "0")}`;
       db.salesOrders.push({ ...payload, id: `so_${Date.now()}`, soNumber });
     }
-    await writeDB(db);
+    await writeDB(orgId, db);
     res.json({ success: true });
   } catch(e: any) { res.status(500).json({ error: e.message }); }
 });
 
 // ── Purchase Orders API ─────────────────────────────────────────────────────
-app.post("/api/purchase-orders", async (req: any, res: any) => {
+app.post("/api/purchase-orders", authGuard, async (req: any, res: any) => {
   try {
-    const db = await readDB();
+    const orgId = req.user.organizationId;
+  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
+  const db = await readDB(orgId);
     const payload = req.body;
     if (!db.purchaseOrders) db.purchaseOrders = [];
     if (payload.id) {
@@ -2055,15 +2107,17 @@ app.post("/api/purchase-orders", async (req: any, res: any) => {
       const poNumber = `PO-${new Date().getFullYear()}-${String(poCount).padStart(3, "0")}`;
       db.purchaseOrders.push({ ...payload, id: `po_${Date.now()}`, poNumber });
     }
-    await writeDB(db);
+    await writeDB(orgId, db);
     res.json({ success: true });
   } catch(e: any) { res.status(500).json({ error: e.message }); }
 });
 
 // ── Vendor Credits API ──────────────────────────────────────────────────────
-app.post("/api/vendor-credits", async (req: any, res: any) => {
+app.post("/api/vendor-credits", authGuard, async (req: any, res: any) => {
   try {
-    const db = await readDB();
+    const orgId = req.user.organizationId;
+  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
+  const db = await readDB(orgId);
     const payload = req.body;
     if (!db.vendorCredits) db.vendorCredits = [];
     if (payload.id) {
@@ -2075,35 +2129,24 @@ app.post("/api/vendor-credits", async (req: any, res: any) => {
       const vcNumber = `VC-${new Date().getFullYear()}-${String(vcCount).padStart(3, "0")}`;
       db.vendorCredits.push({ ...payload, id: `vc_${Date.now()}`, vcNumber });
     }
-    await writeDB(db);
+    await writeDB(orgId, db);
     res.json({ success: true });
   } catch(e: any) { res.status(500).json({ error: e.message }); }
 });
 
 
 // ── Reset to Clean State (go-live utility) ───────────────────────────────────
-app.post("/api/admin/reset-clean", async (req: any, res: any) => {
-  try {
-    const { secretKey } = req.body;
-    if (secretKey !== "BIZKHATA_GOLIVE_2026") {
-      res.status(403).json({ error: "Invalid secret key." }); return;
-    }
-    const clean = getInitialState();
-    cachedDb = clean;
-    await writeDB(clean);
-    res.json({ success: true, message: "✅ Database wiped to clean state. All demo data removed. Ready for go-live." });
-  } catch(e: any) { res.status(500).json({ error: e.message }); }
-});
-
-// Expose clean state for manual inspection
-app.get("/api/admin/clean-state", (req: any, res: any) => {
-  res.json(getInitialState());
-});
+// NOTE: a previous "/api/admin/reset-clean" endpoint with a hardcoded secret key was
+// removed here. It had no legitimate caller anywhere in the client, required no real
+// authentication, and could wipe any organization's entire ledger. The real, properly
+// org-scoped "rebuild my own organization's data" feature lives at POST /api/reset below.
 
 // ── Delivery Challans API ────────────────────────────────────────────────────
-app.post("/api/delivery-challans", async (req: any, res: any) => {
+app.post("/api/delivery-challans", authGuard, async (req: any, res: any) => {
   try {
-    const db = await readDB();
+    const orgId = req.user.organizationId;
+  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
+  const db = await readDB(orgId);
     const payload = req.body;
     if (!db.deliveryChallans) db.deliveryChallans = [];
     if (payload.id) {
@@ -2114,15 +2157,17 @@ app.post("/api/delivery-challans", async (req: any, res: any) => {
       const num = db.deliveryChallans.length + 1;
       db.deliveryChallans.push({ ...payload, id: "dc_" + Date.now(), challanNumber: "DC-" + new Date().getFullYear() + "-" + String(num).padStart(3, "0") });
     }
-    await writeDB(db);
+    await writeDB(orgId, db);
     res.json({ success: true });
   } catch(e: any) { res.status(500).json({ error: e.message }); }
 });
 
 // ── Bank Accounts API ────────────────────────────────────────────────────────
-app.post("/api/bank-accounts", async (req: any, res: any) => {
+app.post("/api/bank-accounts", authGuard, async (req: any, res: any) => {
   try {
-    const db = await readDB();
+    const orgId = req.user.organizationId;
+  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
+  const db = await readDB(orgId);
     const payload = req.body;
     if (!(db as any).bankAccounts) (db as any).bankAccounts = [];
     if (payload.id) {
@@ -2131,15 +2176,17 @@ app.post("/api/bank-accounts", async (req: any, res: any) => {
     } else {
       (db as any).bankAccounts.push({ ...payload, id: "ba_" + Date.now() });
     }
-    await writeDB(db);
+    await writeDB(orgId, db);
     res.json({ success: true });
   } catch(e: any) { res.status(500).json({ error: e.message }); }
 });
 
 // ── Bank Transactions API ────────────────────────────────────────────────────
-app.post("/api/bank-transactions", async (req: any, res: any) => {
+app.post("/api/bank-transactions", authGuard, async (req: any, res: any) => {
   try {
-    const db = await readDB();
+    const orgId = req.user.organizationId;
+  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
+  const db = await readDB(orgId);
     const payload = req.body;
     if (!(db as any).bankTransactions) (db as any).bankTransactions = [];
     if (payload.id) {
@@ -2149,14 +2196,16 @@ app.post("/api/bank-transactions", async (req: any, res: any) => {
     } else {
       (db as any).bankTransactions.push({ ...payload, id: "bt_" + Date.now() });
     }
-    await writeDB(db);
+    await writeDB(orgId, db);
     res.json({ success: true });
   } catch(e: any) { res.status(500).json({ error: e.message }); }
 });
 
-app.post("/api/bank-transactions/match", async (req: any, res: any) => {
+app.post("/api/bank-transactions/match", authGuard, async (req: any, res: any) => {
   try {
-    const db = await readDB();
+    const orgId = req.user.organizationId;
+  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
+  const db = await readDB(orgId);
     const { txId, matchedId, matchedType } = req.body;
     const txns = (db as any).bankTransactions || [];
     const tx = txns.find((t: any) => t.id === txId);
@@ -2170,15 +2219,17 @@ app.post("/api/bank-transactions/match", async (req: any, res: any) => {
       const bill = db.bills.find((b: any) => b.id === matchedId);
       if (bill) { bill.status = "Paid"; bill.paymentPaid = bill.total; }
     }
-    await writeDB(db);
+    await writeDB(orgId, db);
     res.json({ success: true });
   } catch(e: any) { res.status(500).json({ error: e.message }); }
 });
 
 // ── Opening Balances API ─────────────────────────────────────────────────────
-app.post("/api/opening-balances", async (req: any, res: any) => {
+app.post("/api/opening-balances", authGuard, async (req: any, res: any) => {
   try {
-    const db = await readDB();
+    const orgId = req.user.organizationId;
+  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
+  const db = await readDB(orgId);
     const { entries, date } = req.body;
     // Update account balances
     entries.forEach((entry: any) => {
@@ -2204,15 +2255,17 @@ app.post("/api/opening-balances", async (req: any, res: any) => {
       }))
     };
     db.journals.push(openingJournal);
-    await writeDB(db);
+    await writeDB(orgId, db);
     res.json({ success: true });
   } catch(e: any) { res.status(500).json({ error: e.message }); }
 });
 
 // ── Chart of Accounts CRUD ───────────────────────────────────────────────────
-app.post("/api/accounts", async (req: any, res: any) => {
+app.post("/api/accounts", authGuard, async (req: any, res: any) => {
   try {
-    const db = await readDB();
+    const orgId = req.user.organizationId;
+  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
+  const db = await readDB(orgId);
     const { code, name, type, balance } = req.body;
     if (!code || !name) { res.status(400).json({ error: "Code and name required." }); return; }
     const existing = db.accounts.findIndex((a: any) => a.code === code);
@@ -2221,41 +2274,47 @@ app.post("/api/accounts", async (req: any, res: any) => {
     } else {
       db.accounts.push({ code, name, type, balance: balance || 0 });
     }
-    await writeDB(db);
+    await writeDB(orgId, db);
     res.json({ success: true });
   } catch(e: any) { res.status(500).json({ error: e.message }); }
 });
 
-app.delete("/api/accounts/:code", async (req: any, res: any) => {
+app.delete("/api/accounts/:code", authGuard, async (req: any, res: any) => {
   try {
-    const db = await readDB();
+    const orgId = req.user.organizationId;
+  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
+  const db = await readDB(orgId);
     const code = req.params.code;
     const usedInJournals = db.journals.some((j: any) => j.lines?.some((l: any) => l.accountCode === code));
     if (usedInJournals) { res.status(400).json({ error: "Cannot delete account used in journal entries." }); return; }
     db.accounts = db.accounts.filter((a: any) => a.code !== code);
-    await writeDB(db);
+    await writeDB(orgId, db);
     res.json({ success: true });
   } catch(e: any) { res.status(500).json({ error: e.message }); }
 });
 
 // ── Fixed Assets API ─────────────────────────────────────────────────────────
-app.post("/api/month-end-checklist", async (req: any, res: any) => {
+app.post("/api/month-end-checklist", authGuard, async (req: any, res: any) => {
   try {
-    const db = await readDB();
+    const orgId = req.user.organizationId;
+  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
+  const db = await readDB(orgId);
     const payload = req.body; // { id, monthLabel, steps }
     if (!(db as any).monthEndChecklists) (db as any).monthEndChecklists = [];
     const idx = (db as any).monthEndChecklists.findIndex((c: any) => c.id === payload.id);
     if (idx >= 0) (db as any).monthEndChecklists[idx] = payload;
     else (db as any).monthEndChecklists.push(payload);
     (db as any).auditLogs.unshift({ id: "audit_" + Date.now(), timestamp: new Date().toISOString(), user: req.body.actorEmail || "User", action: "MONTH_END_CHECKLIST_UPDATE", details: `Updated close checklist for ${payload.monthLabel}` });
-    await writeDB(db);
+    await writeDB(orgId, db);
     res.json({ success: true });
   } catch(e: any) { res.status(500).json({ error: e.message }); }
 });
 
-app.post("/api/fixed-assets", async (req: any, res: any) => {
+app.post("/api/fixed-assets", authGuard, async (req: any, res: any) => {
   try {
-    const db = await readDB();
+    const orgId = req.user.organizationId;
+  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
+  const db = await readDB(orgId);
     const payload = req.body;
     if (!(db as any).fixedAssets) (db as any).fixedAssets = [];
     if (payload.id) {
@@ -2265,7 +2324,7 @@ app.post("/api/fixed-assets", async (req: any, res: any) => {
     } else {
       (db as any).fixedAssets.push({ ...payload, id: "fa_" + Date.now() });
     }
-    await writeDB(db);
+    await writeDB(orgId, db);
     res.json({ success: true });
   } catch(e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -2273,14 +2332,8 @@ app.post("/api/fixed-assets", async (req: any, res: any) => {
 
 if (process.env.VERCEL !== "1") {
   (async () => {
-    // Pre-prime the server memory cache asynchronously so the server starts up instantly
-    readDB().then((db) => {
-      cachedDb = db;
-      console.log("Pre-primed database cache memory successfully on cold start.");
-    }).catch(err => {
-      console.error("Failed to pre-prime database cache, using default initial state:", err);
-      cachedDb = getInitialState();
-    });
+    // Per-organization caches now populate lazily on each org's first request —
+    // there's no longer a single shared ledger to pre-warm at startup.
 
     if (process.env.NODE_ENV !== "production") {
       const { createServer: createViteServer } = await import("vite");
@@ -2301,15 +2354,6 @@ if (process.env.VERCEL !== "1") {
       console.log(`Bizkhata express ledger server listening on port ${PORT}...`);
     });
   })();
-} else {
-  // On Vercel: warm up Supabase connection on cold start
-  readDB().then((db) => {
-    cachedDb = db;
-    console.log("Vercel cold-start: Supabase state pre-loaded.");
-  }).catch(err => {
-    console.error("Vercel cold-start: failed to pre-load state:", err);
-    cachedDb = getInitialState();
-  });
 }
 
 export default app;
