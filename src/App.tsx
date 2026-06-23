@@ -79,6 +79,15 @@ import {
 export default function App() {
   // ── Session / Auth state ──────────────────────────────────────────────────
   const [session, setSession] = useState<SessionInfo | null>(null);
+
+  // Wraps fetch() to automatically attach the session's Authorization header.
+  // Every ledger endpoint server-side now requires this — without it, requests are
+  // rejected with 401 rather than silently reading/writing a shared, unscoped ledger.
+  const authFetch = (url: string, options: RequestInit = {}) => {
+    const headers: any = { ...(options.headers || {}) };
+    if (session?.token) headers["Authorization"] = `Bearer ${session.token}`;
+    return fetch(url, { ...options, headers });
+  };
   const [authLoading, setAuthLoading] = useState(true);
   const [panelView, setPanelView] = useState<'login' | 'register' | 'forgot' | 'reset' | 'activate'>('login');
   const [routeEmail, setRouteEmail] = useState('');
@@ -109,7 +118,7 @@ export default function App() {
     localStorage.setItem('bizkhata_session_token', newSession.token);
     // Re-fetch DB after login - use timeout to ensure fetchDB is in scope
     setTimeout(() => {
-      fetch("/api/db").then(r => r.ok ? r.json() : null).then(data => {
+      authFetch("/api/db").then(r => r.ok ? r.json() : null).then(data => {
         if (data) {
           setDb(data);
           localStorage.setItem("bizkhata_cached_db", JSON.stringify(data));
@@ -256,7 +265,7 @@ export default function App() {
 
   const fetchSupabaseStatus = async () => {
     try {
-      const r = await fetch("/api/supabase-status");
+      const r = await authFetch("/api/supabase-status");
       if (r.ok) {
         const data = await r.json();
         setSupabaseStatus(data);
@@ -360,7 +369,7 @@ export default function App() {
 
   const fetchDB = async () => {
     try {
-      const r = await fetch("/api/db");
+      const r = await authFetch("/api/db");
       if (r.ok) {
         const data = await r.json();
         setDb(data);
@@ -522,21 +531,21 @@ export default function App() {
 
     try {
       // Sync configurations with Node backend express layers
-      const companyRes = await fetch("/api/company", {
+      const companyRes = await authFetch("/api/company", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newCompany)
       });
       if (!companyRes.ok) throw new Error("Could not create your organisation profile. Please try again.");
 
-      const seatsRes = await fetch("/api/user-seats/update", {
+      const seatsRes = await authFetch("/api/user-seats/update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ seatsLimit: requestedSeats, author: signupEmail })
       });
       if (!seatsRes.ok) throw new Error("Could not set up your user seats. Please try again.");
 
-      const userRes = await fetch("/api/users/add", {
+      const userRes = await authFetch("/api/users/add", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -580,7 +589,7 @@ export default function App() {
     setInviteLoading(true);
 
     try {
-      const response = await fetch("/api/users/add", {
+      const response = await authFetch("/api/users/add", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -625,7 +634,7 @@ export default function App() {
     }
     setSeatsLoading(true);
     try {
-      const response = await fetch("/api/user-seats/update", {
+      const response = await authFetch("/api/user-seats/update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -653,7 +662,7 @@ export default function App() {
       return;
     }
     try {
-      const response = await fetch("/api/users/remove", {
+      const response = await authFetch("/api/users/remove", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -678,7 +687,7 @@ export default function App() {
 
   const handlePassManualJournal = async (journalData: any) => {
     try {
-      const response = await fetch("/api/journals", {
+      const response = await authFetch("/api/journals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -703,7 +712,7 @@ export default function App() {
 
   // API Call Brokers
   const handleUpdateCompany = async (companyData: CompanyInfo) => {
-    const r = await fetch("/api/company", {
+    const r = await authFetch("/api/company", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(companyData)
@@ -712,7 +721,7 @@ export default function App() {
   };
 
   const handleUpdateRole = async (role: UserRole) => {
-    const r = await fetch("/api/role", {
+    const r = await authFetch("/api/role", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ role })
@@ -722,7 +731,7 @@ export default function App() {
 
   const handleOwnerAddOrg = async (orgData: any) => {
     try {
-      const r = await fetch("/api/owner/organization/add", {
+      const r = await authFetch("/api/owner/organization/add", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(orgData)
@@ -742,7 +751,7 @@ export default function App() {
 
   const handleOwnerUpdateOrg = async (orgData: any) => {
     try {
-      const r = await fetch("/api/owner/organization/update", {
+      const r = await authFetch("/api/owner/organization/update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(orgData)
@@ -765,7 +774,7 @@ export default function App() {
       return;
     }
     try {
-      const r = await fetch("/api/owner/organization/delete", {
+      const r = await authFetch("/api/owner/organization/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: orgId })
@@ -784,7 +793,7 @@ export default function App() {
   };
 
   const handleResetDB = async () => {
-    const r = await fetch("/api/reset", { method: "POST" });
+    const r = await authFetch("/api/reset", { method: "POST" });
     if (r.ok) {
       await fetchDB();
       setActiveTab("dashboard");
@@ -793,7 +802,7 @@ export default function App() {
 
   const handleSaveInvoice = async (invoicePayload: any) => {
     try {
-      const r = await fetch("/api/invoices", {
+      const r = await authFetch("/api/invoices", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(invoicePayload)
@@ -810,7 +819,7 @@ export default function App() {
   };
 
   const handleIssueCreditNote = async (payload: any) => {
-    const r = await fetch("/api/credit-notes", {
+    const r = await authFetch("/api/credit-notes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
@@ -824,7 +833,7 @@ export default function App() {
   };
 
   const handleRecordPayment = async (payload: any) => {
-    const r = await fetch("/api/payments", {
+    const r = await authFetch("/api/payments", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
@@ -838,7 +847,7 @@ export default function App() {
   };
 
   const handleAddVendor = async (vPayload: any) => {
-    const r = await fetch("/api/vendors", {
+    const r = await authFetch("/api/vendors", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(vPayload)
@@ -847,7 +856,7 @@ export default function App() {
   };
 
   const handleAddCustomer = async (cPayload: any) => {
-    const r = await fetch("/api/customers", {
+    const r = await authFetch("/api/customers", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(cPayload)
@@ -861,7 +870,7 @@ export default function App() {
   };
 
   const handleAddItem = async (itemPayload: any) => {
-    const r = await fetch("/api/items", {
+    const r = await authFetch("/api/items", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(itemPayload)
@@ -889,7 +898,7 @@ export default function App() {
   };
 
   const handleAddExpense = async (ePayload: any) => {
-    const r = await fetch("/api/expenses", {
+    const r = await authFetch("/api/expenses", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(ePayload)
@@ -903,7 +912,7 @@ export default function App() {
   };
 
   const handleAddBill = async (bPayload: any) => {
-    const r = await fetch("/api/bills", {
+    const r = await authFetch("/api/bills", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(bPayload)
@@ -917,7 +926,7 @@ export default function App() {
   };
 
   const handlePayBill = async (bPayPayload: any) => {
-    const r = await fetch("/api/bills/pay", {
+    const r = await authFetch("/api/bills/pay", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(bPayPayload)
@@ -932,7 +941,7 @@ export default function App() {
 
   // Sales Orders
   const handleSaveSO = async (payload: any) => {
-    const r = await fetch("/api/sales-orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const r = await authFetch("/api/sales-orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     if (r.ok) await fetchDB(); else { const e = await r.json(); throw new Error(e.error || "Failed"); }
   };
 
@@ -946,7 +955,7 @@ export default function App() {
 
   // Purchase Orders
   const handleSavePO = async (payload: any) => {
-    const r = await fetch("/api/purchase-orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const r = await authFetch("/api/purchase-orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     if (r.ok) await fetchDB(); else { const e = await r.json(); throw new Error(e.error || "Failed"); }
   };
 
@@ -959,74 +968,75 @@ export default function App() {
 
   // Vendor Credits
   const handleSaveVC = async (payload: any) => {
-    const r = await fetch("/api/vendor-credits", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const r = await authFetch("/api/vendor-credits", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     if (r.ok) await fetchDB(); else { const e = await r.json(); throw new Error(e.error || "Failed"); }
   };
 
   // Delivery Challans
   const handleSaveChallan = async (payload: any) => {
-    const r = await fetch("/api/delivery-challans", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const r = await authFetch("/api/delivery-challans", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     if (r.ok) await fetchDB(); else { const e = await r.json(); throw new Error(e.error || "Failed"); }
   };
 
   // Bank Accounts
   const handleSaveBankAccount = async (payload: any) => {
-    const r = await fetch("/api/bank-accounts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const r = await authFetch("/api/bank-accounts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     if (r.ok) await fetchDB(); else { const e = await r.json(); throw new Error(e.error || "Failed"); }
   };
   const handleSaveBankTransaction = async (payload: any) => {
-    const r = await fetch("/api/bank-transactions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const r = await authFetch("/api/bank-transactions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     if (r.ok) await fetchDB(); else { const e = await r.json(); throw new Error(e.error || "Failed"); }
   };
   const handleMatchTransaction = async (txId: string, matchedId: string, matchedType: string) => {
-    const r = await fetch("/api/bank-transactions/match", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ txId, matchedId, matchedType }) });
+    const r = await authFetch("/api/bank-transactions/match", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ txId, matchedId, matchedType }) });
     if (r.ok) await fetchDB(); else { const e = await r.json(); throw new Error(e.error || "Failed"); }
   };
 
   // Opening Balances
   const handleSaveOpeningBalances = async (entries: any[], date: string) => {
-    const r = await fetch("/api/opening-balances", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ entries, date }) });
+    const r = await authFetch("/api/opening-balances", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ entries, date }) });
     if (r.ok) await fetchDB(); else { const e = await r.json(); throw new Error(e.error || "Failed"); }
   };
 
   // Chart of Accounts CRUD
   const handleSaveAccount = async (acc: any) => {
-    const r = await fetch("/api/accounts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(acc) });
+    const r = await authFetch("/api/accounts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(acc) });
     if (r.ok) await fetchDB(); else { const e = await r.json(); throw new Error(e.error || "Failed"); }
   };
   const handleDeleteAccount = async (code: string) => {
-    const r = await fetch("/api/accounts/" + code, { method: "DELETE" });
+    const r = await authFetch("/api/accounts/" + code, { method: "DELETE" });
     if (r.ok) await fetchDB(); else { const e = await r.json(); throw new Error(e.error || "Failed"); }
   };
 
   // Fixed Assets
   const handleSaveFixedAsset = async (payload: any) => {
-    const r = await fetch("/api/fixed-assets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const r = await authFetch("/api/fixed-assets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     if (r.ok) await fetchDB(); else { const e = await r.json(); throw new Error(e.error || "Failed"); }
   };
 
   // Month-End Close Checklist
   const handleSaveMonthEndChecklist = async (payload: any) => {
-    const r = await fetch("/api/month-end-checklist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...payload, actorEmail: activeUserEmail }) });
+    const r = await authFetch("/api/month-end-checklist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...payload, actorEmail: activeUserEmail }) });
     if (r.ok) await fetchDB(); else { const e = await r.json(); throw new Error(e.error || "Failed"); }
   };
 
   // AI OCR integration
   const handleParseRawInvoiceTextAPI = async (rawText: string) => {
-    const r = await fetch("/api/ai/parse-invoice", {
+    const r = await authFetch("/api/ai/invoice-create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rawText })
+      body: JSON.stringify({ prompt: rawText })
     });
     if (r.ok) {
       return await r.json();
     } else {
-      throw new Error("Cannot parse");
+      const e = await r.json().catch(() => ({}));
+      throw new Error(e.error || "Cannot parse");
     }
   };
 
   const handleReconcileTransactionAPI = async (payload: any) => {
-    const r = await fetch("/api/ai/reconcile", {
+    const r = await authFetch("/api/ai/reconcile", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
@@ -1040,7 +1050,10 @@ export default function App() {
   };
 
   const handleTriggerConversationalCopilotAPI = async (query: string): Promise<string> => {
-    const r = await fetch("/api/ai/copilot", {
+    // NOTE: there is currently no server-side "/api/ai/copilot" endpoint implemented.
+    // This call will always 404 and fall through to the message below. Building a real
+    // conversational AI copilot is a separate feature project, not a quick fix.
+    const r = await authFetch("/api/ai/copilot", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query })
@@ -1058,7 +1071,7 @@ export default function App() {
       setLoadingAI(true);
       setAiReportExplanation("");
       try {
-        const response = await fetch("/api/ai/explain", {
+        const response = await authFetch("/api/ai/explain-report", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
@@ -1077,7 +1090,7 @@ export default function App() {
       setReminderLoading(true);
       setReminderEmail(null);
       try {
-        const response = await fetch("/api/ai/reminders", {
+        const response = await authFetch("/api/ai/generate-reminder", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ invoice: payload })
