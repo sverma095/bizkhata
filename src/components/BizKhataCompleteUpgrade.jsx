@@ -435,8 +435,8 @@ function MultiCurrency() {
   );
 }
 
-function AuditTrail() {
-  const [logs] = useState([]);
+function AuditTrail({ db }) {
+  const logs = (db?.auditLogs || []).map(l => ({ user: l.user, action: (l.action || "").toLowerCase().includes("delet") ? "deleted" : (l.action || "").toLowerCase().includes("creat") || (l.action || "").toLowerCase().includes("add") ? "created" : (l.action || "").toLowerCase().includes("approv") ? "approved" : "updated", mod: l.action, rec: l.details || "", detail: l.details || "", time: l.timestamp }));
   const [q, setQ] = useState("");
   const colMap = { created: "green", updated: "blue", deleted: "red", approved: "green", viewed: "gray" };
   const filtered = q ? logs.filter(l => l.user.toLowerCase().includes(q.toLowerCase()) || l.rec.toLowerCase().includes(q.toLowerCase())) : logs;
@@ -770,7 +770,7 @@ export default function BizKhataCompleteUpgrade({ db }) {
   const [search, setSearch] = useState("");
   const activeModule = MODULES.find(m => m.id === active);
   const Comp = activeModule?.C || TDSModule;
-  const needsDb = active === "tds" || active === "rcm";
+  const needsDb = active === "tds" || active === "rcm" || active === "audit";
   const filtered = search ? MODULES.filter(m => m.label.toLowerCase().includes(search.toLowerCase())) : null;
 
   return (
