@@ -884,14 +884,21 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                   </thead>
                   <tbody className="divide-y divide-[#E5E1D8]/40">
                     {db.bills.map(b => (
-                      <tr key={b.id} className="hover:bg-[#F5F2ED]/40 transition-all text-[#2C2C24]">
-                        <td className="py-3 px-3 font-mono font-semibold text-[#5A5A40] text-xs">{b.billNumber}</td>
+                      <React.Fragment key={b.id}>
+                      <tr className="hover:bg-[#F5F2ED]/40 transition-all text-[#2C2C24]">
+                        <td className="py-3 px-3 font-mono font-semibold text-[#5A5A40] text-xs">
+                          {b.billNumber}
+                          {b.isReverseCharge && <span className="ml-1.5 text-[8.5px] font-black bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded border border-amber-200 align-middle">RCM</span>}
+                        </td>
                         <td className="py-3 px-3 font-semibold text-[#2C2C24]">{b.vendorName}</td>
                         <td className="py-3 px-3 text-[#8C867A]">{b.date}</td>
                         <td className="py-3 px-3 text-[#8C867A]">{b.dueDate}</td>
                         <td className="py-3 px-3 text-right font-mono">₹{b.subtotal.toLocaleString('en-IN')}</td>
                         <td className="py-3 px-3 text-right font-mono text-[#8C867A] font-medium">₹{b.totalGst.toLocaleString('en-IN')}</td>
-                        <td className="py-3 px-3 text-right font-mono font-bold text-[#2C2C24]">₹{b.total.toLocaleString('en-IN')}</td>
+                        <td className="py-3 px-3 text-right font-mono font-bold text-[#2C2C24]">
+                          ₹{b.total.toLocaleString('en-IN')}
+                          {(b.tdsAmount || 0) > 0 && <div className="text-[9px] font-sans font-semibold text-indigo-500 normal-case">less TDS ₹{b.tdsAmount.toLocaleString('en-IN')}</div>}
+                        </td>
                         <td className="py-3 px-3 text-center">
                           <span className={`text-[9.5px] px-2 py-0.5 rounded border font-bold ${
                             b.status === "Paid" 
@@ -932,6 +939,22 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                           </div>
                         </td>
                       </tr>
+                      {b.isReverseCharge && (
+                        <tr>
+                          <td colSpan={9} className="px-3 pb-3">
+                            <div className="bg-amber-50/60 border border-amber-200 rounded-lg px-4 py-2.5 flex items-center justify-between text-[11px]">
+                              <div className="text-amber-800 font-semibold">Reverse Charge Summary</div>
+                              <div className="flex items-center gap-6">
+                                <span className="text-amber-700">Self-Assessed GST: <span className="font-mono font-bold">₹{b.totalGst.toLocaleString('en-IN')}</span></span>
+                                <span className={`text-[9.5px] font-bold px-2 py-0.5 rounded-full ${b.rcmGstPaid ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                                  {b.rcmGstPaid ? "Deposited to Government" : "Pending Deposit"}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      </React.Fragment>
                     ))}
                   </tbody>
                 </table>

@@ -1109,14 +1109,20 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                             e.target.checked ? s.add(inv.id) : s.delete(inv.id); setSelectedIds(s);
                           }} className="accent-blue-600 cursor-pointer" />
                         </td>
-                        <td className="py-3 px-3 font-mono font-bold text-blue-700 text-xs">{inv.invoiceNumber}</td>
+                        <td className="py-3 px-3 font-mono font-bold text-blue-700 text-xs">
+                          {inv.invoiceNumber}
+                          {(inv.tdsAmount || 0) > 0 && <span className="ml-1.5 text-[8.5px] font-black bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-200 align-middle">TDS</span>}
+                        </td>
                         <td className="py-3 px-3">
                           <div className="font-semibold text-slate-800">{inv.customerName}</div>
                           <div className="text-[10px] text-slate-400">{db.customers.find(c=>c.id===inv.customerId)?.gstin || 'Unregistered'}</div>
                         </td>
                         <td className="py-3 px-3 text-slate-600">{inv.date}</td>
                         <td className={`py-3 px-3 ${isOverdue?'text-red-600 font-semibold':' text-slate-600'}`}>{inv.dueDate}{isOverdue&&<span className="ml-1 text-[9px] bg-red-100 text-red-600 px-1 rounded">OVERDUE</span>}</td>
-                        <td className="py-3 px-3 text-right font-mono font-bold text-slate-900">₹{inv.total.toLocaleString('en-IN')}</td>
+                        <td className="py-3 px-3 text-right font-mono font-bold text-slate-900">
+                          ₹{inv.total.toLocaleString('en-IN')}
+                          {(inv.tdsAmount || 0) > 0 && <div className="text-[9px] font-sans font-semibold text-indigo-500">TDS ₹{inv.tdsAmount.toLocaleString('en-IN')} deducted</div>}
+                        </td>
                         <td className={`py-3 px-3 text-right font-mono font-bold ${balanceDue>0?'text-red-600':'text-emerald-600'}`}>
                           {balanceDue > 0 ? `₹${balanceDue.toLocaleString('en-IN')}` : '✓ Paid'}
                         </td>
