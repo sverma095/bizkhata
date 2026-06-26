@@ -120,6 +120,13 @@ export interface Invoice {
   totalIgst: number;
   total: number;
   tcsAmount?: number; // TCS collected under Section 206C(1H), if applicable
+  tdsAmount?: number; // TDS deducted at source by the customer, if applicable
+  tdsRate?: number;
+  tdsSection?: string; // e.g. "194J", "194Q" — under Section 393 (IT Act 2025) for filing
+  discountValue?: number;
+  discountType?: 'flat' | 'percent';
+  shippingCharge?: number;
+  otherCharges?: number;
   status: 'Draft' | 'Sent' | 'Approved' | 'Paid' | 'Cancelled' | 'E-Invoiced' | 'Digitally Signed' | 'Converted';
   isProforma: boolean; // True if it's a proforma invoice
   paymentReceived: number;
@@ -191,6 +198,8 @@ export interface Expense {
   gstAmount: number;
   tdsAmount: number;
   tdsSection?: string; // e.g. "194C", "194J", "194I" — required for Challan 281 / Form 16A
+  isReverseCharge?: boolean; // RCM — payer self-assesses and pays GST directly to the government
+  rcmGstPaid?: boolean;
   paymentMode: string;
   total: number; // subtotal + gstAmount - tdsAmount
   attachmentUrl?: string;
@@ -228,6 +237,8 @@ export interface Bill {
   paymentPaid: number;
   isReverseCharge?: boolean; // RCM — buyer is liable to self-pay GST on this bill
   rcmGstPaid?: boolean; // whether the self-assessed RCM GST has been deposited
+  tdsAmount?: number; // TDS deducted at source when paying this vendor bill
+  tdsSection?: string; // e.g. "194C", "194J" — under Section 393 (IT Act 2025) for filing
 }
 
 export interface JournalLine {

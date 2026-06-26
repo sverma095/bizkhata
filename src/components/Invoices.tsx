@@ -349,6 +349,13 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
 
     const finalStatus = overrideStatus || (isProforma ? "Draft" : "Approved");
 
+    // Mirror the "Grand Total" shown to the user: subtotal+gst, adjusted for discount/
+    // shipping/other charges, less TDS deducted at source, then optionally rounded.
+    // (Previously this silently fell back to liveResults.total and ignored all of that —
+    // so the saved invoice amount never matched what the customer was actually shown.)
+    const netBeforeRound = finalTotal - tdsAmount;
+    const netTotal = roundingOff ? Math.round(netBeforeRound) : Math.round(netBeforeRound * 100) / 100;
+
     const invoicePayload: any = {
       customerId,
       customerName: cust.name,
@@ -360,8 +367,11 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
       totalCgst: liveResults.cgst,
       totalSgst: liveResults.sgst,
       totalIgst: liveResults.igst,
-      total: liveResults.total,
+      total: netTotal,
       tcsAmount: applyTcs ? Math.round(liveResults.total * 0.001 * 100) / 100 : undefined,
+      tdsAmount: tdsAmount || undefined,
+      tdsRate: tdsSection ? tdsRate : undefined,
+      tdsSection: tdsSection || undefined,
       status: finalStatus,
       isProforma,
       paymentReceived: editingInvoice?.paymentReceived || 0,

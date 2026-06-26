@@ -60,6 +60,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
   const [expCategory, setExpCategory] = useState("software_subscription");
   const [expSubtotal, setExpSubtotal] = useState(0);
   const [expGst, setExpGst] = useState(0);
+  const [expIsRcm, setExpIsRcm] = useState(false);
   const [expTds, setExpTds] = useState(0);
   const [expTdsSection, setExpTdsSection] = useState("194C");
   const [expMode, setExpMode] = useState("Corporate Card");
@@ -72,6 +73,8 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
   const [billDueDate, setBillDueDate] = useState(new Date().toISOString().split('T')[0]);
   const [billSubtotal, setBillSubtotal] = useState(0);
   const [billGstRate, setBillGstRate] = useState(18);
+  const [billTds, setBillTds] = useState(0);
+  const [billTdsSection, setBillTdsSection] = useState("194C");
   const [billIsRcm, setBillIsRcm] = useState(false);
 
   // Bill Pay State
@@ -119,14 +122,18 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
         tdsAmount: Number(expTds),
         tdsSection: expTds > 0 ? expTdsSection : undefined,
         paymentMode: expMode,
-        total: Number(expSubtotal) + Number(expGst) - Number(expTds),
+        // Under RCM, GST isn't paid to the vendor — it's self-assessed and paid to the
+        // government directly, so it's excluded from the cash amount settled here.
+        total: (expIsRcm ? Number(expSubtotal) : Number(expSubtotal) + Number(expGst)) - Number(expTds),
+        isReverseCharge: expIsRcm || undefined,
+        rcmGstPaid: expIsRcm ? false : undefined,
         attachmentName: expAttachmentName || undefined,
         status: finalStatus
       });
 
       setShowExpenseForm(false);
       // clean
-      setExpVendor(""); setExpSubtotal(0); setExpGst(0); setExpTds(0); setExpAttachmentName("");
+      setExpVendor(""); setExpSubtotal(0); setExpGst(0); setExpTds(0); setExpIsRcm(false); setExpAttachmentName("");
     } catch (err: any) {
       alert(err.message || "Could not save expense. Please check your connection and try again.");
     }
@@ -147,7 +154,9 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
     // Under RCM, the vendor does NOT charge GST on the bill — the buyer self-assesses
     // and pays it directly to the government. The bill total payable to the vendor
     // therefore excludes GST; the GST liability is tracked separately via isReverseCharge.
-    const billTotal = billIsRcm ? sub : sub + gstAmt;
+    // TDS deducted at source is withheld from the vendor and owed to the government instead,
+    // so it also reduces the net amount actually payable to the vendor.
+    const billTotal = (billIsRcm ? sub : sub + gstAmt) - Number(billTds);
 
     try {
       await onAddBill({
@@ -178,12 +187,14 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
         status: "Approved",
         paymentPaid: 0,
         isReverseCharge: billIsRcm,
-        rcmGstPaid: false
+        rcmGstPaid: false,
+        tdsAmount: Number(billTds) || undefined,
+        tdsSection: billTds > 0 ? billTdsSection : undefined
       });
 
       setShowBillForm(false);
       // clean
-      setBillNumber(""); setBillSubtotal(0);
+      setBillNumber(""); setBillSubtotal(0); setBillTds(0);
     } catch (err: any) {
       alert(err.message || "Could not save bill. Please check your connection and try again.");
     }
@@ -456,6 +467,17 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                 />
               </div>
 
+              {expGst > 0 && (
+                <div className="space-y-1.5 md:col-span-4">
+                  <label className="flex items-center gap-2 cursor-pointer bg-amber-50 border border-amber-200 rounded-lg p-2.5">
+                    <input type="checkbox" checked={expIsRcm} onChange={e => setExpIsRcm(e.target.checked)} className="accent-amber-600" />
+                    <span className="text-xs text-amber-800">
+                      <span className="font-bold">Reverse Charge Mechanism (RCM)</span> — vendor did not charge this GST; you self-assess and pay it directly to the government.
+                    </span>
+                  </label>
+                </div>
+              )}
+
               <div className="space-y-1.5">
                 <label className="text-slate-400">TDS Withheld (Crediting Tax Liability) (₹)</label>
                 <input 
@@ -656,15 +678,34 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                 </label>
               </div>
 
+              <div className="space-y-1.5 col-span-2">
+                <label className="text-xs font-bold text-[#5A5A40]">TDS Deducted at Source (₹)</label>
+                <input
+                  type="number" min={0} value={billTds}
+                  onChange={(e) => setBillTds(parseFloat(e.target.value) || 0)}
+                  className="w-full px-3 py-2 border border-[#E5E1D8] rounded text-sm"
+                />
+                {billTds > 0 && (
+                  <select value={billTdsSection} onChange={e => setBillTdsSection(e.target.value)}
+                    className="w-full px-3 py-2 border border-[#E5E1D8] rounded text-xs mt-1">
+                    <option value="194C">194C — Contractor Payments @ 1-2%</option>
+                    <option value="194J">194J — Professional/Technical Fees @ 10%</option>
+                    <option value="194I">194I — Rent @ 2-10%</option>
+                    <option value="194Q">194Q — Purchase of Goods @ 0.1%</option>
+                  </select>
+                )}
+              </div>
+
               {/* Calculations review */}
               <div className="bg-slate-100 p-3 rounded border border-slate-200 flex justify-between items-center text-xs font-mono select-none">
                 <div className="text-slate-500">
                   <p>{billIsRcm ? "Self-Assessed GST (RCM)" : "Incurred GST"}: ₹{(billSubtotal * billGstRate) / 100}</p>
                   {billIsRcm && <p className="text-[10px] text-amber-600 font-sans">Not paid to vendor — pay this directly via GST portal.</p>}
+                  {billTds > 0 && <p className="text-indigo-500">less TDS withheld: ₹{billTds} (cr. TDS Payable)</p>}
                 </div>
                 <div className="text-right">
                   <p className="text-[10px] text-slate-500 font-normal font-sans text-slate-400">{billIsRcm ? "Payable to vendor (excl. GST):" : "Total payable sum:"}</p>
-                  <p className="text-indigo-400 font-bold">₹{billIsRcm ? billSubtotal : billSubtotal + (billSubtotal * billGstRate) / 100}</p>
+                  <p className="text-indigo-400 font-bold">₹{(billIsRcm ? billSubtotal : billSubtotal + (billSubtotal * billGstRate) / 100) - billTds}</p>
                 </div>
               </div>
             </div>

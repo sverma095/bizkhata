@@ -2372,9 +2372,11 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
                     <p className="text-[10.5px] text-slate-500">Bills where you, as the buyer, are liable to self-assess and deposit GST instead of the vendor charging it.</p>
                   </div>
                   {(() => {
-                    const rcmBills = filteredBills.filter((b: any) => b.isReverseCharge);
-                    const totalRcmGst = rcmBills.reduce((s: number, b: any) => s + (b.totalGst || 0), 0);
-                    const unpaidRcmGst = rcmBills.filter((b: any) => !b.rcmGstPaid).reduce((s: number, b: any) => s + (b.totalGst || 0), 0);
+                    const rcmBills = filteredBills.filter((b: any) => b.isReverseCharge).map((b: any) => ({ ...b, _docType: "Bill", _docNo: b.billNumber, _party: b.vendorName }));
+                    const rcmExpenses = filteredExpenses.filter((e: any) => e.isReverseCharge).map((e: any) => ({ ...e, _docType: "Expense", _docNo: e.id, _party: e.vendorName }));
+                    const rcmItems = [...rcmBills, ...rcmExpenses];
+                    const totalRcmGst = rcmItems.reduce((s: number, b: any) => s + (b.gstAmount ?? b.totalGst ?? 0), 0);
+                    const unpaidRcmGst = rcmItems.filter((b: any) => !b.rcmGstPaid).reduce((s: number, b: any) => s + (b.gstAmount ?? b.totalGst ?? 0), 0);
                     return (
                       <>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -2390,18 +2392,19 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
                         <div className="overflow-x-auto border border-slate-200 rounded-xl">
                           <table className="w-full text-left text-xs">
                             <thead><tr className="border-b border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-500 uppercase">
-                              <th className="py-2.5 px-4">Bill #</th><th className="py-2.5 px-4">Vendor</th><th className="py-2.5 px-4">Date</th><th className="py-2.5 px-4 text-right">Taxable Value</th><th className="py-2.5 px-4 text-right">RCM GST</th><th className="py-2.5 px-4 text-center">Status</th>
+                              <th className="py-2.5 px-4">Source</th><th className="py-2.5 px-4">Doc #</th><th className="py-2.5 px-4">Vendor</th><th className="py-2.5 px-4">Date</th><th className="py-2.5 px-4 text-right">Taxable Value</th><th className="py-2.5 px-4 text-right">RCM GST</th><th className="py-2.5 px-4 text-center">Status</th>
                             </tr></thead>
                             <tbody className="divide-y divide-slate-100">
-                              {rcmBills.length === 0 ? (
-                                <tr><td colSpan={6} className="text-center py-8 text-slate-400">No RCM bills in this period.</td></tr>
-                              ) : rcmBills.map((b: any) => (
-                                <tr key={b.id} className="hover:bg-slate-50">
-                                  <td className="py-2 px-4 font-mono font-semibold text-slate-800">{b.billNumber}</td>
-                                  <td className="py-2 px-4 text-slate-600">{b.vendorName}</td>
+                              {rcmItems.length === 0 ? (
+                                <tr><td colSpan={7} className="text-center py-8 text-slate-400">No RCM bills or expenses in this period.</td></tr>
+                              ) : rcmItems.map((b: any) => (
+                                <tr key={`${b._docType}_${b.id}`} className="hover:bg-slate-50">
+                                  <td className="py-2 px-4 text-slate-500">{b._docType}</td>
+                                  <td className="py-2 px-4 font-mono font-semibold text-slate-800">{b._docNo}</td>
+                                  <td className="py-2 px-4 text-slate-600">{b._party}</td>
                                   <td className="py-2 px-4 font-mono text-slate-500">{b.date}</td>
                                   <td className="py-2 px-4 text-right font-mono">₹{b.subtotal.toLocaleString("en-IN")}</td>
-                                  <td className="py-2 px-4 text-right font-mono font-bold text-amber-700">₹{b.totalGst.toLocaleString("en-IN")}</td>
+                                  <td className="py-2 px-4 text-right font-mono font-bold text-amber-700">₹{(b.gstAmount ?? b.totalGst).toLocaleString("en-IN")}</td>
                                   <td className="py-2 px-4 text-center">
                                     <span className={`text-[9.5px] font-bold px-2 py-0.5 rounded-full ${b.rcmGstPaid ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
                                       {b.rcmGstPaid ? "Deposited" : "Pending"}

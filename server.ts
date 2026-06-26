@@ -421,6 +421,7 @@ const DEFAULT_ACCOUNTS: Account[] = [
   { code: "service_income", name: "Service Income", type: "Income", balance: 0 },
   // Expenses
   { code: "salary_expense", name: "Salary Expense", type: "Expense", balance: 0 },
+  { code: "purchases_expense", name: "Purchases / Cost of Goods & Services", type: "Expense", balance: 0 },
   { code: "contractor_expense", name: "Contractor Expense", type: "Expense", balance: 0 },
   { code: "rent", name: "Rent", type: "Expense", balance: 0 },
   { code: "software_subscription", name: "Software Subscription", type: "Expense", balance: 0 },
@@ -1176,6 +1177,19 @@ function createInvoiceJournal(invoice: any, company: any) {
     });
   }
 
+  // Debit TDS Receivable — customer deducted this at source; we still expect to recover
+  // it as a tax credit, so it's an asset, not a write-off. (invoice.total above is already
+  // net of TDS, so this line plus the AR debit reconciles back to subtotal+GST.)
+  if (invoice.tdsAmount > 0) {
+    lines.push({
+      id: uuid(),
+      accountCode: "tds_receivable",
+      accountName: `TDS Receivable (Sec ${invoice.tdsSection || "—"})`,
+      debit: invoice.tdsAmount,
+      credit: 0
+    });
+  }
+
   return {
     id: `j_inv_${invoice.id}`,
     date: invoice.date,
@@ -1429,6 +1443,18 @@ app.post("/api/expenses", authGuard, async (req: any, res: any) => {
         debit: exp.gstAmount,
         credit: 0
       });
+      // Reverse Charge: vendor didn't collect this GST — payer self-assesses and owes
+      // it directly to the government. Without this, the RCM liability never appeared
+      // as Payable anywhere (same bug as on vendor Bills).
+      if (exp.isReverseCharge) {
+        lines.push({
+          id: uuid(),
+          accountCode: "gst_payable",
+          accountName: "GST Payable (Reverse Charge – Self Assessed)",
+          debit: 0,
+          credit: exp.gstAmount
+        });
+      }
     }
 
     if (exp.tdsAmount > 0) {
@@ -1446,7 +1472,7 @@ app.post("/api/expenses", authGuard, async (req: any, res: any) => {
       accountCode: "bank_account",
       accountName: "Bank Account (Settling Cash Outflow)",
       debit: 0,
-      credit: exp.subtotal + exp.gstAmount - exp.tdsAmount
+      credit: (exp.isReverseCharge ? exp.subtotal : exp.subtotal + exp.gstAmount) - exp.tdsAmount
     });
 
     db.journals.push({
@@ -1509,8 +1535,8 @@ app.post("/api/bills", authGuard, async (req: any, res: any) => {
     const lines: JournalLine[] = [
       {
         id: uuid(),
-        accountCode: "salary_expense", // Defaulting vendor stationery or expense representation
-        accountName: "General Admin/Purchased Expense",
+        accountCode: "purchases_expense",
+        accountName: "Purchases / Cost of Goods & Services",
         debit: bill.subtotal,
         credit: 0
       }
@@ -1523,6 +1549,30 @@ app.post("/api/bills", authGuard, async (req: any, res: any) => {
         accountName: "Input GST Asset",
         debit: bill.totalGst,
         credit: 0
+      });
+      // Under Reverse Charge (RCM), the vendor does NOT charge/collect this GST — the
+      // buyer self-assesses and owes it directly to the government. Previously this case
+      // debited Input GST (claiming a credit) without ever recording the matching
+      // liability, so the self-assessed RCM GST never showed up anywhere as payable.
+      if (bill.isReverseCharge) {
+        lines.push({
+          id: uuid(),
+          accountCode: "gst_payable",
+          accountName: "GST Payable (Reverse Charge – Self Assessed)",
+          debit: 0,
+          credit: bill.totalGst
+        });
+      }
+    }
+
+    // TDS deducted at source when paying this vendor — owed to the government, not the vendor.
+    if (bill.tdsAmount > 0) {
+      lines.push({
+        id: uuid(),
+        accountCode: "tds_payable",
+        accountName: `TDS Payable (Sec ${bill.tdsSection || "—"})`,
+        debit: 0,
+        credit: bill.tdsAmount
       });
     }
 
