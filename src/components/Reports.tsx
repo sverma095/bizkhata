@@ -432,25 +432,6 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
   const filteredExpensesTotal = filteredExpenses.reduce((s: number, e: any) => s + (e.total || 0), 0);
   const filteredNetProfit = filteredSalesRevenue - filteredExpensesTotal;
 
-  // ── Real MIS KPIs (no fabricated fallbacks) ──
-  // Cost of Goods/Services sold approximated as direct expense accounts; EBITDA adds back
-  // depreciation & interest (both tracked as their own expense account codes if present).
-  const depreciationExpense = getAccountBalance("depreciation_expense");
-  const interestExpense = getAccountBalance("interest_expense");
-  const ebitda = netProfit + depreciationExpense + interestExpense;
-  const ebitdaMargin = totalRevenue > 0 ? (ebitda / totalRevenue) * 100 : null;
-  const grossMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : null;
-
-  // DSO — Days Sales Outstanding: (Accounts Receivable / Total Credit Sales) x days in period
-  const periodDays = Math.max(1, Math.ceil((new Date(toDate).getTime() - new Date(fromDate).getTime()) / 86400000) + 1);
-  const dso = filteredSalesRevenue > 0 ? (receivables / filteredSalesRevenue) * periodDays : null;
-  // DPO — Days Payable Outstanding: (Accounts Payable / Total Credit Purchases) x days in period
-  const dpo = filteredBillsTotal > 0 ? (payables / filteredBillsTotal) * periodDays : null;
-
-  // Collection Efficiency — Payments actually received vs invoices raised in period
-  const collectionEfficiency = filteredSalesRevenue + (filteredInvoices.reduce((s,i)=>s+(i.totalGst||0),0)) > 0
-    ? (filteredPaymentsReceived / (filteredInvoices.reduce((s: number, i: any) => s + i.total, 0) || 1)) * 100
-    : null;
 
   const salesIncome = getAccountBalance("sales_income");
   const serviceIncome = getAccountBalance("service_income");
@@ -470,6 +451,26 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
   const payables = getAccountBalance("accounts_payable");
   const gstPayable = getAccountBalance("gst_payable");
   const tdsPayable = getAccountBalance("tds_payable");
+
+  // ── Real MIS KPIs (no fabricated fallbacks) ──
+  // Cost of Goods/Services sold approximated as direct expense accounts; EBITDA adds back
+  // depreciation & interest (both tracked as their own expense account codes if present).
+  const depreciationExpense = getAccountBalance("depreciation_expense");
+  const interestExpense = getAccountBalance("interest_expense");
+  const ebitda = netProfit + depreciationExpense + interestExpense;
+  const ebitdaMargin = totalRevenue > 0 ? (ebitda / totalRevenue) * 100 : null;
+  const grossMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : null;
+
+  // DSO — Days Sales Outstanding: (Accounts Receivable / Total Credit Sales) x days in period
+  const periodDays = Math.max(1, Math.ceil((new Date(toDate).getTime() - new Date(fromDate).getTime()) / 86400000) + 1);
+  const dso = filteredSalesRevenue > 0 ? (receivables / filteredSalesRevenue) * periodDays : null;
+  // DPO — Days Payable Outstanding: (Accounts Payable / Total Credit Purchases) x days in period
+  const dpo = filteredBillsTotal > 0 ? (payables / filteredBillsTotal) * periodDays : null;
+
+  // Collection Efficiency — Payments actually received vs invoices raised in period
+  const collectionEfficiency = filteredSalesRevenue + (filteredInvoices.reduce((s,i)=>s+(i.totalGst||0),0)) > 0
+    ? (filteredPaymentsReceived / (filteredInvoices.reduce((s: number, i: any) => s + i.total, 0) || 1)) * 100
+    : null;
   const totalLiabilities = payables + gstPayable + tdsPayable;
   const capital = getAccountBalance("capital");
   const retainedEarnings = getAccountBalance("retained_earnings") + netProfit;

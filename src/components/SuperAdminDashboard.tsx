@@ -37,6 +37,17 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
   const [pendingActionReg, setPendingActionReg] = useState<RegistrationRequest | null>(null);
   const [actionFeedback, setActionFeedback] = useState('');
 
+  // SaaS Owner: new tenant enrollment form (merged in from the old separate Owner console)
+  const [showNewOrgForm, setShowNewOrgForm] = useState(false);
+  const [newOrgName, setNewOrgName] = useState('');
+  const [newOrgLegal, setNewOrgLegal] = useState('');
+  const [newOrgPan, setNewOrgPan] = useState('');
+  const [newOrgGstin, setNewOrgGstin] = useState('');
+  const [newOrgSeats, setNewOrgSeats] = useState(4);
+  const [newOrgPackage, setNewOrgPackage] = useState('Standard');
+  const [newOrgPricing, setNewOrgPricing] = useState(2499);
+  const [newOrgEmail, setNewOrgEmail] = useState('');
+
   const loadAllData = async () => {
     setLoading(true);
     try {
@@ -80,6 +91,38 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
   };
 
   // Organization modification (Suspend, Seat Allocations)
+  const handleAddOrg = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newOrgName || !newOrgEmail) {
+      showFeedback("Business Name and registered customer email are mandatory.", true);
+      return;
+    }
+    try {
+      const res = await fetch('/api/superadmin/organizations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          name: newOrgName,
+          legalName: newOrgLegal,
+          pan: newOrgPan,
+          gstNumber: newOrgGstin,
+          purchasedSeats: newOrgSeats,
+          packageType: newOrgPackage,
+          pricingMonthly: newOrgPricing,
+          registeredEmail: newOrgEmail
+        })
+      });
+      if (!res.ok) { const e2 = await res.json(); throw new Error(e2.error || 'Failed to enroll organization.'); }
+      showFeedback(`Enrolled '${newOrgName}' successfully.`);
+      setShowNewOrgForm(false);
+      setNewOrgName(''); setNewOrgLegal(''); setNewOrgPan(''); setNewOrgGstin('');
+      setNewOrgSeats(4); setNewOrgPackage('Standard'); setNewOrgPricing(2499); setNewOrgEmail('');
+      loadAllData();
+    } catch (err: any) {
+      showFeedback(err.message || 'Failed to enroll organization.', true);
+    }
+  };
+
   const handleUpdateOrg = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingOrg) return;
@@ -416,23 +459,74 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
           {/* TAB 1: MANAGE TENANT ORGANIZATIONS */}
           {activeTab === 'orgs' && (
             <div className="space-y-6">
+              {/* SaaS Owner: Platform metrics (merged from old Owner console) */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-xs space-y-1">
+                  <p className="text-[9.5px] uppercase font-black text-slate-400 tracking-wider">Enrolled Tenant Businesses</p>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-black text-slate-800">{organizations.length}</span>
+                    <span className="text-xs text-slate-550">SME Corporations</span>
+                  </div>
+                </div>
+                <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-xs space-y-1">
+                  <p className="text-[9.5px] uppercase font-black text-slate-400 tracking-wider">Licensed Seating Capacity</p>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-black text-slate-800">{organizations.reduce((acc, curr) => acc + (curr.allocatedSeats || 0), 0)}</span>
+                    <span className="text-xs text-slate-550">Active Seats</span>
+                  </div>
+                </div>
+                <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-xs space-y-1">
+                  <p className="text-[9.5px] uppercase font-black text-slate-400 tracking-wider">Platform MRR (Consolidated)</p>
+                  <div className="flex items-baseline gap-1 text-emerald-700">
+                    <span className="text-2xl font-black">₹{organizations.reduce((acc, curr) => acc + (curr.pricingMonthly || 0), 0).toLocaleString('en-IN')}</span>
+                    <span className="text-[10px] font-bold">/ month</span>
+                  </div>
+                </div>
+              </div>
+
               <div className="flex justify-between items-center gap-4 flex-wrap">
                 <div>
                   <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest">Active Client Databases</h3>
                   <p className="text-xs text-slate-400 font-medium">Suspend profiles or adjust hard organizational seat scales manually.</p>
                 </div>
-                <div className="relative max-w-xs w-full">
-                  <input
-                    type="text"
-                    id="su-search-org"
-                    placeholder="Search by company or GSTIN..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 focus:outline-hidden rounded-lg"
-                  />
-                  <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-slate-400" />
+                <div className="flex gap-2 items-center">
+                  <div className="relative max-w-xs w-full">
+                    <input
+                      type="text"
+                      id="su-search-org"
+                      placeholder="Search by company or GSTIN..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 focus:outline-hidden rounded-lg"
+                    />
+                    <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-slate-400" />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowNewOrgForm(!showNewOrgForm)}
+                    className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-4 py-2 rounded-lg cursor-pointer flex items-center gap-1.5 transition shadow-xs whitespace-nowrap"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Enroll New Subscriber
+                  </button>
                 </div>
               </div>
+
+              {showNewOrgForm && (
+                <form onSubmit={handleAddOrg} className="bg-[#FAF9F5] border border-amber-200 rounded-2xl p-5 shadow-xs grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                  <input required placeholder="Business Name*" value={newOrgName} onChange={e => setNewOrgName(e.target.value)} className="px-3 py-2 border border-slate-200 rounded-lg" />
+                  <input placeholder="Legal Name" value={newOrgLegal} onChange={e => setNewOrgLegal(e.target.value)} className="px-3 py-2 border border-slate-200 rounded-lg" />
+                  <input required type="email" placeholder="Registered Email*" value={newOrgEmail} onChange={e => setNewOrgEmail(e.target.value)} className="px-3 py-2 border border-slate-200 rounded-lg" />
+                  <input placeholder="PAN" value={newOrgPan} onChange={e => setNewOrgPan(e.target.value)} className="px-3 py-2 border border-slate-200 rounded-lg" />
+                  <input placeholder="GSTIN" value={newOrgGstin} onChange={e => setNewOrgGstin(e.target.value)} className="px-3 py-2 border border-slate-200 rounded-lg" />
+                  <input type="number" min={1} placeholder="Seats" value={newOrgSeats} onChange={e => setNewOrgSeats(Number(e.target.value))} className="px-3 py-2 border border-slate-200 rounded-lg" />
+                  <input placeholder="Package Type" value={newOrgPackage} onChange={e => setNewOrgPackage(e.target.value)} className="px-3 py-2 border border-slate-200 rounded-lg" />
+                  <input type="number" min={0} placeholder="Monthly Price (₹)" value={newOrgPricing} onChange={e => setNewOrgPricing(Number(e.target.value))} className="px-3 py-2 border border-slate-200 rounded-lg" />
+                  <div className="flex gap-2 items-center justify-end">
+                    <button type="button" onClick={() => setShowNewOrgForm(false)} className="px-3 py-2 text-slate-500 font-bold">Cancel</button>
+                    <button type="submit" className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg">Save</button>
+                  </div>
+                </form>
+              )}
 
               {/* Org list table */}
               <div className="overflow-x-auto">

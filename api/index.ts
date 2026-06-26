@@ -1698,126 +1698,36 @@ app.post("/api/users/remove", authGuard, async (req: any, res: any) => {
 });
 
 // Owner SaaS Console APIs
-app.post("/api/owner/organization/add", authGuard, async (req: any, res: any) => {
-  const orgId = req.user.organizationId;
-  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
-  const db = await readDB(orgId);
-  const { name, legalName, pan, gstin, purchasedSeats, packageType, pricingMonthly, purchaseStatus, registeredEmail } = req.body;
-
-  if (!name || !legalName || !registeredEmail) {
-    return res.status(400).json({ error: "Missing required organization parameters (Name, Legal Name, and Registered Email are mandatory)." });
+// NOTE: previously this route (and /update, /delete below it) used only `authGuard` with
+// no role check, and wrote into the *calling user's own tenant DB* via readDB(req.user.organizationId)
+// instead of the real platform-wide USER_DB.organizations store used by /api/superadmin/*.
+// That meant: (a) any logged-in user of any role could call it, and (b) the "SaaS Owner" org
+// list it produced was never the same data Super Admin saw. Replaced with a single, properly
+// guarded route below that writes to the real platform store.
+app.post("/api/superadmin/organizations", authGuard, superAdminGuard, (req: any, res: any) => {
+  const { name, legalName, pan, gstNumber, purchasedSeats, packageType, pricingMonthly, registeredEmail } = req.body;
+  if (!name || !registeredEmail) {
+    return res.status(400).json({ error: "Organization name and registered email are required." });
   }
-
-  if (!db.organizations) db.organizations = [];
-
   const newOrg = {
     id: `org_${uuid()}`,
     name,
-    legalName,
-    pan: pan || "PFXYZ1234F",
-    gstin: gstin || "",
-    purchasedSeats: Number(purchasedSeats || 4),
+    legalName: legalName || name,
+    pan: pan || "",
+    gstNumber: gstNumber || "",
+    allocatedSeats: Number(purchasedSeats || 4),
+    usedSeats: 0,
     packageType: packageType || "Standard",
     pricingMonthly: Number(pricingMonthly || 2499),
-    purchaseStatus: purchaseStatus || "Active",
-    registeredEmail: registeredEmail.toLowerCase()
+    status: "Active",
+    registeredEmail: registeredEmail.toLowerCase(),
+    createdAt: new Date().toISOString()
   };
-
-  db.organizations.push(newOrg);
-
-  db.auditLogs.unshift({
-    id: uuid(),
-    timestamp: new Date().toISOString(),
-    user: "Platform SaaS Owner",
-    action: "Register Organization Purchased",
-    details: `Enrolled new customer organization '${name}' licensed for ${purchasedSeats} corporate user seats.`
-  });
-
-  await writeDB(orgId, db);
-  res.json({ success: true, db });
+  USER_DB.organizations.push(newOrg);
+  addAuditLog(null, req.user.fullName, req.user.role, "Register Organization", `Enrolled new customer organization '${name}' for ${newOrg.allocatedSeats} seats.`);
+  res.json(newOrg);
 });
 
-app.post("/api/owner/organization/update", authGuard, async (req: any, res: any) => {
-  const orgId = req.user.organizationId;
-  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
-  const db = await readDB(orgId);
-  const { id, name, legalName, pan, gstin, purchasedSeats, packageType, pricingMonthly, purchaseStatus, registeredEmail } = req.body;
-
-  if (!id) {
-    return res.status(400).json({ error: "Missing required parameter: id" });
-  }
-
-  if (!db.organizations) db.organizations = [];
-
-  const orgIdx = db.organizations.findIndex(o => o.id === id);
-  if (orgIdx === -1) {
-    return res.status(404).json({ error: "Organization record not found." });
-  }
-
-  const existing = db.organizations[orgIdx];
-  const updatedOrg = {
-    ...existing,
-    name: name || existing.name,
-    legalName: legalName || existing.legalName,
-    pan: pan !== undefined ? pan : existing.pan,
-    gstin: gstin !== undefined ? gstin : existing.gstin,
-    purchasedSeats: purchasedSeats !== undefined ? Number(purchasedSeats) : existing.purchasedSeats,
-    packageType: packageType || existing.packageType,
-    pricingMonthly: pricingMonthly !== undefined ? Number(pricingMonthly) : existing.pricingMonthly,
-    purchaseStatus: purchaseStatus || existing.purchaseStatus,
-    registeredEmail: registeredEmail ? registeredEmail.toLowerCase() : existing.registeredEmail
-  };
-
-  db.organizations[orgIdx] = updatedOrg;
-
-  db.auditLogs.unshift({
-    id: uuid(),
-    timestamp: new Date().toISOString(),
-    user: "Platform SaaS Owner",
-    action: "Update Organization Profile",
-    details: `Updated subscription parameters for '${updatedOrg.name}' (License: ${updatedOrg.purchasedSeats} total seats).`
-  });
-
-  // If this matches our current organization name, let's sync up the seat limit!
-  if (updatedOrg.name.toLowerCase() === db.company.name.toLowerCase()) {
-    db.userSeatsLimit = updatedOrg.purchasedSeats;
-  }
-
-  await writeDB(orgId, db);
-  res.json({ success: true, db });
-});
-
-app.post("/api/owner/organization/delete", authGuard, async (req: any, res: any) => {
-  const orgId = req.user.organizationId;
-  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
-  const db = await readDB(orgId);
-  const { id } = req.body;
-
-  if (!id) {
-    return res.status(400).json({ error: "Missing organization identification: id" });
-  }
-
-  if (!db.organizations) db.organizations = [];
-
-  const orgIdx = db.organizations.findIndex(o => o.id === id);
-  if (orgIdx === -1) {
-    return res.status(404).json({ error: "Organization record not found." });
-  }
-
-  const deletedOrg = db.organizations[orgIdx];
-  db.organizations.splice(orgIdx, 1);
-
-  db.auditLogs.unshift({
-    id: uuid(),
-    timestamp: new Date().toISOString(),
-    user: "Platform SaaS Owner",
-    action: "Remove Organization Track",
-    details: `Suspended cloud tenant tracing for organization '${deletedOrg.name}' (${deletedOrg.registeredEmail}).`
-  });
-
-  await writeDB(orgId, db);
-  res.json({ success: true, db });
-});
 
 // Update Role API
 app.post("/api/role", authGuard, async (req: any, res: any) => {

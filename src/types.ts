@@ -500,6 +500,11 @@ export interface Organization {
   allocatedSeats: number;
   usedSeats: number;
   createdAt: string;
+  legalName?: string;
+  pan?: string;
+  packageType?: string;
+  pricingMonthly?: number;
+  registeredEmail?: string;
 }
 
 export interface AppUserFull {
@@ -523,6 +528,10 @@ export interface AppUserFull {
   activationCode?: string;
   resetCode?: string;
 }
+
+// AdminDashboard, SuperAdminDashboard, and UserDashboard import this as 'User' —
+// alias kept so those component files don't need touching.
+export type User = AppUserFull;
 
 export interface SeatRequest {
   id: string;
