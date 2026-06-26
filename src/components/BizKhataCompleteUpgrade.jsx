@@ -63,58 +63,35 @@ const TDS_RATES = [
 ];
 
 // ── MODULE 1: TDS ──────────────────────────────────────────────
-function TDSModule() {
+// Reads real TDS deductions already recorded on Expenses and Bills (see Purchases.tsx /
+// Reports.tsx) instead of keeping a second, disconnected local-only ledger. TDS is
+// deducted at the point you record the expense/bill — this view exists for compliance
+// filing (Challan 281 / Form 16A), not re-entry.
+function TDSModule({ db }) {
   const [tab, setTab] = useState("deductions");
-  const [txns, setTxns] = useState([]);
-  const [form, setForm] = useState({ ven: "", pan: "", sec: "393(1)(c)", amt: "", date: new Date().toISOString().split("T")[0] });
-  const pending = txns.filter(t => t.status === "pending").reduce((s, t) => s + t.tds, 0);
-  const deposited = txns.filter(t => t.status === "deposited").reduce((s, t) => s + t.tds, 0);
-  const selRate = TDS_RATES.find(r => r.s === form.sec);
-  const tdsAmt = form.amt && selRate ? ((+form.amt * selRate.r) / 100).toFixed(2) : 0;
-
-  const save = () => {
-    if (!form.ven || !form.amt) return alert("Enter vendor and amount");
-    const rec = { id: Date.now(), ven: form.ven, pan: form.pan, sec: form.sec, tax: +form.amt, rate: selRate?.r, tds: +tdsAmt, date: form.date, status: "pending" };
-    setTxns(p => [...p, rec]);
-    sbPost("tds_transactions", { vendor_name: form.ven, pan: form.pan, section: form.sec, taxable_amount: +form.amt, tds_amount: +tdsAmt });
-    setForm({ ven: "", pan: "", sec: "393(1)(c)", amt: "", date: form.date });
-  };
+  const txns = [
+    ...(db?.expenses || []).filter(e => (e.tdsAmount || 0) > 0).map(e => ({
+      id: e.id, ven: e.vendorName, pan: "", sec: e.tdsSection || "—", tax: e.subtotal, tds: e.tdsAmount, date: e.date, source: "Expense"
+    })),
+    ...(db?.bills || []).filter(b => (b.tdsAmount || 0) > 0).map(b => ({
+      id: b.id, ven: b.vendorName, pan: "", sec: b.tdsSection || "—", tax: b.subtotal, tds: b.tdsAmount, date: b.date, source: "Bill"
+    }))
+  ];
+  const pending = txns.reduce((s, t) => s + t.tds, 0);
+  const deposited = (db?.accounts || []).find(a => a.code === "tds_payable")?.balance < 0
+    ? Math.abs((db.accounts.find(a => a.code === "tds_payable")?.balance) || 0) : 0;
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">TDS Management</h2><p className="text-xs text-gray-500">IT Act 2025 — Section 393 (effective April 1, 2026)</p></div><Badge c="red">⚠ Compliance Critical</Badge></div>
-      <Metrics items={[{ l: "TDS Payable", v: "₹" + pending.toLocaleString(), c: "#A32D2D" }, { l: "Deposited YTD", v: "₹" + deposited.toLocaleString(), c: "#0F6E56" }, { l: "Transactions", v: txns.length }, { l: "Due Date", v: "7th of month", c: "#854F0B" }]} />
+      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">TDS Management</h2><p className="text-xs text-gray-500">IT Act 2025 — Section 393 (effective April 1, 2026) · live data from Expenses &amp; Bills</p></div><Badge c="red">⚠ Compliance Critical</Badge></div>
+      <Metrics items={[{ l: "TDS Payable (Outstanding)", v: "₹" + pending.toLocaleString(), c: "#A32D2D" }, { l: "Transactions", v: txns.length }, { l: "Due Date", v: "7th of month", c: "#854F0B" }]} />
       <Tabs items={[["deductions", "Deductions"], ["rates", "Rate Schedule"], ["challan", "Challan 281"], ["form16a", "Form 16A"]]} active={tab} onChange={setTab} />
       {tab === "deductions" && (
-        <div className="grid grid-cols-2 gap-4">
-          <Card>
-            <p className="text-sm font-medium mb-2">Record TDS Deduction</p>
-            <Label>Vendor Name</Label><Input value={form.ven} onChange={e => setForm({ ...form, ven: e.target.value })} placeholder="Vendor / Payee name" />
-            <Label>PAN Number</Label><Input value={form.pan} onChange={e => setForm({ ...form, pan: e.target.value.toUpperCase() })} placeholder="ABCDE1234F" maxLength={10} />
-            <Label>TDS Section</Label>
-            <Select value={form.sec} onChange={e => setForm({ ...form, sec: e.target.value })}>
-              {TDS_RATES.map(r => <option key={r.s} value={r.s}>{r.s} — {r.d} ({r.r}%)</option>)}
-            </Select>
-            <Label>Taxable Amount (₹)</Label><Input type="number" value={form.amt} onChange={e => setForm({ ...form, amt: e.target.value })} placeholder="0.00" />
-            <Label>Date</Label><Input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
-            {+tdsAmt > 0 && (
-              <div className="mt-3 p-3 bg-amber-50 border border-amber-100 rounded-lg text-xs space-y-1">
-                <p className="font-medium text-amber-800">TDS @ {selRate?.r}%</p>
-                <div className="flex justify-between"><span>TDS to deduct</span><span className="text-red-600 font-semibold text-sm">₹{(+tdsAmt).toLocaleString()}</span></div>
-                <div className="flex justify-between text-emerald-700"><span>Net payable to vendor</span><span>₹{(+form.amt - +tdsAmt).toLocaleString()}</span></div>
-              </div>
-            )}
-            <div className="flex justify-end mt-3"><Btn v="primary" onClick={save}>Save Deduction</Btn></div>
-          </Card>
-          <Card>
-            <p className="text-sm font-medium mb-2">TDS Ledger</p>
-            <Tbl headers={["Vendor", "Section", "Taxable", "TDS", "Date", "Status"]} rows={txns.map(t => [<span><p className="font-medium">{t.ven}</p><p className="text-gray-400">{t.pan}</p></span>, <Badge c="blue">{t.sec}</Badge>, "₹" + t.tax.toLocaleString(), "₹" + t.tds.toLocaleString(), t.date, <Badge c={t.status === "deposited" ? "green" : "amber"}>{t.status}</Badge>])} />
-            <div className="flex gap-2 mt-3">
-              <Btn v="primary" onClick={() => alert("Generating TDS report…")}>Export Report</Btn>
-              <Btn onClick={() => setTab("challan")}>Challan 281</Btn>
-            </div>
-          </Card>
-        </div>
+        <Card>
+          <p className="text-sm font-medium mb-2">TDS Ledger — sourced from Expenses &amp; Bills</p>
+          <IBox>To record a new TDS deduction, add it on the Expense or Bill form directly — it will appear here automatically and post to TDS Payable in your ledger.</IBox>
+          <Tbl headers={["Vendor", "Source", "Section", "Taxable", "TDS", "Date"]} rows={txns.map(t => [t.ven, <Badge c="gray">{t.source}</Badge>, <Badge c="blue">{t.sec}</Badge>, "₹" + t.tax.toLocaleString(), "₹" + t.tds.toLocaleString(), t.date])} />
+        </Card>
       )}
       {tab === "rates" && (
         <Card>
@@ -126,30 +103,19 @@ function TDSModule() {
       {tab === "challan" && (
         <Card>
           <p className="text-sm font-medium mb-3">Challan 281 — TDS Deposit to Government</p>
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            <div><Label>Period</Label><Select><option>May 2025</option><option>April 2025</option></Select></div>
-            <div><Label>BSR Code</Label><Input defaultValue="0010001" /></div>
-            <div><Label>Deposit Date</Label><Input type="date" defaultValue="2025-06-07" /></div>
-          </div>
           <div className="p-3 bg-gray-50 rounded-lg text-xs space-y-1">
-            {txns.filter(t => t.status === "pending").map(t => <div key={t.id} className="flex justify-between py-1 border-b border-gray-100"><span>{t.ven} <Badge c="blue">{t.sec}</Badge></span><span className="font-medium">₹{t.tds.toLocaleString()}</span></div>)}
+            {txns.map(t => <div key={`${t.source}_${t.id}`} className="flex justify-between py-1 border-b border-gray-100"><span>{t.ven} <Badge c="blue">{t.sec}</Badge></span><span className="font-medium">₹{t.tds.toLocaleString()}</span></div>)}
             <div className="flex justify-between font-semibold pt-1"><span>Total TDS Payable</span><span className="text-red-600">₹{pending.toLocaleString()}</span></div>
           </div>
           <div className="flex gap-2 mt-3">
-            <Btn v="primary" onClick={() => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([`CHALLAN 281\nTDS: ₹${pending}\nPeriod: May 2025\nDue: 07-Jun-2025`])); a.download = "Challan281.txt"; a.click(); }}>Download Challan 281</Btn>
-            <Btn onClick={() => { setTxns(p => p.map(t => ({ ...t, status: "deposited" }))); }}>Mark All Deposited</Btn>
+            <Btn v="primary" onClick={() => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([`CHALLAN 281\nTDS: ₹${pending}\nTransactions: ${txns.length}`])); a.download = "Challan281.txt"; a.click(); }}>Download Challan 281</Btn>
           </div>
         </Card>
       )}
       {tab === "form16a" && (
         <Card>
           <p className="text-sm font-medium mb-3">Form 16A — TDS Certificate</p>
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            <div><Label>Quarter</Label><Select><option>Q1 (Apr–Jun)</option><option>Q2 (Jul–Sep)</option><option>Q3 (Oct–Dec)</option><option>Q4 (Jan–Mar)</option></Select></div>
-            <div><Label>Financial Year</Label><Select><option>2025-26</option><option>2024-25</option></Select></div>
-            <div className="flex items-end"><Btn v="primary" className="w-full" onClick={() => alert("Generating Form 16A for all deductees…")}>Generate All</Btn></div>
-          </div>
-          <Tbl headers={["Vendor", "PAN", "Section", "TDS", "Action"]} rows={txns.map(t => [t.ven, t.pan, t.sec, "₹" + t.tds.toLocaleString(), <Btn onClick={() => alert("Form 16A for " + t.ven)}>PDF</Btn>])} />
+          <Tbl headers={["Vendor", "Section", "TDS", "Action"]} rows={txns.map(t => [t.ven, t.sec, "₹" + t.tds.toLocaleString(), <Btn onClick={() => alert("Form 16A for " + t.ven)}>PDF</Btn>])} />
         </Card>
       )}
     </div>
@@ -494,24 +460,21 @@ function GRNModule() {
   );
 }
 
-function ReverseCharge() {
-  const [bills, setBills] = useState([]);
-  const [form, setForm] = useState({ ven: "", amt: "", gst: "18", date: new Date().toISOString().split("T")[0] });
-  const rcm = form.amt ? ((+form.amt * +form.gst) / 100).toFixed(2) : 0;
+function ReverseCharge({ db }) {
+  const rcmItems = [
+    ...(db?.bills || []).filter(b => b.isReverseCharge).map(b => ({ ven: b.vendorName, amt: b.subtotal, rcm: b.totalGst, date: b.date, status: b.rcmGstPaid ? "posted" : "pending" })),
+    ...(db?.expenses || []).filter(e => e.isReverseCharge).map(e => ({ ven: e.vendorName, amt: e.subtotal, rcm: e.gstAmount, date: e.date, status: e.rcmGstPaid ? "posted" : "pending" }))
+  ];
+  const totalRcm = rcmItems.reduce((s, b) => s + b.rcm, 0);
   return (
     <div className="space-y-4">
-      <div><h2 className="text-base font-medium">Reverse Charge (RCM)</h2><p className="text-xs text-gray-500">Auto-apply RCM on unregistered purchases — Sec 9(3) & 9(4)</p></div>
-      <IBox type="warn">When buying from unregistered dealers or notified services (GTA, advocates), you pay GST directly to govt. BizKhata auto-creates self-invoice + ITC entry.</IBox>
-      <div className="grid grid-cols-2 gap-4">
-        <Card>
-          <p className="text-sm font-medium mb-2">Record RCM Bill</p>
-          <Label>Vendor (Unregistered)</Label><Input value={form.ven} onChange={e => setForm({ ...form, ven: e.target.value })} placeholder="Vendor name" />
-          <div className="grid grid-cols-2 gap-2"><div><Label>Amount (₹)</Label><Input type="number" value={form.amt} onChange={e => setForm({ ...form, amt: e.target.value })} /></div><div><Label>GST Rate</Label><Select value={form.gst} onChange={e => setForm({ ...form, gst: e.target.value })}><option value="5">5%</option><option value="12">12%</option><option value="18">18%</option><option value="28">28%</option></Select></div></div>
-          {+rcm > 0 && <div className="mt-3 p-3 bg-amber-50 border border-amber-100 rounded text-xs space-y-1"><div className="flex justify-between"><span>RCM GST payable</span><span className="text-red-600 font-semibold text-sm">₹{(+rcm).toLocaleString()}</span></div><div className="flex justify-between text-emerald-700"><span>ITC claimable (next period)</span><span>₹{(+rcm).toLocaleString()}</span></div></div>}
-          <Btn v="primary" className="w-full mt-3" onClick={() => { if (!form.ven || !form.amt) return; setBills(p => [...p, { ven: form.ven, amt: +form.amt, gst: +form.gst, rcm: +rcm, date: form.date, status: "pending" }]); setForm({ ...form, ven: "", amt: "" }); alert("RCM bill + ITC entry created!"); }}>Save RCM Bill</Btn>
-        </Card>
-        <Card><p className="text-sm font-medium mb-2">RCM Transactions</p><Tbl headers={["Vendor", "Amount", "RCM GST", "Status"]} rows={bills.map(b => [b.ven, "₹" + b.amt.toLocaleString(), "₹" + b.rcm.toLocaleString(), <Badge c={b.status === "posted" ? "green" : "amber"}>{b.status}</Badge>])} /></Card>
-      </div>
+      <div><h2 className="text-base font-medium">Reverse Charge (RCM)</h2><p className="text-xs text-gray-500">Auto-applied from Bills &amp; Expenses marked Reverse Charge — Sec 9(3) &amp; 9(4)</p></div>
+      <IBox type="warn">When buying from unregistered dealers or notified services (GTA, advocates), tick "Reverse Charge Mechanism" on the Bill or Expense form. The self-assessed GST posts to GST Payable automatically and appears here.</IBox>
+      <Metrics items={[{ l: "Total RCM GST Liability", v: "₹" + totalRcm.toLocaleString(), c: "#A32D2D" }, { l: "Transactions", v: rcmItems.length }]} />
+      <Card>
+        <p className="text-sm font-medium mb-2">RCM Transactions — live from Bills &amp; Expenses</p>
+        <Tbl headers={["Vendor", "Date", "Taxable Value", "RCM GST", "Status"]} rows={rcmItems.length ? rcmItems.map(b => [b.ven, b.date, "₹" + b.amt.toLocaleString(), "₹" + b.rcm.toLocaleString(), <Badge c={b.status === "posted" ? "green" : "amber"}>{b.status}</Badge>]) : [["No RCM bills or expenses recorded yet.", "", "", "", ""]]} />
+      </Card>
     </div>
   );
 }
@@ -802,10 +765,12 @@ const GROUPS = {
   p3: { label: "P3 — Feature Complete", color: "text-emerald-600" },
 };
 
-export default function BizKhataCompleteUpgrade() {
+export default function BizKhataCompleteUpgrade({ db }) {
   const [active, setActive] = useState("tds");
   const [search, setSearch] = useState("");
-  const Comp = MODULES.find(m => m.id === active)?.C || TDSModule;
+  const activeModule = MODULES.find(m => m.id === active);
+  const Comp = activeModule?.C || TDSModule;
+  const needsDb = active === "tds" || active === "rcm";
   const filtered = search ? MODULES.filter(m => m.label.toLowerCase().includes(search.toLowerCase())) : null;
 
   return (
@@ -843,7 +808,7 @@ export default function BizKhataCompleteUpgrade() {
       </aside>
       {/* Main */}
       <main className="flex-1 overflow-y-auto p-5">
-        <Comp />
+        <Comp {...(needsDb ? { db } : {})} />
       </main>
     </div>
   );
