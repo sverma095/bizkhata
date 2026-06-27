@@ -1531,7 +1531,7 @@ export default function App() {
             {/* Advanced Modules - 30 Enterprise Features */}
             {activeTab === "advanced" && (
               <div className="-m-6 md:-m-8">
-                <BizKhataCompleteUpgrade db={db} />
+                <BizKhataCompleteUpgrade db={db} token={session.token} />
               </div>
             )}
 

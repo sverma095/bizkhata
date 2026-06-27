@@ -459,6 +459,7 @@ const getInitialState = (): DatabaseState => {
     expenses: [],
     bills: [],
     journals: [],
+    advancedModules: {},
     auditLogs: [
       {
         id: "audit_init",
@@ -781,6 +782,57 @@ app.post("/api/superadmin/registrations/:id/action", authGuard, superAdminGuard,
 });
 
 // Super Admin - Organizations
+// Generic persistence for the 21 "Advanced Modules" (Workflow, GSTR-2B, Bank Feeds, etc.).
+// Each module's data lives under db.advancedModules[key] in the same per-org store as the
+// rest of the ledger — no separate schema per module, no direct-to-Supabase bypass.
+const ALLOWED_MODULE_KEYS = new Set([
+  "workflow", "email", "gstr2b", "approvals", "bankfeeds", "cportal", "vportal", "budget",
+  "projects", "timesheets", "multicurrency", "grn", "depreciation", "recurring", "billexp",
+  "advances", "partial", "milestone", "batch", "composite", "cheque", "pricelists",
+  "multigstin", "schedreports", "costcentres"
+]);
+app.get("/api/modules/:key", authGuard, async (req: any, res: any) => {
+  const { key } = req.params;
+  if (!ALLOWED_MODULE_KEYS.has(key)) return res.status(404).json({ error: "Unknown module." });
+  const db = await readDB(req.user.organizationId);
+  res.json(db.advancedModules?.[key] || []);
+});
+app.post("/api/modules/:key", authGuard, async (req: any, res: any) => {
+  const { key } = req.params;
+  if (!ALLOWED_MODULE_KEYS.has(key)) return res.status(404).json({ error: "Unknown module." });
+  const orgId = req.user.organizationId;
+  const db = await readDB(orgId);
+  if (!db.advancedModules) db.advancedModules = {};
+  if (!db.advancedModules[key]) db.advancedModules[key] = [];
+  const item = { id: `${key}_${uuid()}`, createdAt: new Date().toISOString(), createdBy: req.user.fullName, ...req.body };
+  db.advancedModules[key].push(item);
+  await writeDB(orgId, db);
+  res.json(item);
+});
+app.put("/api/modules/:key/:id", authGuard, async (req: any, res: any) => {
+  const { key, id } = req.params;
+  if (!ALLOWED_MODULE_KEYS.has(key)) return res.status(404).json({ error: "Unknown module." });
+  const orgId = req.user.organizationId;
+  const db = await readDB(orgId);
+  const arr = db.advancedModules?.[key] || [];
+  const idx = arr.findIndex((i: any) => i.id === id);
+  if (idx === -1) return res.status(404).json({ error: "Not found." });
+  arr[idx] = { ...arr[idx], ...req.body };
+  await writeDB(orgId, db);
+  res.json(arr[idx]);
+});
+app.delete("/api/modules/:key/:id", authGuard, async (req: any, res: any) => {
+  const { key, id } = req.params;
+  if (!ALLOWED_MODULE_KEYS.has(key)) return res.status(404).json({ error: "Unknown module." });
+  const orgId = req.user.organizationId;
+  const db = await readDB(orgId);
+  if (db.advancedModules?.[key]) {
+    db.advancedModules[key] = db.advancedModules[key].filter((i: any) => i.id !== id);
+    await writeDB(orgId, db);
+  }
+  res.json({ success: true });
+});
+
 app.get("/api/superadmin/organizations", authGuard, superAdminGuard, (req: any, res: any) => res.json(USER_DB.organizations));
 app.put("/api/superadmin/organizations/:id", authGuard, superAdminGuard, (req: any, res: any) => {
   const org = USER_DB.organizations.find((o: any) => o.id === req.params.id);

@@ -10,6 +10,41 @@ const SB_URL = "https://zffkvwhvasavenqgkkcx.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpmZmt2d2h2YXNhdmVucWdra2N4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzNTMxNDMsImV4cCI6MjA5NTkyOTE0M30.Yku2X577pcla2GqpaaNz78sCjIc-uWA9GdLvYyirJTk";
 const sbPost = (t, d) => fetch(`${SB_URL}/rest/v1/${t}`, { method: "POST", headers: { apikey: SB_KEY, Authorization: "Bearer " + SB_KEY, "Content-Type": "application/json", Prefer: "return=minimal" }, body: JSON.stringify(d) }).catch(() => {});
 
+// ── Generic real persistence for Advanced Modules ───────────────
+// Backs onto /api/modules/:key, which stores data per-org in the same real ledger
+// state as everything else in BizKhata (see server.ts). Replaces ad-hoc local-only
+// useState arrays and the unauthenticated direct-to-Supabase sbPost calls above.
+function usePersisted(key, token) {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    if (!token) { setLoading(false); return; }
+    fetch(`/api/modules/${key}`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : [])
+      .then(d => setItems(Array.isArray(d) ? d : []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [key, token]);
+  const addItem = async (data) => {
+    const optimistic = { id: `tmp_${Date.now()}`, createdAt: new Date().toISOString(), ...data };
+    setItems(p => [...p, optimistic]);
+    try {
+      const r = await fetch(`/api/modules/${key}`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(data) });
+      if (r.ok) { const saved = await r.json(); setItems(p => p.map(i => i.id === optimistic.id ? saved : i)); return saved; }
+    } catch {}
+    return optimistic;
+  };
+  const updateItem = async (id, patch) => {
+    setItems(p => p.map(i => i.id === id ? { ...i, ...patch } : i));
+    try { await fetch(`/api/modules/${key}/${id}`, { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(patch) }); } catch {}
+  };
+  const removeItem = async (id) => {
+    setItems(p => p.filter(i => i.id !== id));
+    try { await fetch(`/api/modules/${key}/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } }); } catch {}
+  };
+  return { items, addItem, updateItem, removeItem, loading };
+}
+
 // ── Shared UI ──────────────────────────────────────────────────
 const tw = (...c) => c.filter(Boolean).join(" ");
 const Card = ({ children, className = "" }) => <div className={tw("bg-white border border-gray-200 rounded-xl p-4", className)}>{children}</div>;
@@ -123,22 +158,22 @@ function TDSModule({ db }) {
 }
 
 // ── MODULE 2: WORKFLOW AUTOMATION ───────────────────────────────
-function WorkflowAutomation() {
-  const [rules, setRules] = useState([]);
+function WorkflowAutomation({ token }) {
+  const { items: rules, addItem, updateItem } = usePersisted("workflow", token);
   const actionLabels = { send_email: "✉ Email", require_approval: "✅ Approval", notify: "🔔 Notify", email: "✉ Email" };
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Workflow Automation</h2><p className="text-xs text-gray-500">Trigger actions on business events</p></div><Btn v="primary" onClick={() => { const n = prompt("Rule name:"); if (n) setRules(p => [...p, { id: Date.now(), name: n, mod: "invoices", trigger: "custom", actions: ["send_email"], on: true, runs: 0 }]); }}>+ New Rule</Btn></div>
-      <Metrics items={[{ l: "Active Rules", v: rules.filter(r => r.on).length, c: "#0F6E56" }, { l: "Total Runs", v: rules.reduce((s, r) => s + r.runs, 0) }, { l: "Emails Sent", v: "198" }, { l: "Approvals", v: "28", c: "#854F0B" }]} />
+      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Workflow Automation</h2><p className="text-xs text-gray-500">Trigger actions on business events</p></div><Btn v="primary" onClick={() => { const n = prompt("Rule name:"); if (n) addItem({ name: n, mod: "invoices", trigger: "custom", actions: ["send_email"], on: true, runs: 0 }); }}>+ New Rule</Btn></div>
+      <Metrics items={[{ l: "Active Rules", v: rules.filter(r => r.on).length, c: "#0F6E56" }, { l: "Total Runs", v: rules.reduce((s, r) => s + (r.runs||0), 0) }]} />
       {rules.map(r => (
         <Card key={r.id}>
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1"><span className="font-medium text-sm">{r.name}</span><Badge c={r.on ? "green" : "gray"}>{r.on ? "Active" : "Paused"}</Badge><Badge c="blue">{r.mod}</Badge></div>
               <p className="text-xs text-gray-500">When: {r.trigger}</p>
-              <div className="flex gap-1 mt-1">{r.actions.map(a => <Badge key={a} c="purple">{actionLabels[a] || a}</Badge>)}</div>
+              <div className="flex gap-1 mt-1">{(r.actions||[]).map(a => <Badge key={a} c="purple">{actionLabels[a] || a}</Badge>)}</div>
             </div>
-            <div className="flex items-center gap-3"><span className="text-xs text-gray-400">{r.runs} runs</span><Toggle value={r.on} onChange={v => setRules(p => p.map(x => x.id === r.id ? { ...x, on: v } : x))} /></div>
+            <div className="flex items-center gap-3"><span className="text-xs text-gray-400">{r.runs||0} runs</span><Toggle value={r.on} onChange={v => updateItem(r.id, { on: v })} /></div>
           </div>
         </Card>
       ))}
@@ -147,9 +182,12 @@ function WorkflowAutomation() {
 }
 
 // ── MODULE 3: EMAIL / SMTP ──────────────────────────────────────
-function EmailModule() {
+function EmailModule({ token }) {
   const [tab, setTab] = useState("config");
-  const [cfg, setCfg] = useState({ provider: "sendgrid", key: "", from: "", name: "" });
+  const { items: cfgItems, addItem, updateItem } = usePersisted("email", token);
+  const cfgRecord = cfgItems[0];
+  const cfg = cfgRecord || { provider: "sendgrid", key: "", from: "", name: "" };
+  const setCfg = (next) => { if (cfgRecord) updateItem(cfgRecord.id, next); else addItem(next); };
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Email Configuration</h2><p className="text-xs text-gray-500">Real SMTP / SendGrid — replaces simulated email</p></div><Badge c={cfg.key ? "green" : "red"}>{cfg.key ? "✅ Connected" : "⚠ Not configured"}</Badge></div>
@@ -162,7 +200,7 @@ function EmailModule() {
             <Label>API Key</Label><Input type="password" value={cfg.key} onChange={e => setCfg({ ...cfg, key: e.target.value })} placeholder="SG.xxxxxxxxxxxxxxxx" />
             <Label>From Email</Label><Input value={cfg.from} onChange={e => setCfg({ ...cfg, from: e.target.value })} placeholder="invoices@yourcompany.com" />
             <Label>From Name</Label><Input value={cfg.name} onChange={e => setCfg({ ...cfg, name: e.target.value })} placeholder="Your Business Name" />
-            <div className="flex gap-2 mt-3"><Btn v="primary" onClick={() => { sbPost("org_settings", { key: "email_config" }); alert("✅ Saved!"); }}>Save Config</Btn><Btn onClick={() => alert("Test email sent!")}>Send Test</Btn></div>
+            <div className="flex gap-2 mt-3"><Btn v="primary" onClick={() => alert("✅ Saved!")}>Save Config</Btn><Btn onClick={() => alert("Test email sent!")}>Send Test</Btn></div>
           </Card>
           <Card>
             <p className="text-sm font-medium mb-2">Supabase Edge Function</p>
@@ -208,26 +246,34 @@ serve(async (req) => {
           ))}
         </div>
       )}
-      {tab === "logs" && <Card><Tbl headers={["To", "Subject", "Status", "Time"]} rows={[["rahul@traders.com", "Invoice INV-0142", <Badge c="green">sent</Badge>, "2025-06-04 10:22"], ["mehta@sons.com", "Reminder: INV-0138 overdue", <Badge c="green">sent</Badge>, "2025-06-04 09:00"], ["singh@enterprise.com", "Invoice INV-0139", <Badge c="red">failed</Badge>, "2025-06-03 18:45"]]} /></Card>}
+      {tab === "logs" && <Card><Tbl headers={["To", "Subject", "Status", "Time"]} rows={[["—", "No emails sent yet", <Badge c="gray">—</Badge>, "—"]]} /></Card>}
     </div>
   );
 }
 
 // ── MODULE 4: GSTR-2B RECONCILIATION ───────────────────────────
-function GSTR2B() {
-  const [data] = useState([]);
+function GSTR2B({ token }) {
+  const { items: data, addItem } = usePersisted("gstr2b", token);
   const matched = data.filter(r => r.status === "matched");
-  const itcTotal = matched.reduce((s, r) => s + r.itc, 0);
+  const itcTotal = matched.reduce((s, r) => s + (r.itc||0), 0);
   const smap = { matched: ["green", "Matched"], unmatched: ["red", "Unmatched"], extra_in_2b: ["amber", "Extra in 2B"] };
+  const onUpload = async (file) => {
+    if (!file) return;
+    try {
+      const rows = JSON.parse(await file.text());
+      for (const r of (Array.isArray(rows) ? rows : [])) await addItem(r);
+      alert(`GSTR-2B loaded: ${rows.length} rows`);
+    } catch { alert("Invalid GSTR-2B JSON file."); }
+  };
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">GSTR-2B Reconciliation</h2><p className="text-xs text-gray-500">Match purchase register vs GSTR-2B — verify ITC eligibility</p></div><div className="flex gap-2"><Btn v="primary" onClick={() => alert("Fetching from GST Portal…")}>⬇ Fetch from Portal</Btn><label><Btn>Upload JSON</Btn><input type="file" accept=".json" className="hidden" onChange={() => alert("GSTR-2B loaded!")} /></label></div></div>
+      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">GSTR-2B Reconciliation</h2><p className="text-xs text-gray-500">Match purchase register vs GSTR-2B — verify ITC eligibility</p></div><div className="flex gap-2"><label><Btn>Upload JSON</Btn><input type="file" accept=".json" className="hidden" onChange={e => onUpload(e.target.files[0])} /></label></div></div>
       <Metrics items={[{ l: "Matched", v: matched.length, c: "#0F6E56" }, { l: "Unmatched", v: data.filter(r => r.status === "unmatched").length, c: "#A32D2D" }, { l: "Extra in 2B", v: data.filter(r => r.status === "extra_in_2b").length, c: "#854F0B" }, { l: "Eligible ITC", v: "₹" + itcTotal.toLocaleString(), c: "#0F6E56" }]} />
-      <IBox>ITC claimable ONLY on invoices present in both your books AND GSTR-2B. Unmatched = blocked ITC.</IBox>
+      <IBox>ITC claimable ONLY on invoices present in both your books AND GSTR-2B. Unmatched = blocked ITC. Download GSTR-2B JSON from the GST Portal and upload it here — BizKhata doesn't have a direct GSTN API connection yet.</IBox>
       <Card>
-        <Tbl headers={["Supplier", "GSTIN", "Invoice", "Date", "Taxable", "ITC", "Status", "ITC?"]} rows={data.map(r => { const [c, l] = smap[r.status] || ["gray", r.status]; return [r.sup, r.gstin, r.inv, r.date, "₹" + r.tax.toLocaleString(), "₹" + r.itc.toLocaleString(), <Badge c={c}>{l}</Badge>, <Badge c={r.status === "matched" ? "green" : "red"}>{r.status === "matched" ? "Yes" : "No"}</Badge>]; })} />
+        <Tbl headers={["Supplier", "GSTIN", "Invoice", "Date", "Taxable", "ITC", "Status", "ITC?"]} rows={data.map(r => { const [c, l] = smap[r.status] || ["gray", r.status]; return [r.sup, r.gstin, r.inv, r.date, "₹" + (r.tax||0).toLocaleString(), "₹" + (r.itc||0).toLocaleString(), <Badge c={c}>{l}</Badge>, <Badge c={r.status === "matched" ? "green" : "red"}>{r.status === "matched" ? "Yes" : "No"}</Badge>]; })} />
         {data.some(r => r.status === "unmatched") && <IBox type="warn">⚠ Unmatched invoice(s): Ask supplier to file GSTR-1. ITC blocked until matched.</IBox>}
-        <div className="flex gap-2 mt-3"><Btn v="primary" onClick={() => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify({ period: "052025", matched: matched.length, itc_eligible: itcTotal, data }, null, 2)])); a.download = "GSTR2B_Recon.json"; a.click(); }}>Export Report</Btn></div>
+        <div className="flex gap-2 mt-3"><Btn v="primary" onClick={() => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify({ matched: matched.length, itc_eligible: itcTotal, data }, null, 2)])); a.download = "GSTR2B_Recon.json"; a.click(); }}>Export Report</Btn></div>
       </Card>
     </div>
   );
@@ -271,14 +317,19 @@ function PaymentReminders({ db }) {
 }
 
 // ── MODULE 6: APPROVAL WORKFLOWS ───────────────────────────────
-function ApprovalWorkflows() {
-  const [pending, setPending] = useState([]);
-  const [approved, setApproved] = useState([]);
-  const approve = id => { const item = pending.find(p => p.id === id); setPending(p => p.filter(x => x.id !== id)); setApproved(p => [{ ...item, by: "You", time: "Just now" }, ...p]); };
-  const reject = id => setPending(p => p.filter(x => x.id !== id));
+function ApprovalWorkflows({ db, token }) {
+  const { items: decisions, addItem } = usePersisted("approvals", token);
+  const decidedIds = new Set(decisions.map(d => d.refId));
+  const pending = [
+    ...(db?.expenses || []).filter(e => e.status === "Pending Approval" && !decidedIds.has(e.id)).map(e => ({ id: e.id, mod: "Expense", ref: e.id, party: e.vendorName, amt: e.total, by: "—", time: e.date })),
+    ...(db?.bills || []).filter(b => b.status === "Draft" && !decidedIds.has(b.id)).map(b => ({ id: b.id, mod: "Bill", ref: b.billNumber, party: b.vendorName, amt: b.total, by: "—", time: b.date }))
+  ];
+  const approved = decisions.filter(d => d.decision === "approved");
+  const approve = it => addItem({ refId: it.id, mod: it.mod, ref: it.ref, party: it.party, amt: it.amt, decision: "approved", by: "You", time: "Just now" });
+  const reject = it => addItem({ refId: it.id, mod: it.mod, ref: it.ref, party: it.party, amt: it.amt, decision: "rejected", by: "You", time: "Just now" });
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Approval Workflows</h2><p className="text-xs text-gray-500">Multi-level approvals for invoices, bills, expenses, POs</p></div><Badge c="red">{pending.length} pending</Badge></div>
+      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Approval Workflows</h2><p className="text-xs text-gray-500">Pulled live from Expenses &amp; Bills awaiting approval</p></div><Badge c="red">{pending.length} pending</Badge></div>
       <div className="grid grid-cols-2 gap-4">
         <div>
           <p className="text-sm font-medium mb-2 flex items-center gap-2">Pending <Badge c="red">{pending.length}</Badge></p>
@@ -286,8 +337,8 @@ function ApprovalWorkflows() {
             {pending.map(it => (
               <Card key={it.id}>
                 <div className="flex items-start justify-between">
-                  <div><div className="flex items-center gap-2 mb-1"><Badge c="blue">{it.mod}</Badge><span className="font-medium text-sm">{it.ref}</span></div><p className="text-xs text-gray-500">{it.party}</p><p className="text-lg font-medium my-1">₹{it.amt.toLocaleString()}</p><p className="text-xs text-gray-400">By {it.by} · {it.time}</p></div>
-                  <div className="flex flex-col gap-1 ml-4"><Btn v="primary" onClick={() => approve(it.id)}>✓ Approve</Btn><Btn v="danger" onClick={() => reject(it.id)}>✗ Reject</Btn></div>
+                  <div><div className="flex items-center gap-2 mb-1"><Badge c="blue">{it.mod}</Badge><span className="font-medium text-sm">{it.ref}</span></div><p className="text-xs text-gray-500">{it.party}</p><p className="text-lg font-medium my-1">₹{it.amt.toLocaleString()}</p><p className="text-xs text-gray-400">{it.time}</p></div>
+                  <div className="flex flex-col gap-1 ml-4"><Btn v="primary" onClick={() => approve(it)}>✓ Approve</Btn><Btn v="danger" onClick={() => reject(it)}>✗ Reject</Btn></div>
                 </div>
               </Card>
             ))}
@@ -313,31 +364,32 @@ function ApprovalWorkflows() {
 
 // ── MODULES 7-30: Remaining modules (all complete) ─────────────
 
-function BankFeeds() {
+function BankFeeds({ token }) {
   const [feeds, setFeeds] = useState([]);
-  const [rules, setRules] = useState([]);
+  const { items: rules, addItem, updateItem } = usePersisted("bankfeeds", token);
   const uncat = feeds.filter(f => !f.cat).length;
   const cats = ["Sales Receipt", "Rent Expense", "Salaries", "Office Expenses", "Bank Charges", "Utilities", "Contractor Payment"];
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Bank Feeds & Auto-Categorization</h2><p className="text-xs text-gray-500">Rule-based categorization + live bank feed integration</p></div><div className="flex gap-2"><Btn v="primary" onClick={() => { setFeeds(f => f.map(x => { for (const r of rules) if (r.on && x.desc.toLowerCase().includes(r.kw.toLowerCase())) return { ...x, cat: r.cat, ok: true }; return x; })); alert("Rules applied!"); }}>Apply Rules</Btn><Btn>Sync Feed</Btn></div></div>
+      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Bank Feeds & Auto-Categorization</h2><p className="text-xs text-gray-500">Rule-based categorization — connect a live feed to populate transactions</p></div><div className="flex gap-2"><Btn v="primary" onClick={() => { setFeeds(f => f.map(x => { for (const r of rules) if (r.on && x.desc.toLowerCase().includes(r.kw.toLowerCase())) return { ...x, cat: r.cat, ok: true }; return x; })); alert("Rules applied!"); }}>Apply Rules</Btn><Btn>Sync Feed</Btn></div></div>
+      <IBox>No live bank feed is connected yet — this needs an Account Aggregator (Finvu/Setu) integration. Auto-categorization rules below are saved for when a feed is connected.</IBox>
       <Metrics items={[{ l: "Total", v: feeds.length }, { l: "Categorized", v: feeds.filter(f => f.cat).length, c: "#0F6E56" }, { l: "Uncategorized", v: uncat, c: uncat ? "#A32D2D" : "#0F6E56" }, { l: "Reconciled", v: feeds.filter(f => f.ok).length }]} />
       <div className="grid grid-cols-3 gap-4">
         <div className="col-span-2">
           <Card>
-            <p className="text-sm font-medium mb-3">HDFC Savings ****4521</p>
-            <Tbl headers={["Date", "Description", "Amount", "Category", "Action"]} rows={feeds.map(f => [f.date, f.desc.substring(0, 32) + "…", <span className={"font-medium " + (f.amt > 0 ? "text-emerald-600" : "text-red-600")}>{f.amt > 0 ? "+" : ""}₹{Math.abs(f.amt).toLocaleString()}</span>, f.cat ? <Badge c="green">{f.cat}</Badge> : <Badge c="red">Uncategorized</Badge>, !f.cat ? (<select className="border border-gray-200 rounded px-1 py-0.5 text-xs" onChange={e => { if (e.target.value) { setFeeds(p => p.map(x => x.id === f.id ? { ...x, cat: e.target.value, ok: true } : x)); } }}><option value="">Categorize…</option>{cats.map(c => <option key={c}>{c}</option>)}</select>) : <span className="text-emerald-600 text-xs">✓</span>])} />
+            <p className="text-sm font-medium mb-3">Bank Transactions</p>
+            <Tbl headers={["Date", "Description", "Amount", "Category", "Action"]} rows={feeds.length ? feeds.map(f => [f.date, f.desc.substring(0, 32) + "…", <span className={"font-medium " + (f.amt > 0 ? "text-emerald-600" : "text-red-600")}>{f.amt > 0 ? "+" : ""}₹{Math.abs(f.amt).toLocaleString()}</span>, f.cat ? <Badge c="green">{f.cat}</Badge> : <Badge c="red">Uncategorized</Badge>, !f.cat ? (<select className="border border-gray-200 rounded px-1 py-0.5 text-xs" onChange={e => { if (e.target.value) { setFeeds(p => p.map(x => x.id === f.id ? { ...x, cat: e.target.value, ok: true } : x)); } }}><option value="">Categorize…</option>{cats.map(c => <option key={c}>{c}</option>)}</select>) : <span className="text-emerald-600 text-xs">✓</span>]) : [["No bank feed connected yet.", "", "", "", ""]]} />
           </Card>
         </div>
         <div className="space-y-3">
           <Card>
             <p className="text-sm font-medium mb-2">Auto-Rules</p>
-            {rules.map(r => <div key={r.id} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0 text-xs"><div><p className="font-medium">"{r.kw}" → {r.cat}</p></div><Toggle value={r.on} onChange={v => setRules(p => p.map(x => x.id === r.id ? { ...x, on: v } : x))} /></div>)}
-            <Btn className="w-full mt-2" onClick={() => { const kw = prompt("Keyword:"); const cat = prompt("Category:"); if (kw && cat) setRules(p => [...p, { id: Date.now(), kw, cat, on: true }]); }}>+ Add Rule</Btn>
+            {rules.map(r => <div key={r.id} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0 text-xs"><div><p className="font-medium">"{r.kw}" → {r.cat}</p></div><Toggle value={r.on} onChange={v => updateItem(r.id, { on: v })} /></div>)}
+            <Btn className="w-full mt-2" onClick={() => { const kw = prompt("Keyword:"); const cat = prompt("Category:"); if (kw && cat) addItem({ kw, cat, on: true }); }}>+ Add Rule</Btn>
           </Card>
           <Card>
             <p className="text-sm font-medium mb-2">Connect Live Feed</p>
-            {["HDFC Bank", "ICICI Bank", "SBI", "Axis Bank", "Kotak"].map(b => <div key={b} className="flex justify-between items-center py-1.5 border-b border-gray-50 last:border-0 text-xs"><span>{b}</span><Btn onClick={() => alert("Connecting to " + b + "…")}>Connect</Btn></div>)}
+            {["HDFC Bank", "ICICI Bank", "SBI", "Axis Bank", "Kotak"].map(b => <div key={b} className="flex justify-between items-center py-1.5 border-b border-gray-50 last:border-0 text-xs"><span>{b}</span><Btn onClick={() => alert("Bank feed integration not yet connected. This needs an Account Aggregator partnership (e.g. Finvu/Setu).")}>Connect</Btn></div>)}
             <p className="text-xs text-gray-400 mt-2">Via Account Aggregator / Finvu RBI framework</p>
           </Card>
         </div>
@@ -346,26 +398,39 @@ function BankFeeds() {
   );
 }
 
-function BudgetModule() {
-  const [lines, setLines] = useState([]);
+function BudgetModule({ db, token }) {
+  const { items: budgets, addItem, updateItem } = usePersisted("budget", token);
+  const accByCode = Object.fromEntries((db?.accounts || []).map(a => [a.code, a]));
+  const lines = budgets.map(b => {
+    const acc = accByCode[b.accCode];
+    return { id: b.id, acc: acc?.name || b.accCode, type: acc?.type === "Income" ? "income" : "expense", bud: b.bud, act: Math.abs(acc?.balance || 0) };
+  });
   const bi = lines.filter(l => l.type === "income").reduce((s, l) => s + l.bud, 0);
   const ai = lines.filter(l => l.type === "income").reduce((s, l) => s + l.act, 0);
   const be = lines.filter(l => l.type === "expense").reduce((s, l) => s + l.bud, 0);
   const ae = lines.filter(l => l.type === "expense").reduce((s, l) => s + l.act, 0);
+  const addLine = () => {
+    const opts = (db?.accounts || []).filter(a => a.type === "Income" || a.type === "Expense");
+    const accCode = prompt("Account code (e.g. " + opts.slice(0, 3).map(a => a.code).join(", ") + "):");
+    const acc = opts.find(a => a.code === accCode);
+    if (!acc) return alert("Unknown account code.");
+    const bud = +prompt("Budget amount (₹):", "0");
+    addItem({ accCode, bud });
+  };
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Budget Module</h2><p className="text-xs text-gray-500">Set budgets per account, compare vs actuals — FY 2025-26</p></div><Btn v="primary">+ Add Line</Btn></div>
+      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Budget Module</h2><p className="text-xs text-gray-500">Set budgets per account — actuals pulled live from your chart of accounts</p></div><Btn v="primary" onClick={addLine}>+ Add Line</Btn></div>
       <Metrics items={[{ l: "Budgeted Income", v: "₹" + (bi / 1000).toFixed(0) + "K" }, { l: "Actual Income", v: "₹" + (ai / 1000).toFixed(0) + "K", c: ai >= bi ? "#0F6E56" : "#854F0B" }, { l: "Budgeted Expenses", v: "₹" + (be / 1000).toFixed(0) + "K" }, { l: "Actual Expenses", v: "₹" + (ae / 1000).toFixed(0) + "K", c: ae > be ? "#A32D2D" : "#0F6E56" }]} />
       <Card>
-        <p className="text-sm font-medium mb-3">Budget vs Actual — May 2025</p>
+        <p className="text-sm font-medium mb-3">Budget vs Actual — live</p>
         <table className="w-full text-xs border-collapse">
           <thead><tr>{["Account", "Budgeted", "Actual", "Variance", "Progress", ""].map((h, i) => <th key={i} className="text-left py-2 px-3 bg-gray-50 text-gray-500 font-medium border-b border-gray-100">{h}</th>)}</tr></thead>
           <tbody>
-            {["income", "expense"].map(type => <>
-              <tr key={type}><td colSpan={6} className="py-1.5 px-3 bg-gray-50 font-medium text-xs text-gray-500">{type === "income" ? "📈 Income" : "📉 Expenses"}</td></tr>
+            {["income", "expense"].map(type => <React.Fragment key={type}>
+              <tr><td colSpan={6} className="py-1.5 px-3 bg-gray-50 font-medium text-xs text-gray-500">{type === "income" ? "📈 Income" : "📉 Expenses"}</td></tr>
               {lines.filter(l => l.type === type).map(l => {
                 const v = type === "income" ? l.act - l.bud : l.bud - l.act;
-                const pct = Math.min(130, Math.round((l.act / l.bud) * 100));
+                const pct = l.bud ? Math.min(130, Math.round((l.act / l.bud) * 100)) : 0;
                 const over = type === "expense" ? l.act > l.bud : l.act < l.bud;
                 return (
                   <tr key={l.id} className="border-b border-gray-50 hover:bg-gray-50">
@@ -379,11 +444,11 @@ function BudgetModule() {
                         <span className={"text-xs " + (over ? "text-red-600" : "text-gray-400")}>{pct}%</span>
                       </div>
                     </td>
-                    <td className="py-2 px-3"><Btn onClick={() => { const nv = prompt("New budget:", l.bud); if (nv) setLines(p => p.map(x => x.id === l.id ? { ...x, bud: +nv } : x)); }}>Edit</Btn></td>
+                    <td className="py-2 px-3"><Btn onClick={() => { const nv = prompt("New budget:", l.bud); if (nv) updateItem(l.id, { bud: +nv }); }}>Edit</Btn></td>
                   </tr>
                 );
               })}
-            </>)}
+            </React.Fragment>)}
           </tbody>
         </table>
       </Card>
@@ -769,12 +834,11 @@ const GROUPS = {
   p3: { label: "P3 — Feature Complete", color: "text-emerald-600" },
 };
 
-export default function BizKhataCompleteUpgrade({ db }) {
+export default function BizKhataCompleteUpgrade({ db, token }) {
   const [active, setActive] = useState("tds");
   const [search, setSearch] = useState("");
   const activeModule = MODULES.find(m => m.id === active);
   const Comp = activeModule?.C || TDSModule;
-  const needsDb = active === "tds" || active === "rcm" || active === "audit" || active === "reminders";
   const filtered = search ? MODULES.filter(m => m.label.toLowerCase().includes(search.toLowerCase())) : null;
 
   return (
@@ -813,7 +877,7 @@ export default function BizKhataCompleteUpgrade({ db }) {
       </aside>
       {/* Main */}
       <main className="flex-1 overflow-y-auto p-5">
-        <Comp {...(needsDb ? { db } : {})} />
+        <Comp db={db} token={token} />
       </main>
     </div>
   );
