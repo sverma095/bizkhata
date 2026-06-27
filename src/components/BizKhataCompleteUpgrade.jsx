@@ -234,8 +234,12 @@ function GSTR2B() {
 }
 
 // ── MODULE 5: PAYMENT REMINDERS ─────────────────────────────────
-function PaymentReminders() {
-  const overdue = [];
+function PaymentReminders({ db }) {
+  const today = new Date();
+  const overdue = (db?.invoices || [])
+    .filter(i => !i.isProforma && i.status !== "Paid" && i.dueDate && new Date(i.dueDate) < today)
+    .map(i => ({ inv: i.invoiceNumber, cust: i.customerName, amt: i.total, days: Math.floor((today - new Date(i.dueDate)) / 86400000), last: "—" }))
+    .sort((a, b) => b.days - a.days);
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Payment Reminders</h2><p className="text-xs text-gray-500">Auto-send escalating reminders for overdue invoices</p></div><Btn v="primary" onClick={() => alert("Running all reminders…")}>⚡ Run All Now</Btn></div>
@@ -770,7 +774,7 @@ export default function BizKhataCompleteUpgrade({ db }) {
   const [search, setSearch] = useState("");
   const activeModule = MODULES.find(m => m.id === active);
   const Comp = activeModule?.C || TDSModule;
-  const needsDb = active === "tds" || active === "rcm" || active === "audit";
+  const needsDb = active === "tds" || active === "rcm" || active === "audit" || active === "reminders";
   const filtered = search ? MODULES.filter(m => m.label.toLowerCase().includes(search.toLowerCase())) : null;
 
   return (
@@ -795,15 +799,16 @@ export default function BizKhataCompleteUpgrade({ db }) {
               {(group.items || []).map(m => (
                 <button key={m.id} onClick={() => { setActive(m.id); setSearch(""); }} className={tw("w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-xs mb-0.5 transition-all cursor-pointer", active === m.id ? "bg-emerald-50 text-emerald-700 font-medium" : "text-gray-600 hover:bg-gray-50")}>
                   <span>{m.icon}</span><span className="flex-1 truncate">{m.label}</span>
+                  {["tds", "rcm", "audit", "reminders"].includes(m.id) && <span className="text-[8px] font-black bg-emerald-100 text-emerald-700 px-1 py-0.5 rounded">LIVE</span>}
                 </button>
               ))}
             </div>
           ))}
         </nav>
         <div className="p-2 border-t border-gray-100 text-xs text-gray-400 space-y-0.5">
-          <div>🔴 P1 Critical: 5 modules</div>
-          <div>🟡 P2 High: 16 modules</div>
-          <div>🟢 P3 Complete: 9 modules</div>
+          <div>🟢 Live (real data): 4 modules</div>
+          <div>🔴 P1 Critical (mock): 4 modules</div>
+          <div>⚪ Remaining (mock): 21 modules</div>
         </div>
       </aside>
       {/* Main */}
