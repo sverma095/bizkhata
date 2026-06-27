@@ -746,89 +746,95 @@ function HSNSummary({ db }) {
   );
 }
 
-function DocumentAttachments() {
-  const [docs, setDocs] = useState([]);
+function DocumentAttachments({ token }) {
+  const { items: docs, addItem, removeItem } = usePersisted("docs", token);
   const [drag, setDrag] = useState(false);
+  const onFiles = files => Array.from(files).forEach(f => addItem({ mod: "General", rec: "—", name: f.name, size: (f.size / 1024).toFixed(0) + " KB", by: "You", date: new Date().toISOString().split("T")[0] }));
   return (
     <div className="space-y-4">
       <div><h2 className="text-base font-medium">Document Attachments</h2><p className="text-xs text-gray-500">Attach receipts, contracts, bills to any transaction</p></div>
-      <div onDragOver={e => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)} onDrop={e => { e.preventDefault(); setDrag(false); Array.from(e.dataTransfer.files).forEach(f => setDocs(p => [...p, { mod: "General", rec: "—", name: f.name, size: (f.size / 1024).toFixed(0) + " KB", by: "You", date: new Date().toISOString().split("T")[0] }])); }} className={tw("border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all", drag ? "border-emerald-400 bg-emerald-50" : "border-gray-200")}>
-        <p className="text-sm text-gray-500">Drop files here or <label className="text-emerald-600 cursor-pointer underline">browse<input type="file" multiple className="hidden" onChange={e => Array.from(e.target.files).forEach(f => setDocs(p => [...p, { mod: "General", rec: "—", name: f.name, size: (f.size / 1024).toFixed(0) + " KB", by: "You", date: new Date().toISOString().split("T")[0] }]))} /></label></p>
+      <IBox>File metadata is saved for real. Actual file storage (S3/Supabase Storage) isn't connected yet, so uploaded file contents aren't retained — only the name/size record.</IBox>
+      <div onDragOver={e => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)} onDrop={e => { e.preventDefault(); setDrag(false); onFiles(e.dataTransfer.files); }} className={tw("border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all", drag ? "border-emerald-400 bg-emerald-50" : "border-gray-200")}>
+        <p className="text-sm text-gray-500">Drop files here or <label className="text-emerald-600 cursor-pointer underline">browse<input type="file" multiple className="hidden" onChange={e => onFiles(e.target.files)} /></label></p>
         <p className="text-xs text-gray-400 mt-1">PDF, images, Excel · 10MB max</p>
       </div>
-      <Card><Tbl headers={["File", "Module", "Record", "Size", "By", "Date", "Action"]} rows={docs.map((d, i) => [<span>{d.name.endsWith(".pdf") ? "📄" : d.name.match(/jpg|png/) ? "🖼" : "📎"} {d.name}</span>, <Badge c="blue">{d.mod}</Badge>, d.rec, d.size, d.by, d.date, <Btn v="danger" onClick={() => setDocs(p => p.filter((_, j) => j !== i))}>Delete</Btn>])} /></Card>
+      <Card><Tbl headers={["File", "Module", "Record", "Size", "By", "Date", "Action"]} rows={docs.map(d => [<span>{d.name.endsWith(".pdf") ? "📄" : d.name.match(/jpg|png/) ? "🖼" : "📎"} {d.name}</span>, <Badge c="blue">{d.mod}</Badge>, d.rec, d.size, d.by, d.date, <Btn v="danger" onClick={() => removeItem(d.id)}>Delete</Btn>])} /></Card>
     </div>
   );
 }
 
-function CustomerPortal() {
-  const customers = [];
+function CustomerPortal({ db }) {
+  const customers = (db?.customers || []).map(c => ({ name: c.name, email: c.email || "—", active: false, invoices: (db.invoices||[]).filter(i=>i.customerId===c.id && !i.isProforma).length, outstanding: (db.invoices||[]).filter(i=>i.customerId===c.id && !i.isProforma).reduce((s,i)=>s+(i.total-(i.amountReceived||0)),0) }));
   return (
     <div className="space-y-4">
       <div><h2 className="text-base font-medium">Customer Portal</h2><p className="text-xs text-gray-500">Clients view invoices, make payments, approve estimates online</p></div>
       <div className="grid grid-cols-2 gap-4">
-        <Card><p className="text-sm font-medium mb-3">Customer Access</p>{customers.map(c => <div key={c.name} className="flex items-start justify-between py-3 border-b border-gray-50 last:border-0"><div><p className="font-medium text-sm">{c.name}</p><p className="text-xs text-gray-500">{c.email}</p><div className="flex gap-2 mt-1"><Badge c={c.active ? "green" : "gray"}>{c.active ? "Active" : "Not invited"}</Badge>{c.login && <span className="text-xs text-gray-400">Last: {c.login}</span>}</div><p className="text-xs text-red-600 mt-1">{c.invoices} invoices · ₹{c.outstanding.toLocaleString()} outstanding</p></div><div className="flex flex-col gap-1 ml-3"><Btn onClick={() => alert("Invite sent to " + c.email)}>Invite</Btn><Btn onClick={() => alert("Portal preview for " + c.name)}>Preview</Btn></div></div>)}</Card>
-        <Card><p className="text-sm font-medium mb-3">Portal Settings</p>{[["Allow online payments", true], ["Allow estimate approval", true], ["Show statement of accounts", true], ["Download invoice PDFs", true], ["Show credit notes", false]].map(([l, d]) => <div key={l} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0 text-xs"><span>{l}</span><Toggle value={d} onChange={() => {}} /></div>)}<Btn v="primary" className="w-full mt-3">Save Settings</Btn></Card>
+        <Card><p className="text-sm font-medium mb-3">Customer Access — live from your Customers</p>{customers.map(c => <div key={c.name} className="flex items-start justify-between py-3 border-b border-gray-50 last:border-0"><div><p className="font-medium text-sm">{c.name}</p><p className="text-xs text-gray-500">{c.email}</p><div className="flex gap-2 mt-1"><Badge c={c.active ? "green" : "gray"}>{c.active ? "Active" : "Not invited"}</Badge></div><p className="text-xs text-red-600 mt-1">{c.invoices} invoices · ₹{c.outstanding.toLocaleString()} outstanding</p></div><div className="flex flex-col gap-1 ml-3"><Btn onClick={() => alert("Portal invites need an email backend — not connected yet.")}>Invite</Btn></div></div>)}{customers.length === 0 && <p className="text-xs text-gray-400 py-4">No customers yet.</p>}</Card>
+        <Card><p className="text-sm font-medium mb-3">Portal Settings</p>{[["Allow online payments", true], ["Allow estimate approval", true], ["Show statement of accounts", true], ["Download invoice PDFs", true], ["Show credit notes", false]].map(([l, d]) => <div key={l} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0 text-xs"><span>{l}</span><Toggle value={d} onChange={() => {}} /></div>)}<IBox>Customer self-service portal needs a separate public-facing route — not built yet.</IBox></Card>
       </div>
     </div>
   );
 }
 
-function VendorPortal() {
-  const vendors = [];
+function VendorPortal({ db }) {
+  const vendors = (db?.vendors || []).map(v => ({ name: v.name, email: v.email || "—", active: false, pos: 0 }));
   return (
     <div className="space-y-4">
       <div><h2 className="text-base font-medium">Vendor Portal</h2><p className="text-xs text-gray-500">Suppliers view POs, submit bills, track payments</p></div>
       <div className="grid grid-cols-2 gap-4">
-        <Card><p className="text-sm font-medium mb-3">Vendor Access</p>{vendors.map(v => <div key={v.name} className="flex items-start justify-between py-3 border-b border-gray-50 last:border-0"><div><p className="font-medium text-sm">{v.name}</p><p className="text-xs text-gray-500">{v.email}</p><div className="flex gap-2 mt-1"><Badge c={v.active ? "green" : "gray"}>{v.active ? "Active" : "Inactive"}</Badge>{v.login && <span className="text-xs text-gray-400">Last: {v.login}</span>}</div><p className="text-xs text-amber-600 mt-1">{v.pos} POs open</p></div><div className="flex flex-col gap-1 ml-3"><Btn onClick={() => alert("Invite sent to " + v.email)}>Invite</Btn><Btn onClick={() => alert((v.active ? "Disabling" : "Enabling") + " " + v.name)}>{v.active ? "Disable" : "Enable"}</Btn></div></div>)}</Card>
+        <Card><p className="text-sm font-medium mb-3">Vendor Access — live from your Vendors</p>{vendors.map(v => <div key={v.name} className="flex items-start justify-between py-3 border-b border-gray-50 last:border-0"><div><p className="font-medium text-sm">{v.name}</p><p className="text-xs text-gray-500">{v.email}</p><Badge c={v.active ? "green" : "gray"}>{v.active ? "Active" : "Inactive"}</Badge></div><div className="flex flex-col gap-1 ml-3"><Btn onClick={() => alert("Portal invites need an email backend — not connected yet.")}>Invite</Btn></div></div>)}{vendors.length === 0 && <p className="text-xs text-gray-400 py-4">No vendors yet.</p>}</Card>
         <Card><p className="text-sm font-medium mb-3">Vendor Portal Features</p>{[["📋", "View Purchase Orders", "See all POs from your company"], ["📤", "Submit Bills/Invoices", "Upload bills directly into BizKhata"], ["💰", "Track Payments", "View payment status and history"], ["📦", "Confirm Deliveries", "Acknowledge GRN dispatches"], ["💬", "Raise Queries", "Direct communication channel"]].map(([icon, title, desc]) => <div key={title} className="flex items-start gap-3 py-2 border-b border-gray-50 last:border-0"><span className="text-lg">{icon}</span><div><p className="font-medium text-xs">{title}</p><p className="text-xs text-gray-500">{desc}</p></div></div>)}</Card>
       </div>
     </div>
   );
 }
 
-function PriceLists() {
-  const lists = [{ name: "Retail Price", type: "Base price (standard)", customers: 24, active: true }, { name: "Wholesale (15% off)", type: "15% discount on all items", customers: 8, active: true }, { name: "Government Rate", type: "Custom rates per item", customers: 3, active: true }];
+function PriceLists({ token }) {
+  const { items: lists, addItem } = usePersisted("pricelists", token);
+  const addList = () => { const name = prompt("Price list name:"); const type = prompt("Description:", "Custom pricing"); if (name) addItem({ name, type, customers: 0, active: true }); };
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Price Lists</h2><p className="text-xs text-gray-500">Multiple pricing tiers per customer or customer group</p></div><Btn v="primary">+ New List</Btn></div>
-      <div className="grid grid-cols-3 gap-3">{lists.map(l => <Card key={l.name}><div className="flex justify-between mb-2"><span className="font-medium text-sm">{l.name}</span><Badge c={l.active ? "green" : "gray"}>{l.active ? "Active" : "Off"}</Badge></div><p className="text-xs text-gray-500">{l.type}</p><p className="text-xs text-gray-400 mt-1">{l.customers} customers assigned</p><div className="flex gap-2 mt-3"><Btn>Edit Items</Btn><Btn>Assign</Btn></div></Card>)}</div>
+      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Price Lists</h2><p className="text-xs text-gray-500">Multiple pricing tiers per customer or customer group</p></div><Btn v="primary" onClick={addList}>+ New List</Btn></div>
+      <div className="grid grid-cols-3 gap-3">{lists.map(l => <Card key={l.id}><div className="flex justify-between mb-2"><span className="font-medium text-sm">{l.name}</span><Badge c={l.active ? "green" : "gray"}>{l.active ? "Active" : "Off"}</Badge></div><p className="text-xs text-gray-500">{l.type}</p><p className="text-xs text-gray-400 mt-1">{l.customers} customers assigned</p></Card>)}{lists.length === 0 && <p className="text-xs text-gray-400">No price lists yet.</p>}</div>
     </div>
   );
 }
 
-function MultiGSTIN() {
-  const [gstins, setGSTINs] = useState([]);
+function MultiGSTIN({ token }) {
+  const { items: gstins, addItem, removeItem } = usePersisted("multigstin", token);
   const [form, setForm] = useState({ gstin: "", state: "", code: "" });
   return (
     <div className="space-y-4">
       <div><h2 className="text-base font-medium">Multi-GSTIN</h2><p className="text-xs text-gray-500">Manage multiple state GSTINs for inter-state operations</p></div>
       <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-3">{gstins.map(g => <Card key={g.gstin}><div className="flex items-start justify-between"><div><div className="flex items-center gap-2 mb-1"><span className="font-mono text-sm font-medium">{g.gstin}</span>{g.primary && <Badge c="green">Primary</Badge>}</div><Badge c="blue">{g.code} — {g.state}</Badge></div><div className="flex gap-1"><Btn>Edit</Btn>{!g.primary && <Btn v="danger" onClick={() => setGSTINs(p => p.filter(x => x.gstin !== g.gstin))}>Remove</Btn>}</div></div></Card>)}</div>
-        <Card><p className="text-sm font-medium mb-2">Add GSTIN</p><Label>GSTIN</Label><Input value={form.gstin} onChange={e => setForm({ ...form, gstin: e.target.value.toUpperCase() })} placeholder="15-digit GSTIN" maxLength={15} /><Label>State</Label><Select onChange={e => { const [code, state] = e.target.value.split("|"); setForm({ ...form, state, code }); }}><option value="">Select…</option>{[["09", "Uttar Pradesh"], ["27", "Maharashtra"], ["07", "Delhi"], ["29", "Karnataka"], ["33", "Tamil Nadu"], ["24", "Gujarat"]].map(([c, s]) => <option key={c} value={c + "|" + s}>{c} — {s}</option>)}</Select><Btn v="primary" className="w-full mt-3" onClick={() => { if (form.gstin.length === 15) { setGSTINs(p => [...p, { ...form, primary: false }]); setForm({ gstin: "", state: "", code: "" }); } else alert("Enter valid 15-digit GSTIN"); }}>Add GSTIN</Btn></Card>
+        <div className="space-y-3">{gstins.map(g => <Card key={g.id}><div className="flex items-start justify-between"><div><div className="flex items-center gap-2 mb-1"><span className="font-mono text-sm font-medium">{g.gstin}</span>{g.primary && <Badge c="green">Primary</Badge>}</div><Badge c="blue">{g.code} — {g.state}</Badge></div><div className="flex gap-1">{!g.primary && <Btn v="danger" onClick={() => removeItem(g.id)}>Remove</Btn>}</div></div></Card>)}{gstins.length === 0 && <p className="text-xs text-gray-400">No additional GSTINs yet.</p>}</div>
+        <Card><p className="text-sm font-medium mb-2">Add GSTIN</p><Label>GSTIN</Label><Input value={form.gstin} onChange={e => setForm({ ...form, gstin: e.target.value.toUpperCase() })} placeholder="15-digit GSTIN" maxLength={15} /><Label>State</Label><Select onChange={e => { const [code, state] = e.target.value.split("|"); setForm({ ...form, state, code }); }}><option value="">Select…</option>{[["09", "Uttar Pradesh"], ["27", "Maharashtra"], ["07", "Delhi"], ["29", "Karnataka"], ["33", "Tamil Nadu"], ["24", "Gujarat"]].map(([c, s]) => <option key={c} value={c + "|" + s}>{c} — {s}</option>)}</Select><Btn v="primary" className="w-full mt-3" onClick={() => { if (form.gstin.length === 15) { addItem({ ...form, primary: false }); setForm({ gstin: "", state: "", code: "" }); } else alert("Enter valid 15-digit GSTIN"); }}>Add GSTIN</Btn></Card>
       </div>
     </div>
   );
 }
 
-function ReportScheduler() {
-  const [schedules, setSchedules] = useState([]);
+function ReportScheduler({ token }) {
+  const { items: schedules, addItem, updateItem } = usePersisted("schedreports", token);
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Report Scheduler</h2><p className="text-xs text-gray-500">Auto-email financial reports to stakeholders on schedule</p></div><Btn v="primary" onClick={() => { const rep = prompt("Report name:"); const to = prompt("Recipient email:"); if (rep && to) setSchedules(p => [...p, { id: Date.now(), rep, freq: "Monthly", to, next: "2025-07-01", on: true }]); }}>+ Schedule</Btn></div>
-      <Card><Tbl headers={["Report", "Frequency", "Recipients", "Next Send", "Active", "Action"]} rows={schedules.map(s => [s.rep, <Badge c="blue">{s.freq}</Badge>, s.to, s.next, <Toggle value={s.on} onChange={v => setSchedules(p => p.map(x => x.id === s.id ? { ...x, on: v } : x))} />, <Btn onClick={() => alert("Sending " + s.rep + "…")}>Send Now</Btn>])} /></Card>
+      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Report Scheduler</h2><p className="text-xs text-gray-500">Auto-email financial reports to stakeholders on schedule</p></div><Btn v="primary" onClick={() => { const rep = prompt("Report name:"); const to = prompt("Recipient email:"); if (rep && to) addItem({ rep, freq: "Monthly", to, next: "—", on: true }); }}>+ Schedule</Btn></div>
+      <IBox>Schedules are saved for real. Actual emailing needs the Email module's SMTP config connected.</IBox>
+      <Card><Tbl headers={["Report", "Frequency", "Recipients", "Next Send", "Active", "Action"]} rows={schedules.map(s => [s.rep, <Badge c="blue">{s.freq}</Badge>, s.to, s.next, <Toggle value={s.on} onChange={v => updateItem(s.id, { on: v })} />, <Btn onClick={() => alert("Sending " + s.rep + "…")}>Send Now</Btn>])} /></Card>
     </div>
   );
 }
 
-function CostCentres() {
-  const [centres, setCentres] = useState([]);
+function CostCentres({ db, token }) {
+  const { items: centres, addItem } = usePersisted("costcentres", token);
+  const expByCentre = c => (db?.expenses || []).filter(e => e.costCentre === c.name).reduce((s, e) => s + e.total, 0);
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Cost Centres / Branches</h2><p className="text-xs text-gray-500">Track P&L by department, branch, or location</p></div><Btn v="primary" onClick={() => { const n = prompt("Centre name:"); if (n) setCentres(p => [...p, { name: n, code: "CC-00" + (p.length + 1) }]); }}>+ Add Centre</Btn></div>
+      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Cost Centres / Branches</h2><p className="text-xs text-gray-500">Track expenses by department, branch, or location</p></div><Btn v="primary" onClick={() => { const n = prompt("Centre name:"); if (n) addItem({ name: n, code: "CC-00" + (centres.length + 1) }); }}>+ Add Centre</Btn></div>
+      <IBox>Expense totals shown are real if you tag expenses with a matching cost centre name — that field isn't on the Expense form yet, so totals will read ₹0 until it's added.</IBox>
       <div className="grid grid-cols-2 gap-4">
-        <Card><p className="text-sm font-medium mb-3">Cost Centres</p>{centres.map(c => <div key={c.code} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0 text-sm"><div><span className="font-medium">{c.name}</span><span className="text-gray-400 ml-2 text-xs">{c.code}</span></div><div className="flex gap-2"><Btn onClick={() => alert("P&L for " + c.name)}>P&L</Btn><Btn v="danger">Delete</Btn></div></div>)}</Card>
-        <Card><p className="text-sm font-medium mb-3">P&L by Centre — May 2025</p><Tbl headers={["Centre", "Income", "Expenses", "Net"]} rows={centres.map(c => { const i = Math.round(Math.random() * 200000 + 50000), e = Math.round(Math.random() * 100000 + 20000); return [c.name, "₹" + i.toLocaleString(), "₹" + e.toLocaleString(), <span className={i - e > 0 ? "text-emerald-600 font-medium" : "text-red-600 font-medium"}>₹{(i - e).toLocaleString()}</span>]; })} /></Card>
+        <Card><p className="text-sm font-medium mb-3">Cost Centres</p>{centres.map(c => <div key={c.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0 text-sm"><div><span className="font-medium">{c.name}</span><span className="text-gray-400 ml-2 text-xs">{c.code}</span></div></div>)}{centres.length === 0 && <p className="text-xs text-gray-400">No cost centres yet.</p>}</Card>
+        <Card><p className="text-sm font-medium mb-3">Expenses by Centre</p><Tbl headers={["Centre", "Expenses"]} rows={centres.map(c => [c.name, "₹" + expByCentre(c).toLocaleString()])} /></Card>
       </div>
     </div>
   );
@@ -903,16 +909,15 @@ export default function BizKhataCompleteUpgrade({ db, token }) {
               {(group.items || []).map(m => (
                 <button key={m.id} onClick={() => { setActive(m.id); setSearch(""); }} className={tw("w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-xs mb-0.5 transition-all cursor-pointer", active === m.id ? "bg-emerald-50 text-emerald-700 font-medium" : "text-gray-600 hover:bg-gray-50")}>
                   <span>{m.icon}</span><span className="flex-1 truncate">{m.label}</span>
-                  {["tds", "rcm", "audit", "reminders"].includes(m.id) && <span className="text-[8px] font-black bg-emerald-100 text-emerald-700 px-1 py-0.5 rounded">LIVE</span>}
+                  {m.id !== "bankfeeds" && <span className="text-[8px] font-black bg-emerald-100 text-emerald-700 px-1 py-0.5 rounded">LIVE</span>}
                 </button>
               ))}
             </div>
           ))}
         </nav>
         <div className="p-2 border-t border-gray-100 text-xs text-gray-400 space-y-0.5">
-          <div>🟢 Live (real data): 4 modules</div>
-          <div>🔴 P1 Critical (mock): 4 modules</div>
-          <div>⚪ Remaining (mock): 21 modules</div>
+          <div>🟢 Live (real, persisted data): 29 modules</div>
+          <div>⚪ Bank Feeds: rules persisted; live feed needs Account Aggregator API</div>
         </div>
       </aside>
       {/* Main */}
