@@ -174,7 +174,7 @@ export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProp
     <div id="bizkhata-dashboard-wrapper" className="space-y-6 font-sans text-slate-800 animate-fade-in pb-12">
       
       {/* 1. Bizkhata Hello + Helpline Header block */}
-      <div id="bizkhata-greeting-helpline-card" className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div id="bizkhata-greeting-helpline-card" className="card-lift bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="flex items-center gap-4">
           {/* Avatar badge */}
           <div className="w-12 h-12 bg-amber-100 border border-amber-300 text-amber-800 rounded-full flex items-center justify-center font-bold text-lg shadow-inner uppercase">
@@ -251,7 +251,7 @@ export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProp
           <div id="bk-kpi-main-row" className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
             {/* CARD A: Total Receivables */}
-            <div id="bk-receivables-panel" className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+            <div id="bk-receivables-panel" className="card-lift bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
               <div className="flex justify-between items-center pb-2 border-b border-slate-100">
                 <span className="text-sm font-bold text-slate-800">Total Receivables</span>
                 <button 
@@ -299,7 +299,7 @@ export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProp
             </div>
 
             {/* CARD B: Total Payables */}
-            <div id="bk-payables-panel" className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+            <div id="bk-payables-panel" className="card-lift bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
               <div className="flex justify-between items-center pb-2 border-b border-slate-100">
                 <span className="text-sm font-bold text-slate-800">Total Payables</span>
                 <button 
@@ -381,7 +381,7 @@ export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProp
           )}
 
           {/* 4. Cash Flow area line Chart segment aligned with screenshot */}
-          <div id="bk-cashflow-panel" className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-6">
+          <div id="bk-cashflow-panel" className="card-lift bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-6">
             <div className="flex justify-between items-center">
               <h3 className="text-sm font-bold text-slate-900">Cash Flow</h3>
               <div className="relative inline-block">
@@ -536,7 +536,7 @@ export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProp
           <div id="bk-additional-kpis" className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
             {/* KPI Left: Income and Expense Card */}
-            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+            <div className="card-lift bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
               <div className="flex justify-between items-center pb-2 border-b border-slate-100">
                 <span className="text-sm font-bold text-slate-800">Income and Expense</span>
                 <div className="flex items-center gap-2 bg-slate-100 p-0.5 rounded-md text-[10px] font-bold">
@@ -603,7 +603,7 @@ export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProp
             </div>
 
             {/* KPI Right: Top Expenses Breakdown */}
-            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+            <div className="card-lift bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
               <div className="flex justify-between items-center pb-2 border-b border-slate-100">
                 <span className="text-sm font-bold text-slate-800">Top Expenses</span>
                 <span className="text-[10px] uppercase font-bold text-slate-400">Account Allocation</span>

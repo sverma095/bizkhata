@@ -1,5 +1,39 @@
 @import "tailwindcss";
 
+/* Global polish — applies app-wide without touching every component */
+* { scrollbar-width: thin; scrollbar-color: #C9C3B3 transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #C9C3B3; border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: #ADA68F; }
+
+button, a, input[type="checkbox"], input[type="radio"], select {
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, transform 100ms ease, box-shadow 150ms ease;
+}
+button:active { transform: scale(0.98); }
+
+:focus-visible {
+  outline: 2px solid #8B7355;
+  outline-offset: 1px;
+  border-radius: 4px;
+}
+
+/* Card lift — opt-in via className="card-lift" on any panel/card */
+.card-lift {
+  transition: box-shadow 200ms ease, transform 200ms ease;
+}
+.card-lift:hover {
+  box-shadow: 0 8px 24px -8px rgba(60, 55, 40, 0.18);
+  transform: translateY(-1px);
+}
+
+/* Page entrance — opt-in via className="animate-fade-in" (already used in places) */
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+.animate-fade-in { animation: fadeIn 220ms ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
+
 /* Print: only show elements marked .printable-area; hide everything else (sidebar, headers, modal buttons) */
 @media print {
   body * { visibility: hidden; }

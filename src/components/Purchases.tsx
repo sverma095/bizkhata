@@ -393,7 +393,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
 
       {/* RECORD EXPENSE ENTRY FORM */}
       {showExpenseForm && (
-        <div id="expense-outflow-form" className="bg-white border border-slate-200 rounded-xl p-6">
+        <div id="expense-outflow-form" className="card-lift bg-white border border-slate-200 rounded-xl p-6">
           <div className="flex justify-between items-center border-b border-slate-200 pb-3 mb-4">
             <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
               <Receipt className="text-rose-450 w-4.5 h-4.5" />
@@ -659,7 +659,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
 
       {/* RECORD SUPPLIER VENDOR BILL FORM */}
       {showBillForm && (
-        <div id="supplier-bill-form" className="bg-white border border-slate-200 rounded-xl p-6">
+        <div id="supplier-bill-form" className="card-lift bg-white border border-slate-200 rounded-xl p-6">
           <div className="flex justify-between items-center border-b border-slate-200 pb-2.5 mb-4">
             <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
               <FileText className="w-4 h-4 text-indigo-455" />

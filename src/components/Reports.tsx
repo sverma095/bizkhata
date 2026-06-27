@@ -1319,7 +1319,7 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
 
                   {/* SUMMARY CARDS GRID */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="bg-white border border-[#E5E1D8] p-4 rounded-xl shadow-2xs">
+                    <div className="card-lift bg-white border border-[#E5E1D8] p-4 rounded-xl shadow-2xs">
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">B2B Registered Sales</span>
                       <div className="flex items-baseline justify-between mt-1">
                         <span className="text-xs font-semibold text-slate-500">{gstr1Data.b2bCount} Invoices</span>
@@ -1331,7 +1331,7 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
                       </div>
                     </div>
 
-                    <div className="bg-white border border-[#E5E1D8] p-4 rounded-xl shadow-2xs">
+                    <div className="card-lift bg-white border border-[#E5E1D8] p-4 rounded-xl shadow-2xs">
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">B2C Large Unreg</span>
                       <div className="flex items-baseline justify-between mt-1">
                         <span className="text-xs font-semibold text-slate-500">{gstr1Data.b2cLargeCount} Invoices</span>
@@ -1343,7 +1343,7 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
                       </div>
                     </div>
 
-                    <div className="bg-white border border-[#E5E1D8] p-4 rounded-xl shadow-2xs">
+                    <div className="card-lift bg-white border border-[#E5E1D8] p-4 rounded-xl shadow-2xs">
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">B2C Retail / Small</span>
                       <div className="flex items-baseline justify-between mt-1">
                         <span className="text-xs font-semibold text-slate-500">{gstr1Data.b2cSmallCount} Invoices</span>
@@ -1368,7 +1368,7 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
                   </div>
 
                   {/* FULL DETAIL TABS GROUP */}
-                  <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+                  <div className="card-lift bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
                     <p className="p-4 bg-slate-50 border-b border-slate-100 font-bold text-xs text-slate-800 flex items-center justify-between">
                       <span>B2B Registered Tax Invoices (Table 4A, 4C)</span>
                       <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-[9.5px] font-mono">Form GSTR-1 Real-time</span>
@@ -1421,7 +1421,7 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
                   </div>
 
                   {/* B2C SMALL RETAIL TRANSACTIONS */}
-                  <div className="bg-white border border-slate-205 rounded-xl overflow-hidden shadow-xs">
+                  <div className="card-lift bg-white border border-slate-205 rounded-xl overflow-hidden shadow-xs">
                     <p className="p-4 bg-slate-50 border-b border-slate-100 font-bold text-xs text-slate-800 flex items-center justify-between">
                       <span>B2C Small Consumer Supplies (Table 7)</span>
                       <span className="px-2 py-0.5 bg-amber-50 text-amber-700 rounded text-[9.5px] font-mono">Standard Retail Sales</span>
@@ -1465,7 +1465,7 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
                   </div>
 
                   {/* HSN-WISE CONSOLIDATED SUMMARY */}
-                  <div className="bg-white border border-slate-205 rounded-xl overflow-hidden shadow-xs">
+                  <div className="card-lift bg-white border border-slate-205 rounded-xl overflow-hidden shadow-xs">
                     <p className="p-4 bg-slate-50 border-b border-slate-100 font-bold text-xs text-slate-800 flex items-center justify-between">
                       <span>HSN-wise Outward Supplies Summary (Table 12)</span>
                       <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded text-[9.5px] font-mono font-bold">Mandatory HSN/SAC</span>

@@ -461,21 +461,21 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
             <div className="space-y-6">
               {/* SaaS Owner: Platform metrics (merged from old Owner console) */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-xs space-y-1">
+                <div className="card-lift bg-white border border-slate-200 p-4 rounded-xl shadow-xs space-y-1">
                   <p className="text-[9.5px] uppercase font-black text-slate-400 tracking-wider">Enrolled Tenant Businesses</p>
                   <div className="flex items-baseline gap-2">
                     <span className="text-2xl font-black text-slate-800">{organizations.length}</span>
                     <span className="text-xs text-slate-550">SME Corporations</span>
                   </div>
                 </div>
-                <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-xs space-y-1">
+                <div className="card-lift bg-white border border-slate-200 p-4 rounded-xl shadow-xs space-y-1">
                   <p className="text-[9.5px] uppercase font-black text-slate-400 tracking-wider">Licensed Seating Capacity</p>
                   <div className="flex items-baseline gap-2">
                     <span className="text-2xl font-black text-slate-800">{organizations.reduce((acc, curr) => acc + (curr.allocatedSeats || 0), 0)}</span>
                     <span className="text-xs text-slate-550">Active Seats</span>
                   </div>
                 </div>
-                <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-xs space-y-1">
+                <div className="card-lift bg-white border border-slate-200 p-4 rounded-xl shadow-xs space-y-1">
                   <p className="text-[9.5px] uppercase font-black text-slate-400 tracking-wider">Platform MRR (Consolidated)</p>
                   <div className="flex items-baseline gap-1 text-emerald-700">
                     <span className="text-2xl font-black">₹{organizations.reduce((acc, curr) => acc + (curr.pricingMonthly || 0), 0).toLocaleString('en-IN')}</span>

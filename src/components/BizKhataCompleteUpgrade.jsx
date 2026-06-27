@@ -47,12 +47,12 @@ function usePersisted(key, token) {
 
 // ── Shared UI ──────────────────────────────────────────────────
 const tw = (...c) => c.filter(Boolean).join(" ");
-const Card = ({ children, className = "" }) => <div className={tw("bg-white border border-gray-200 rounded-xl p-4", className)}>{children}</div>;
+const Card = ({ children, className = "" }) => <div className={tw("card-lift bg-white border border-gray-200 rounded-xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]", className)}>{children}</div>;
 const Label = ({ children }) => <p className="text-xs text-gray-500 mb-1 mt-3">{children}</p>;
 const Input = (p) => <input className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-gray-400 bg-white" {...p} />;
 const Select = ({ children, ...p }) => <select className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-gray-400 bg-white" {...p}>{children}</select>;
 const Btn = ({ children, v = "default", className = "", ...p }) => {
-  const s = { default: "bg-white border-gray-200 text-gray-700 hover:bg-gray-50", primary: "bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-700", danger: "bg-red-50 border-red-200 text-red-700 hover:bg-red-100" };
+  const s = { default: "bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300", primary: "bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-700 shadow-sm hover:shadow", danger: "bg-red-50 border-red-200 text-red-700 hover:bg-red-100" };
   return <button className={tw("px-3 py-1.5 text-xs rounded-lg border font-medium transition-all cursor-pointer", s[v], className)} {...p}>{children}</button>;
 };
 const Badge = ({ children, c = "gray" }) => {
@@ -68,20 +68,20 @@ const Tbl = ({ headers, rows }) => (
   <div className="overflow-x-auto">
     <table className="w-full text-xs border-collapse">
       <thead><tr>{headers.map((h, i) => <th key={i} className="text-left py-2 px-3 bg-gray-50 text-gray-500 font-medium border-b border-gray-100">{h}</th>)}</tr></thead>
-      <tbody>{rows.length === 0 ? <tr><td colSpan={headers.length} className="text-center py-6 text-gray-400">No data</td></tr> :
-        rows.map((row, i) => <tr key={i} className="hover:bg-gray-50 border-b border-gray-50 last:border-0">{row.map((cell, j) => <td key={j} className="py-2 px-3 text-gray-700 align-middle">{cell}</td>)}</tr>)
+      <tbody>{rows.length === 0 ? <tr><td colSpan={headers.length} className="text-center py-8 text-gray-400">Nothing here yet — use the button above to add your first entry.</td></tr> :
+        rows.map((row, i) => <tr key={i} className="hover:bg-gray-50 border-b border-gray-50 last:border-0 transition-colors">{row.map((cell, j) => <td key={j} className="py-2 px-3 text-gray-700 align-middle">{cell}</td>)}</tr>)
       }</tbody>
     </table>
   </div>
 );
 const Tabs = ({ items, active, onChange }) => (
   <div className="flex border-b border-gray-100 mb-4">
-    {items.map(([id, lbl]) => <button key={id} onClick={() => onChange(id)} className={tw("px-4 py-2 text-xs border-b-2 -mb-px transition-all cursor-pointer", active === id ? "border-emerald-600 text-emerald-700 font-medium" : "border-transparent text-gray-500 hover:text-gray-700")}>{lbl}</button>)}
+    {items.map(([id, lbl]) => <button key={id} onClick={() => onChange(id)} className={tw("px-4 py-2 text-xs border-b-2 -mb-px transition-all cursor-pointer", active === id ? "border-emerald-600 text-emerald-700 font-medium" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-200")}>{lbl}</button>)}
   </div>
 );
 const Metrics = ({ items }) => (
   <div className="grid grid-cols-4 gap-2 mb-4">
-    {items.map(({ l, v, c }) => <div key={l} className="bg-white border border-gray-200 rounded-xl p-3 text-center"><p className="text-xs text-gray-500">{l}</p><p className="text-lg font-medium mt-0.5" style={{ color: c || "var(--color-text-primary)" }}>{v}</p></div>)}
+    {items.map(({ l, v, c }) => <div key={l} className="card-lift bg-white border border-gray-200 rounded-xl p-3 text-center relative overflow-hidden"><div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: c || "#1D9E75" }} /><p className="text-xs text-gray-500">{l}</p><p className="text-lg font-semibold mt-0.5" style={{ color: c || "var(--color-text-primary)" }}>{v}</p></div>)}
   </div>
 );
 const IBox = ({ children, type = "info" }) => <div className={tw("border rounded-lg p-3 text-xs mb-3", type === "warn" ? "bg-amber-50 border-amber-200 text-amber-800" : "bg-blue-50 border-blue-100 text-blue-700")}>{children}</div>;

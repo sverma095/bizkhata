@@ -1868,7 +1868,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                             </div>
                           </div>
 
-                          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-2xs h-56 flex flex-col justify-between">
+                          <div className="card-lift bg-white border border-slate-200 rounded-xl p-5 shadow-2xs h-56 flex flex-col justify-between">
                             <div className="flex-1 flex gap-4 items-end justify-around pb-2 relative border-b border-slate-150 h-36">
                               
                               {/* Horizontal Indicator grids */}
