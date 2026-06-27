@@ -970,7 +970,7 @@ export default function App() {
     <div id="bizkhata-main-container" className="h-screen flex flex-col overflow-hidden bg-slate-50 font-sans text-slate-700">
       
       {/* ----------------- BIZKHATA TOP GLOBAL BAR ----------------- */}
-      <header id="bizkhata-global-header" className="h-12 bg-[#1C202F] flex items-center justify-between px-4 text-white shrink-0 select-none z-30">
+      <header id="bizkhata-global-header" className="h-12 bg-[#1C202F] flex items-center justify-between px-4 text-white shrink-0 select-none z-30 shadow-[0_2px_8px_rgba(0,0,0,0.25)]">
         
         {/* Left: Bizkhata logo stack */}
         <div className="flex items-center gap-2">
