@@ -645,25 +645,26 @@ function PartialInvoices({ token }) {
   );
 }
 
-function MilestoneBilling() {
-  const [ms, setMs] = useState([]);
+function MilestoneBilling({ token }) {
+  const { items: ms, addItem, updateItem } = usePersisted("milestone", token);
   const projs = [...new Set(ms.map(m => m.proj))];
+  const addMs = () => { const proj = prompt("Project:"); const name = prompt("Milestone name:"); const amt = +prompt("Amount (₹):", "0"); const due = prompt("Due date:", new Date().toISOString().split("T")[0]); if (proj && name) addItem({ proj, name, amt, due, status: "pending" }); };
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Milestone Billing</h2><p className="text-xs text-gray-500">Invoice clients when project milestones are completed</p></div><Btn v="primary">+ Add Milestone</Btn></div>
+      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Milestone Billing</h2><p className="text-xs text-gray-500">Invoice clients when project milestones are completed</p></div><Btn v="primary" onClick={addMs}>+ Add Milestone</Btn></div>
       <Metrics items={[{ l: "Pending", v: ms.filter(m => m.status === "pending").length, c: "#854F0B" }, { l: "Ready to Invoice", v: ms.filter(m => m.status === "completed").length, c: "#0F6E56" }, { l: "Invoiced", v: ms.filter(m => m.status === "invoiced").length }, { l: "Total Value", v: "₹" + ms.reduce((s, m) => s + m.amt, 0).toLocaleString() }]} />
-      {projs.map(proj => <Card key={proj}><p className="text-sm font-medium mb-3">{proj}</p>{ms.filter(m => m.proj === proj).map(m => <div key={m.id} className="flex items-center gap-3 mb-2"><div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: { invoiced: "#1D9E75", completed: "#EF9F27", pending: "#D3D1C7" }[m.status] }} /><div className={"flex-1 p-2.5 rounded-lg border flex items-center justify-between " + (m.status === "invoiced" ? "border-emerald-100 bg-emerald-50" : m.status === "completed" ? "border-amber-100 bg-amber-50" : "border-gray-100")}><div><p className="font-medium text-xs">{m.name}</p><p className="text-xs text-gray-500">Due {m.due} · ₹{m.amt.toLocaleString()}</p></div><div className="flex items-center gap-2"><Badge c={{ invoiced: "green", completed: "amber", pending: "gray" }[m.status]}>{m.status}</Badge>{m.inv && <span className="text-xs text-blue-600">{m.inv}</span>}{m.status === "pending" && <Btn onClick={() => setMs(p => p.map(x => x.id === m.id ? { ...x, status: "completed" } : x))}>Mark Done</Btn>}{m.status === "completed" && <Btn v="primary" onClick={() => { const inv = "INV-0" + (140 + m.id); setMs(p => p.map(x => x.id === m.id ? { ...x, status: "invoiced", inv } : x)); alert("Invoice " + inv + " created!"); }}>Invoice</Btn>}</div></div></div>)}</Card>)}
+      {projs.map(proj => <Card key={proj}><p className="text-sm font-medium mb-3">{proj}</p>{ms.filter(m => m.proj === proj).map(m => <div key={m.id} className="flex items-center gap-3 mb-2"><div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: { invoiced: "#1D9E75", completed: "#EF9F27", pending: "#D3D1C7" }[m.status] }} /><div className={"flex-1 p-2.5 rounded-lg border flex items-center justify-between " + (m.status === "invoiced" ? "border-emerald-100 bg-emerald-50" : m.status === "completed" ? "border-amber-100 bg-amber-50" : "border-gray-100")}><div><p className="font-medium text-xs">{m.name}</p><p className="text-xs text-gray-500">Due {m.due} · ₹{m.amt.toLocaleString()}</p></div><div className="flex items-center gap-2"><Badge c={{ invoiced: "green", completed: "amber", pending: "gray" }[m.status]}>{m.status}</Badge>{m.inv && <span className="text-xs text-blue-600">{m.inv}</span>}{m.status === "pending" && <Btn onClick={() => updateItem(m.id, { status: "completed" })}>Mark Done</Btn>}{m.status === "completed" && <Btn v="primary" onClick={() => { const inv = "INV-0" + (140 + Math.floor(Math.random()*100)); updateItem(m.id, { status: "invoiced", inv }); alert("Invoice " + inv + " created!"); }}>Invoice</Btn>}</div></div></div>)}</Card>)}
     </div>
   );
 }
 
-function BatchSerial() {
+function BatchSerial({ token }) {
   const [tab, setTab] = useState("batch");
-  const [batches, setBatches] = useState([]);
-  const [serials] = useState([]);
+  const { items: batches, addItem: addBatch } = usePersisted("batch", token);
+  const serials = [];
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Batch & Serial Tracking</h2><p className="text-xs text-gray-500">Track items by batch/lot or unique serial number</p></div><Btn v="primary" onClick={() => { if (tab === "batch") { const item = prompt("Item:"); const batch = prompt("Batch #:"); if (item && batch) setBatches(p => [...p, { item, batch, mfg: "2025-06-01", exp: "2027-06-01", qty: 100, rem: 100 }]); } }}>+ Add</Btn></div>
+      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Batch & Serial Tracking</h2><p className="text-xs text-gray-500">Track items by batch/lot or unique serial number</p></div><Btn v="primary" onClick={() => { if (tab === "batch") { const item = prompt("Item:"); const batch = prompt("Batch #:"); const qty = +prompt("Quantity:", "100"); const exp = prompt("Expiry date:", new Date(Date.now()+2*365*86400000).toISOString().split("T")[0]); if (item && batch) addBatch({ item, batch, mfg: new Date().toISOString().split("T")[0], exp, qty, rem: qty }); } }}>+ Add</Btn></div>
       <Tabs items={[["batch", "📦 Batch Tracking"], ["serial", "🔢 Serial Numbers"]]} active={tab} onChange={setTab} />
       {tab === "batch" && <Card><Tbl headers={["Item", "Batch #", "Mfg Date", "Expiry", "Total", "Remaining", "Status"]} rows={batches.map(b => { const days = Math.ceil((new Date(b.exp) - new Date()) / 86400000); return [b.item, b.batch, b.mfg, b.exp, b.qty, <span className={days < 365 ? "text-amber-600 font-medium" : "text-emerald-600 font-medium"}>{b.rem}</span>, <Badge c={days < 365 ? "amber" : "green"}>{days < 365 ? days + "d left" : "Active"}</Badge>]; })} /></Card>}
       {tab === "serial" && <Card><Tbl headers={["Item", "Serial #", "Status", "Sold To", "Invoice"]} rows={serials.map(s => [s.item, <span className="font-mono text-xs">{s.sn}</span>, <Badge c={s.status === "sold" ? "blue" : "green"}>{s.status.replace("_", " ")}</Badge>, s.sold, s.inv])} /></Card>}
@@ -671,17 +672,24 @@ function BatchSerial() {
   );
 }
 
-function CompositeItems() {
-  const items = [{ name: "Office Starter Kit", sku: "OSK-001", price: 2500, comps: [{ n: "Pen Box", q: 2 }, { n: "A4 Paper", q: 1 }, { n: "Sticky Notes", q: 3 }] }, { name: "Printing Bundle", sku: "PB-002", price: 8500, comps: [{ n: "Black Cartridge", q: 2 }, { n: "Color Cartridge", q: 1 }, { n: "A4 Paper", q: 5 }] }];
+function CompositeItems({ token }) {
+  const { items, addItem } = usePersisted("composite", token);
+  const addBundle = () => {
+    const name = prompt("Bundle name:"); const sku = prompt("SKU:"); const price = +prompt("Price (₹):", "0");
+    const compsStr = prompt("Components, format 'Name:Qty, Name:Qty':", "Item A:1, Item B:2");
+    const comps = (compsStr || "").split(",").map(s => { const [n, q] = s.split(":"); return { n: (n||"").trim(), q: +(q||1) }; }).filter(c => c.n);
+    if (name) addItem({ name, sku, price, comps });
+  };
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Composite Items & BOM</h2><p className="text-xs text-gray-500">Bundle items into one SKU — auto-deducts components on sale</p></div><Btn v="primary">+ New Bundle</Btn></div>
-      <div className="grid grid-cols-2 gap-4">{items.map(it => <Card key={it.name}><div className="flex justify-between mb-3"><div><p className="font-medium">{it.name}</p><p className="text-xs text-gray-400">{it.sku} · ₹{it.price.toLocaleString()}</p></div><Badge c="purple">{it.comps.length} components</Badge></div><p className="text-xs font-medium text-gray-600 mb-2">Components (BOM)</p>{it.comps.map(c => <div key={c.n} className="flex justify-between py-1.5 border-b border-gray-50 last:border-0 text-xs"><span>{c.n}</span><span className="font-medium">×{c.q}</span></div>)}<IBox>On sale, auto-deducts: {it.comps.map(c => `${c.q}× ${c.n}`).join(", ")}</IBox></Card>)}</div>
+      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Composite Items & BOM</h2><p className="text-xs text-gray-500">Bundle items into one SKU — auto-deducts components on sale</p></div><Btn v="primary" onClick={addBundle}>+ New Bundle</Btn></div>
+      <div className="grid grid-cols-2 gap-4">{items.map(it => <Card key={it.id}><div className="flex justify-between mb-3"><div><p className="font-medium">{it.name}</p><p className="text-xs text-gray-400">{it.sku} · ₹{it.price.toLocaleString()}</p></div><Badge c="purple">{it.comps.length} components</Badge></div><p className="text-xs font-medium text-gray-600 mb-2">Components (BOM)</p>{it.comps.map(c => <div key={c.n} className="flex justify-between py-1.5 border-b border-gray-50 last:border-0 text-xs"><span>{c.n}</span><span className="font-medium">×{c.q}</span></div>)}<IBox>On sale, auto-deducts: {it.comps.map(c => `${c.q}× ${c.n}`).join(", ")}</IBox></Card>)}</div>
     </div>
   );
 }
 
-function ChequePrinting() {
+function ChequePrinting({ token }) {
+  const { addItem } = usePersisted("cheque", token);
   const [form, setForm] = useState({ payee: "", amt: "", no: "", bank: "HDFC Savings ****4521", date: new Date().toISOString().split("T")[0] });
   const [preview, setPreview] = useState(null);
   const words = n => { const a = ["","One","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten","Eleven","Twelve","Thirteen","Fourteen","Fifteen","Sixteen","Seventeen","Eighteen","Nineteen"], b = ["","","Twenty","Thirty","Forty","Fifty","Sixty","Seventy","Eighty","Ninety"]; const c = x => !x ? "" : x < 20 ? a[x] : x < 100 ? b[Math.floor(x/10)] + (x%10 ? " " + a[x%10] : "") : x < 1000 ? a[Math.floor(x/100)] + " Hundred" + (x%100 ? " " + c(x%100) : "") : x < 100000 ? c(Math.floor(x/1000)) + " Thousand" + (x%1000 ? " " + c(x%1000) : "") : c(Math.floor(x/100000)) + " Lakh" + (x%100000 ? " " + c(x%100000) : ""); return (c(Math.floor(n)) || "Zero") + " Rupees Only"; };
@@ -705,7 +713,7 @@ function ChequePrinting() {
               <div className="mb-3"><div className="text-gray-500">Rupees</div><div className="font-bold border-b-2 border-gray-800">{words(+preview.amt)} ★★★</div></div>
               <div className="flex justify-between items-end mt-2"><div><div className="text-gray-500 text-xs">Cheque No.</div><div className="font-bold text-base">{preview.no}</div></div><div className="font-bold text-xl">₹{(+preview.amt).toLocaleString()}</div><div className="text-right"><div className="text-gray-500 mb-5">Authorised Signatory</div><div className="border-t-2 border-gray-800 pt-1">Signature</div></div></div>
             </div>
-            <Btn v="primary" className="mt-2 w-full" onClick={() => window.print()}>🖨 Print</Btn>
+            <Btn v="primary" className="mt-2 w-full" onClick={() => { addItem(preview); window.print(); }}>🖨 Print</Btn>
           </Card>
         ) : <Card className="flex items-center justify-center min-h-48 text-gray-400">Fill form and click Preview</Card>}
       </div>
@@ -713,14 +721,27 @@ function ChequePrinting() {
   );
 }
 
-function HSNSummary() {
-  const data = [{ hsn: "4820", desc: "Registers, Notebooks", uqc: "NOS", qty: 450, val: 85000, igst: 0, cgst: 7650, sgst: 7650 }, { hsn: "8473", desc: "Parts for Office Machines", uqc: "NOS", qty: 120, val: 42000, igst: 7560, cgst: 0, sgst: 0 }, { hsn: "9609", desc: "Pencils, Crayons", uqc: "BOX", qty: 200, val: 12000, igst: 0, cgst: 720, sgst: 720 }, { hsn: "8443", desc: "Printing Machinery", uqc: "NOS", qty: 5, val: 125000, igst: 22500, cgst: 0, sgst: 0 }];
-  const dl = () => { const json = { gstin: "09ABCDE1234F1Z5", fp: "052025", hsn: { data: data.map(h => ({ hsn_sc: h.hsn, desc: h.desc, uqc: h.uqc, qty: h.qty, val: h.val, txval: h.val, iamt: h.igst, camt: h.cgst, samt: h.sgst })) } }; const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(json, null, 2)])); a.download = "HSN_Summary_052025.json"; a.click(); };
+function HSNSummary({ db }) {
+  const map = {};
+  for (const inv of (db?.invoices || [])) {
+    if (inv.isProforma) continue;
+    for (const it of (inv.items || [])) {
+      const hsn = it.hsnSac || "—";
+      if (!map[hsn]) map[hsn] = { hsn, desc: it.name || it.description || "", uqc: "NOS", qty: 0, val: 0, igst: 0, cgst: 0, sgst: 0 };
+      map[hsn].qty += it.qty || 0;
+      map[hsn].val += it.amount || 0;
+      map[hsn].igst += it.igst || 0;
+      map[hsn].cgst += it.cgst || 0;
+      map[hsn].sgst += it.sgst || 0;
+    }
+  }
+  const data = Object.values(map);
+  const dl = () => { const json = { hsn: { data: data.map(h => ({ hsn_sc: h.hsn, desc: h.desc, uqc: h.uqc, qty: h.qty, val: h.val, txval: h.val, iamt: h.igst, camt: h.cgst, samt: h.sgst })) } }; const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(json, null, 2)])); a.download = "HSN_Summary.json"; a.click(); };
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">HSN Summary Report</h2><p className="text-xs text-gray-500">HSN-wise summary for GSTR-1 Table 12</p></div><Btn v="primary" onClick={dl}>Download JSON</Btn></div>
+      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">HSN Summary Report</h2><p className="text-xs text-gray-500">HSN-wise summary for GSTR-1 Table 12 — live from your invoices</p></div><Btn v="primary" onClick={dl}>Download JSON</Btn></div>
       <Metrics items={[{ l: "HSN Codes", v: data.length }, { l: "Total Taxable Value", v: "₹" + data.reduce((s, h) => s + h.val, 0).toLocaleString() }, { l: "Total Tax", v: "₹" + data.reduce((s, h) => s + h.igst + h.cgst + h.sgst, 0).toLocaleString(), c: "#0F6E56" }, { l: "Threshold", v: "₹1.5Cr turnover" }]} />
-      <Card><Tbl headers={["HSN", "Description", "UQC", "Qty", "Taxable", "IGST", "CGST", "SGST", "Total Tax"]} rows={data.map(h => [<span className="font-mono font-medium">{h.hsn}</span>, h.desc, h.uqc, h.qty, "₹" + h.val.toLocaleString(), h.igst ? "₹" + h.igst.toLocaleString() : "—", h.cgst ? "₹" + h.cgst.toLocaleString() : "—", h.sgst ? "₹" + h.sgst.toLocaleString() : "—", <span className="font-medium">₹{(h.igst + h.cgst + h.sgst).toLocaleString()}</span>])} /></Card>
+      <Card><Tbl headers={["HSN", "Description", "UQC", "Qty", "Taxable", "IGST", "CGST", "SGST", "Total Tax"]} rows={data.length ? data.map(h => [<span className="font-mono font-medium">{h.hsn}</span>, h.desc, h.uqc, h.qty, "₹" + h.val.toLocaleString(), h.igst ? "₹" + h.igst.toLocaleString() : "—", h.cgst ? "₹" + h.cgst.toLocaleString() : "—", h.sgst ? "₹" + h.sgst.toLocaleString() : "—", <span className="font-medium">₹{(h.igst + h.cgst + h.sgst).toLocaleString()}</span>]) : [["No invoices yet.", "", "", "", "", "", "", "", ""]]} /></Card>
     </div>
   );
 }
