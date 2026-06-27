@@ -553,37 +553,50 @@ function ReverseCharge({ db }) {
   );
 }
 
-function DepreciationAuto() {
-  const [assets, setAssets] = useState([]);
-  const [logs, setLogs] = useState([]);
+function DepreciationAuto({ token }) {
+  const { items: all, addItem, updateItem } = usePersisted("depreciation", token);
+  const assets = all.filter(i => i.kind !== "log");
+  const logs = all.filter(i => i.kind === "log");
   const total = assets.filter(a => a.auto).reduce((s, a) => s + a.monthly, 0);
-  const run = () => { const nl = assets.filter(a => a.auto).map((a, i) => ({ asset: a.name, amt: a.monthly, date: "2025-06-30", jv: "JV-00" + (91 + i) })); setLogs(p => [...nl, ...p]); setAssets(p => p.map(a => a.auto ? { ...a, wdv: Math.round(a.wdv - a.monthly), last: "2025-06-30" } : a)); alert("✅ " + nl.length + " journals posted"); };
+  const addAsset = () => {
+    const name = prompt("Asset name:"); if (!name) return;
+    const wdv = +prompt("Current WDV (₹):", "0"); const rate = +prompt("WDV rate (%):", "15");
+    addItem({ name, wdv, rate, monthly: Math.round((wdv * rate / 100) / 12), auto: true, last: "—" });
+  };
+  const run = () => {
+    const today = new Date().toISOString().split("T")[0];
+    assets.filter(a => a.auto).forEach((a, i) => {
+      addItem({ kind: "log", asset: a.name, amt: a.monthly, date: today, jv: "JV-00" + (91 + i) });
+      updateItem(a.id, { wdv: Math.round(a.wdv - a.monthly), last: today });
+    });
+    alert("✅ Depreciation posted");
+  };
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Depreciation Automation</h2><p className="text-xs text-gray-500">Auto-post monthly depreciation journals</p></div><div className="flex gap-2"><Badge c="blue">₹{total.toLocaleString()}/month</Badge><Btn v="primary" onClick={run}>Post June Depreciation</Btn></div></div>
+      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Depreciation Automation</h2><p className="text-xs text-gray-500">Auto-post monthly depreciation journals</p></div><div className="flex gap-2"><Badge c="blue">₹{total.toLocaleString()}/month</Badge><Btn onClick={addAsset}>+ Add Asset</Btn><Btn v="primary" onClick={run}>Post This Month</Btn></div></div>
       <div className="grid grid-cols-2 gap-4">
-        <Card><p className="text-sm font-medium mb-2">Asset Schedule</p>{assets.map(a => <div key={a.id} className="py-2 border-b border-gray-50 last:border-0"><div className="flex justify-between items-center mb-1"><span className="font-medium text-sm">{a.name}</span><div className="flex items-center gap-2"><span className="text-xs text-gray-500">₹{a.monthly.toLocaleString()}/mo</span><Toggle value={a.auto} onChange={v => setAssets(p => p.map(x => x.id === a.id ? { ...x, auto: v } : x))} /></div></div><div className="flex justify-between text-xs text-gray-400"><span>WDV: ₹{a.wdv.toLocaleString()}</span><span>{a.rate}% WDV</span><span>Last: {a.last}</span></div></div>)}</Card>
+        <Card><p className="text-sm font-medium mb-2">Asset Schedule</p>{assets.map(a => <div key={a.id} className="py-2 border-b border-gray-50 last:border-0"><div className="flex justify-between items-center mb-1"><span className="font-medium text-sm">{a.name}</span><div className="flex items-center gap-2"><span className="text-xs text-gray-500">₹{a.monthly.toLocaleString()}/mo</span><Toggle value={a.auto} onChange={v => updateItem(a.id, { auto: v })} /></div></div><div className="flex justify-between text-xs text-gray-400"><span>WDV: ₹{a.wdv.toLocaleString()}</span><span>{a.rate}% WDV</span><span>Last: {a.last}</span></div></div>)}</Card>
         <Card><p className="text-sm font-medium mb-2">Journal Log</p><Tbl headers={["Asset", "Amount", "Date", "JV #"]} rows={logs.map(l => [l.asset, "₹" + l.amt.toLocaleString(), l.date, l.jv])} /><IBox>Dr: Depreciation Expense → Cr: Accumulated Depreciation</IBox></Card>
       </div>
     </div>
   );
 }
 
-function RecurringTxns() {
-  const [list, setList] = useState([]);
+function RecurringTxns({ token }) {
+  const { items: list, addItem, updateItem } = usePersisted("recurring", token);
   const icons = { Invoice: "🧾", Bill: "📋", Journal: "📔", Expense: "💳" };
   const colors = { Invoice: "green", Bill: "red", Journal: "blue", Expense: "amber" };
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Recurring Transactions</h2><p className="text-xs text-gray-500">Auto-generate invoices, bills, journals on schedule</p></div><Btn v="primary" onClick={() => { const n = prompt("Name:"); if (n) setList(p => [...p, { id: Date.now(), type: "Invoice", name: n, amt: 15000, freq: "Monthly", next: "2025-07-01", count: 0, on: true }]); }}>+ New</Btn></div>
-      <Metrics items={[{ l: "Active", v: list.filter(r => r.on).length, c: "#0F6E56" }, { l: "Total Generated", v: list.reduce((s, r) => s + r.count, 0) }, { l: "Monthly Value", v: "₹" + list.filter(r => r.on && r.freq === "Monthly").reduce((s, r) => s + r.amt, 0).toLocaleString() }, { l: "Next Run", v: "Jun 30" }]} />
-      {list.map(r => <Card key={r.id}><div className="flex items-center justify-between"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-lg bg-gray-50 flex items-center justify-center text-lg">{icons[r.type]}</div><div><p className="font-medium text-sm">{r.name}</p><div className="flex items-center gap-2 mt-0.5"><Badge c="blue">{r.freq}</Badge><Badge c={colors[r.type] || "gray"}>{r.type}</Badge><span className="text-xs text-gray-400">Next: {r.next} · {r.count} generated</span></div></div></div><div className="flex items-center gap-3"><span className="font-medium text-sm">₹{r.amt.toLocaleString()}</span><Btn onClick={() => { setList(p => p.map(x => x.id === r.id ? { ...x, count: x.count + 1 } : x)); alert(r.type + " generated!"); }}>Now</Btn><Toggle value={r.on} onChange={v => setList(p => p.map(x => x.id === r.id ? { ...x, on: v } : x))} /></div></div></Card>)}
+      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Recurring Transactions</h2><p className="text-xs text-gray-500">Auto-generate invoices, bills, journals on schedule</p></div><Btn v="primary" onClick={() => { const n = prompt("Name:"); if (n) addItem({ type: "Invoice", name: n, amt: 15000, freq: "Monthly", next: "—", count: 0, on: true }); }}>+ New</Btn></div>
+      <Metrics items={[{ l: "Active", v: list.filter(r => r.on).length, c: "#0F6E56" }, { l: "Total Generated", v: list.reduce((s, r) => s + r.count, 0) }, { l: "Monthly Value", v: "₹" + list.filter(r => r.on && r.freq === "Monthly").reduce((s, r) => s + r.amt, 0).toLocaleString() }]} />
+      {list.map(r => <Card key={r.id}><div className="flex items-center justify-between"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-lg bg-gray-50 flex items-center justify-center text-lg">{icons[r.type]}</div><div><p className="font-medium text-sm">{r.name}</p><div className="flex items-center gap-2 mt-0.5"><Badge c="blue">{r.freq}</Badge><Badge c={colors[r.type] || "gray"}>{r.type}</Badge><span className="text-xs text-gray-400">Next: {r.next} · {r.count} generated</span></div></div></div><div className="flex items-center gap-3"><span className="font-medium text-sm">₹{r.amt.toLocaleString()}</span><Btn onClick={() => { updateItem(r.id, { count: r.count + 1 }); alert(r.type + " generated!"); }}>Now</Btn><Toggle value={r.on} onChange={v => updateItem(r.id, { on: v })} /></div></div></Card>)}
     </div>
   );
 }
 
-function BillableExpenses() {
-  const [expenses, setExpenses] = useState([]);
+function BillableExpenses({ token }) {
+  const { items: expenses, addItem } = usePersisted("billexp", token);
   const [form, setForm] = useState({ date: new Date().toISOString().split("T")[0], cat: "Travel", desc: "", amt: "", bill: false });
   const total = expenses.filter(e => e.bill && !e.invoiced).reduce((s, e) => s + e.amt, 0);
   return (
@@ -596,7 +609,7 @@ function BillableExpenses() {
           <Label>Description</Label><Input value={form.desc} onChange={e => setForm({ ...form, desc: e.target.value })} placeholder="Description" />
           <Label>Amount (₹)</Label><Input type="number" value={form.amt} onChange={e => setForm({ ...form, amt: e.target.value })} />
           <label className="flex items-center gap-2 mt-2 text-xs cursor-pointer"><input type="checkbox" checked={form.bill} onChange={e => setForm({ ...form, bill: e.target.checked })} className="accent-emerald-600" /> Billable to client</label>
-          <Btn v="primary" className="w-full mt-3" onClick={() => { if (!form.desc || !form.amt) return; setExpenses(p => [...p, { ...form, id: Date.now(), amt: +form.amt, invoiced: false }]); setForm({ ...form, desc: "", amt: "" }); }}>Save</Btn>
+          <Btn v="primary" className="w-full mt-3" onClick={() => { if (!form.desc || !form.amt) return; addItem({ ...form, amt: +form.amt, invoiced: false }); setForm({ ...form, desc: "", amt: "" }); }}>Save</Btn>
         </Card>
         <Card>
           <div className="flex justify-between items-center mb-3"><p className="text-sm font-medium">Expenses</p><Btn v="primary" onClick={() => alert("Invoicing ₹" + total.toLocaleString() + "…")}>Invoice All Billable</Btn></div>
@@ -607,24 +620,25 @@ function BillableExpenses() {
   );
 }
 
-function AdvancePayments() {
-  const [advances, setAdvances] = useState([]);
+function AdvancePayments({ token }) {
+  const { items: advances, addItem } = usePersisted("advances", token);
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Advance Payments</h2><p className="text-xs text-gray-500">Record and apply customer/vendor advances to invoices</p></div><Btn v="primary" onClick={() => { const p = prompt("Party name:"); if (p) setAdvances(prev => [...prev, { id: Date.now(), party: p, type: "customer", amt: 25000, date: new Date().toISOString().split("T")[0], bal: 25000, mode: "NEFT" }]); }}>+ Record Advance</Btn></div>
+      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Advance Payments</h2><p className="text-xs text-gray-500">Record and apply customer/vendor advances to invoices</p></div><Btn v="primary" onClick={() => { const p = prompt("Party name:"); const type = (prompt("Type — customer or vendor:", "customer") || "customer").toLowerCase(); const amt = +prompt("Amount (₹):", "0"); const mode = prompt("Payment mode:", "NEFT"); if (p && amt) addItem({ party: p, type, amt, date: new Date().toISOString().split("T")[0], bal: amt, mode }); }}>+ Record Advance</Btn></div>
       <Metrics items={[{ l: "Customer Advances", v: "₹" + advances.filter(a => a.type === "customer").reduce((s, a) => s + a.bal, 0).toLocaleString(), c: "#0F6E56" }, { l: "Vendor Advances", v: "₹" + advances.filter(a => a.type === "vendor").reduce((s, a) => s + a.bal, 0).toLocaleString(), c: "#854F0B" }, { l: "Total Outstanding", v: "₹" + advances.reduce((s, a) => s + a.bal, 0).toLocaleString() }, { l: "Count", v: advances.length }]} />
       <Card><Tbl headers={["Party", "Type", "Amount", "Date", "Balance", "Mode", "Action"]} rows={advances.map(a => [a.party, <Badge c={a.type === "customer" ? "green" : "amber"}>{a.type}</Badge>, "₹" + a.amt.toLocaleString(), a.date, <Badge c={a.bal > 0 ? "amber" : "green"}>₹{a.bal.toLocaleString()}</Badge>, a.mode, <Btn onClick={() => alert("Applying advance for " + a.party + "…")}>Apply</Btn>])} /></Card>
     </div>
   );
 }
 
-function PartialInvoices() {
-  const [orders, setOrders] = useState([]);
+function PartialInvoices({ token }) {
+  const { items: orders, addItem, updateItem } = usePersisted("partial", token);
+  const addOrder = () => { const so = prompt("Sales Order #:"); const cust = prompt("Customer:"); const total = +prompt("Total qty:", "100"); const amt = +prompt("Order value (₹):", "0"); if (so) addItem({ so, cust, total, amt, invoiced: 0, status: "open" }); };
   return (
     <div className="space-y-4">
-      <div><h2 className="text-base font-medium">Partial Invoices</h2><p className="text-xs text-gray-500">Split a Sales Order across multiple invoices for partial dispatches</p></div>
+      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Partial Invoices</h2><p className="text-xs text-gray-500">Split a Sales Order across multiple invoices for partial dispatches</p></div><Btn v="primary" onClick={addOrder}>+ New Sales Order</Btn></div>
       <div className="grid grid-cols-2 gap-4">
-        <div>{orders.map(so => { const pct = Math.round((so.invoiced / so.total) * 100); return (<Card key={so.id} className={so.status !== "fully_invoiced" ? "cursor-pointer hover:border-emerald-300" : "opacity-50"} onClick={() => { if (so.status === "fully_invoiced") return; const q = parseInt(prompt("Qty to invoice (max " + (so.total - so.invoiced) + "):")); if (!q || q < 1 || q > so.total - so.invoiced) return; const amt = Math.round((q / so.total) * so.amt); setOrders(p => p.map(x => x.id === so.id ? { ...x, invoiced: x.invoiced + q, status: x.invoiced + q >= x.total ? "fully_invoiced" : "partial" } : x)); alert("Invoice created for ₹" + amt.toLocaleString()); }}><div className="flex justify-between items-center mb-1"><span className="font-medium text-sm">{so.so}</span><Badge c={{ open: "blue", partial: "amber", fully_invoiced: "green" }[so.status]}>{so.status.replace("_", " ")}</Badge></div><p className="text-xs text-gray-500 mb-2">{so.cust} · ₹{so.amt.toLocaleString()}</p><div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-1"><div className="h-full bg-emerald-500 rounded-full" style={{ width: pct + "%" }} /></div><div className="flex justify-between text-xs text-gray-400"><span>Invoiced: {so.invoiced}</span><span>Remaining: {so.total - so.invoiced}</span></div></Card>); })}</div>
+        <div>{orders.map(so => { const pct = so.total ? Math.round((so.invoiced / so.total) * 100) : 0; return (<Card key={so.id} className={so.status !== "fully_invoiced" ? "cursor-pointer hover:border-emerald-300" : "opacity-50"} onClick={() => { if (so.status === "fully_invoiced") return; const q = parseInt(prompt("Qty to invoice (max " + (so.total - so.invoiced) + "):")); if (!q || q < 1 || q > so.total - so.invoiced) return; const amt = Math.round((q / so.total) * so.amt); updateItem(so.id, { invoiced: so.invoiced + q, status: so.invoiced + q >= so.total ? "fully_invoiced" : "partial" }); alert("Invoice created for ₹" + amt.toLocaleString()); }}><div className="flex justify-between items-center mb-1"><span className="font-medium text-sm">{so.so}</span><Badge c={{ open: "blue", partial: "amber", fully_invoiced: "green" }[so.status]}>{so.status.replace("_", " ")}</Badge></div><p className="text-xs text-gray-500 mb-2">{so.cust} · ₹{so.amt.toLocaleString()}</p><div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-1"><div className="h-full bg-emerald-500 rounded-full" style={{ width: pct + "%" }} /></div><div className="flex justify-between text-xs text-gray-400"><span>Invoiced: {so.invoiced}</span><span>Remaining: {so.total - so.invoiced}</span></div></Card>); })}</div>
         <Card><p className="text-sm font-medium mb-3">How It Works</p>{[["1. Create Sales Order", "Full order qty + amount"], ["2. Dispatch Partially", "Ship 200 of 500 units"], ["3. Invoice Dispatched Qty", "Invoice ₹50K of ₹125K total"], ["4. Repeat Dispatches", "Invoice remaining qty later"], ["5. SO Closes at 100%", "Fully invoiced → SO closed"]].map(([t, d]) => <div key={t} className="py-2 border-b border-gray-50 last:border-0"><p className="font-medium text-xs">{t}</p><p className="text-xs text-gray-500">{d}</p></div>)}</Card>
       </div>
     </div>
