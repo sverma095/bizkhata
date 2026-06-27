@@ -855,80 +855,73 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                 </div>
               </div>
 
-              {/* TCS Section (Section 206C(1H)) */}
-              <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg p-2.5">
-                <input type="checkbox" id="tcs-toggle" checked={applyTcs} onChange={e => setApplyTcs(e.target.checked)} className="accent-blue-600" />
-                <label htmlFor="tcs-toggle" className="text-xs text-blue-800">
-                  <span className="font-bold">Collect TCS (0.1%)</span> — applies under Section 206C(1H) once this customer's total purchases from you cross ₹50 lakh in the financial year.
-                  {applyTcs && <span className="ml-1 font-mono font-bold">≈ ₹{(liveResults.total * 0.001).toFixed(2)}</span>}
+              {/* TDS / TCS — compact inline toggle, matching standard invoicing UX */}
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-1 text-[11px] text-slate-300 cursor-pointer">
+                  <input type="radio" name="taxadj" checked={!applyTcs} onChange={() => setApplyTcs(false)} className="accent-amber-500" /> TDS
                 </label>
-              </div>
-
-              {/* TDS Section */}
-              <div className="border-t border-slate-800 pt-2 space-y-1.5">
-                <label className="text-[10px] text-amber-400 font-semibold uppercase tracking-wide">TDS Deduction (Income Tax Act, 2025 — Section 393)</label>
-                <select
-                  value={tdsSection}
-                  onChange={(e) => {
-                    const sec = e.target.value;
-                    setTdsSection(sec);
-                    const rateMap: Record<string,number> = {
-                      "194C_ind": 1, "194C_huf": 1, "194C_comp": 2,
-                      "194J_prof": 10, "194J_tech": 2,
-                      "194I_land": 10, "194I_plant": 2,
-                      "194A": 10, "194H": 2, "194IA": 1,
-                      "194IB": 2, "194IC": 10, "194M": 5,
-                      "194N": 2, "194O": 1, "194Q": 0.1, "206C": 1
-                    };
-                    const rate = rateMap[sec] || 0;
-                    setTdsRate(rate);
-                    setTdsAmount(Math.round(liveResults.subtotal * rate / 100 * 100) / 100);
-                  }}
-                  className="w-full bg-amber-50 border border-amber-200 rounded px-2 py-1 text-slate-700 text-[10px] outline-none"
-                >
-                  <option value="">No TDS</option>
-                  <optgroup label="Contract Payments — Sec 393(1) Table Sl.6 (was 194C)">
-                    <option value="194C_ind">Contractor (Individual/HUF) @ 1%</option>
-                    <option value="194C_comp">Contractor (Company) @ 2%</option>
-                  </optgroup>
-                  <optgroup label="Professional/Technical — Sec 393(1) Table Sl.12 (was 194J)">
-                    <option value="194J_prof">Professional Services @ 10%</option>
-                    <option value="194J_tech">Technical Services @ 2%</option>
-                  </optgroup>
-                  <optgroup label="Rent — Sec 393(1) Table Sl.2 (was 194I/194IB)">
-                    <option value="194I_land">Rent — Land/Building @ 10%</option>
-                    <option value="194I_plant">Rent — Plant/Machinery @ 2%</option>
-                    <option value="194IB">Rent by Individual/HUF @ 2% (reduced from 5% under new Act)</option>
-                    <option value="194IC">JDA Payment @ 10%</option>
-                  </optgroup>
-                  <optgroup label="Other Payments — Sec 393 (was 194A/H/IA/M/O/Q/N, 206C)">
-                    <option value="194A">Interest, Non-Bank @ 10%</option>
-                    <option value="194H">Commission/Brokerage @ 2%</option>
-                    <option value="194IA">Immovable Property — Sec 393(1) Table Sl.3 @ 1%</option>
-                    <option value="194M">Certain Payments by Individual/HUF @ 5%</option>
-                    <option value="194O">E-Commerce @ 1%</option>
-                    <option value="194Q">Purchase of Goods @ 0.1%</option>
-                    <option value="194N">Cash Withdrawal @ 2%</option>
-                    <option value="206C">TCS-equivalent on Sales (Sec 394) @ 1%</option>
-                  </optgroup>
-                </select>
-                <p className="text-[9px] text-amber-600">
-                  Payments made/credited on or after 1 Apr 2026 fall under the Income Tax Act, 2025 (Section 393). The old section labels above are shown for reference only — the official return/challan (Form 141) now references the Section 393 table entry, not these old numbers.
-                </p>
-                {tdsSection && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-amber-400 text-[10px]">TDS @ {tdsRate}% = ₹</span>
-                    <input
-                      type="number"
-                      min={0}
-                      step={0.01}
-                      value={tdsAmount}
-                      onChange={(e) => setTdsAmount(parseFloat(e.target.value) || 0)}
-                      className="w-28 bg-amber-50 border border-amber-200 rounded px-2 py-0.5 text-amber-700 text-[10px] font-mono outline-none text-right"
-                    />
-                  </div>
+                <label className="flex items-center gap-1 text-[11px] text-slate-300 cursor-pointer">
+                  <input type="radio" name="taxadj" checked={applyTcs} onChange={() => { setApplyTcs(true); setTdsSection(""); setTdsAmount(0); }} className="accent-blue-500" /> TCS
+                </label>
+                {!applyTcs ? (
+                  <select
+                    value={tdsSection}
+                    onChange={(e) => {
+                      const sec = e.target.value;
+                      setTdsSection(sec);
+                      const rateMap: Record<string,number> = {
+                        "194C_ind": 1, "194C_comp": 2, "194J_prof": 10, "194J_tech": 2,
+                        "194I_land": 10, "194I_plant": 2, "194A": 10, "194H": 2, "194IA": 1,
+                        "194IB": 2, "194IC": 10, "194M": 5, "194N": 2, "194O": 1, "194Q": 0.1, "206C": 1
+                      };
+                      const rate = rateMap[sec] || 0;
+                      setTdsRate(rate);
+                      setTdsAmount(Math.round(liveResults.subtotal * rate / 100 * 100) / 100);
+                    }}
+                    className="flex-1 bg-white/5 border border-slate-700 rounded px-2 py-1 text-slate-200 text-[10px] outline-none"
+                  >
+                    <option value="">Select a Tax</option>
+                    <optgroup label="Contract — Sl.6 (was 194C)">
+                      <option value="194C_ind">Contractor (Ind/HUF) @ 1%</option>
+                      <option value="194C_comp">Contractor (Company) @ 2%</option>
+                    </optgroup>
+                    <optgroup label="Professional/Technical — Sl.12 (was 194J)">
+                      <option value="194J_prof">Professional Services @ 10%</option>
+                      <option value="194J_tech">Technical Services @ 2%</option>
+                    </optgroup>
+                    <optgroup label="Rent — Sl.2 (was 194I/194IB)">
+                      <option value="194I_land">Rent — Land/Building @ 10%</option>
+                      <option value="194I_plant">Rent — Plant/Machinery @ 2%</option>
+                      <option value="194IB">Rent by Individual/HUF @ 2%</option>
+                      <option value="194IC">JDA Payment @ 10%</option>
+                    </optgroup>
+                    <optgroup label="Other — Sec 393">
+                      <option value="194A">Interest, Non-Bank @ 10%</option>
+                      <option value="194H">Commission/Brokerage @ 2%</option>
+                      <option value="194IA">Immovable Property @ 1%</option>
+                      <option value="194M">Payments by Ind/HUF @ 5%</option>
+                      <option value="194O">E-Commerce @ 1%</option>
+                      <option value="194Q">Purchase of Goods @ 0.1%</option>
+                      <option value="194N">Cash Withdrawal @ 2%</option>
+                    </optgroup>
+                  </select>
+                ) : (
+                  <span className="flex-1 text-[10px] text-blue-300">Collect TCS @ 0.1% (Sec 206C(1H))</span>
                 )}
+                <span className="font-mono text-[11px] text-slate-300 w-16 text-right">
+                  −₹{applyTcs ? (liveResults.total * 0.001).toFixed(2) : tdsAmount.toFixed(2)}
+                </span>
               </div>
+              {!applyTcs && tdsSection && (
+                <div className="flex items-center gap-2 -mt-1">
+                  <span className="text-amber-400 text-[10px] ml-auto">Override TDS @ {tdsRate}% = ₹</span>
+                  <input
+                    type="number" min={0} step={0.01} value={tdsAmount}
+                    onChange={(e) => setTdsAmount(parseFloat(e.target.value) || 0)}
+                    className="w-24 bg-amber-50/10 border border-amber-700/40 rounded px-2 py-0.5 text-amber-300 text-[10px] font-mono outline-none text-right"
+                  />
+                </div>
+              )}
 
               {/* Rounding Off */}
               <div className="flex items-center gap-2 pt-1">

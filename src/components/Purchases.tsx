@@ -42,6 +42,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
   const [showVendorForm, setShowVendorForm] = useState(false);
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   const [showBillForm, setShowBillForm] = useState(false);
+  const [viewingBill, setViewingBill] = useState<Bill | null>(null);
   const [showPayBillForm, setShowPayBillForm] = useState<Bill | null>(null);
 
   // Vendor Form State
@@ -576,6 +577,86 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
         </div>
       )}
 
+      {/* BILL DETAIL VIEW */}
+      {viewingBill && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setViewingBill(null)}>
+          <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 sticky top-0 bg-white z-10">
+              <div>
+                <p className="text-[10px] text-slate-400">{db.company?.name}</p>
+                <h3 className="font-bold text-slate-800">{viewingBill.billNumber}</h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => window.print()} className="text-xs px-3 py-1.5 border border-slate-200 rounded hover:bg-slate-50">🖨 Print</button>
+                <button onClick={() => setViewingBill(null)} className="text-xs px-3 py-1.5 border border-slate-200 rounded hover:bg-slate-50">✕ Close</button>
+              </div>
+            </div>
+
+            {viewingBill.isReverseCharge && (
+              <div className="px-5 py-3 border-b border-slate-100">
+                <p className="text-xs font-bold text-amber-800 mb-2">Reverse Charge Summary</p>
+                <table className="w-full text-xs border border-amber-200 rounded overflow-hidden">
+                  <thead><tr className="bg-amber-50 text-amber-800"><th className="text-left py-1.5 px-3 font-semibold">Reverse Charge Rate</th><th className="text-right py-1.5 px-3 font-semibold">Tax Amount</th></tr></thead>
+                  <tbody>
+                    <tr className="border-t border-amber-100"><td className="py-1.5 px-3">{viewingBill.totalIgst > 0 ? "IGST 18%" : "CGST+SGST 18%"}</td><td className="text-right py-1.5 px-3 font-mono">₹{viewingBill.totalGst.toLocaleString('en-IN')}</td></tr>
+                    <tr className="border-t border-amber-200 font-bold bg-amber-50"><td className="py-1.5 px-3">Total</td><td className="text-right py-1.5 px-3 font-mono">₹{viewingBill.totalGst.toLocaleString('en-IN')}</td></tr>
+                  </tbody>
+                </table>
+                <p className="text-[10px] text-amber-600 mt-1.5">Self-assessed — {viewingBill.rcmGstPaid ? "deposited to government." : "not yet deposited to government."}</p>
+              </div>
+            )}
+
+            <div className="p-6">
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  {db.company?.logoUrl ? <img src={db.company.logoUrl} className="h-10 mb-2" /> : <div className="h-10 w-10 rounded-full bg-[#5A5A40] mb-2" />}
+                  <p className="font-bold text-sm">{db.company?.legalName || db.company?.name}</p>
+                  <p className="text-[10px] text-slate-500 max-w-[200px]">{db.company?.address}</p>
+                  <p className="text-[10px] text-slate-500">GSTIN: {db.company?.gstin}</p>
+                </div>
+                <div className="text-right">
+                  <h2 className="text-2xl font-bold text-slate-800">BILL</h2>
+                  <p className="text-xs text-slate-500">Bill# {viewingBill.billNumber}</p>
+                  <p className="text-xs font-bold mt-1">Balance Due: ₹{(viewingBill.total - (viewingBill.paymentPaid||0)).toLocaleString('en-IN')}</p>
+                </div>
+              </div>
+              <div className="flex justify-between text-xs mb-4">
+                <div><p className="text-slate-400">Bill From</p><p className="font-semibold">{viewingBill.vendorName}</p></div>
+                <div className="text-right"><p className="text-slate-400">Bill Date: <span className="text-slate-700">{viewingBill.date}</span></p><p className="text-slate-400">Due Date: <span className="text-slate-700">{viewingBill.dueDate}</span></p></div>
+              </div>
+              <table className="w-full text-xs border border-slate-200 rounded overflow-hidden mb-4">
+                <thead><tr className="bg-slate-800 text-white"><th className="text-left py-2 px-3">#</th><th className="text-left py-2 px-3">Item & Description</th><th className="text-right py-2 px-3">Qty</th><th className="text-right py-2 px-3">Rate</th><th className="text-right py-2 px-3">Amount</th></tr></thead>
+                <tbody>{viewingBill.items.map((it, i) => <tr key={i} className="border-t border-slate-100"><td className="py-2 px-3">{i+1}</td><td className="py-2 px-3">{it.name}</td><td className="text-right py-2 px-3">{it.qty}</td><td className="text-right py-2 px-3">₹{it.rate.toLocaleString('en-IN')}</td><td className="text-right py-2 px-3 font-mono">₹{it.amount.toLocaleString('en-IN')}</td></tr>)}</tbody>
+              </table>
+              <div className="flex justify-end">
+                <div className="w-56 text-xs space-y-1">
+                  <div className="flex justify-between"><span className="text-slate-500">Sub Total</span><span className="font-mono">₹{viewingBill.subtotal.toLocaleString('en-IN')}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">{viewingBill.isReverseCharge ? "GST (Self-Assessed)" : "GST"}</span><span className="font-mono">₹{viewingBill.totalGst.toLocaleString('en-IN')}</span></div>
+                  {(viewingBill.tdsAmount||0) > 0 && <div className="flex justify-between text-indigo-600"><span>TDS ({viewingBill.tdsSection})</span><span className="font-mono">−₹{viewingBill.tdsAmount.toLocaleString('en-IN')}</span></div>}
+                  <div className="flex justify-between font-bold border-t border-slate-200 pt-1"><span>Total</span><span className="font-mono">₹{viewingBill.total.toLocaleString('en-IN')}</span></div>
+                  <div className="flex justify-between text-rose-500"><span>Payments Made</span><span className="font-mono">−₹{(viewingBill.paymentPaid||0).toLocaleString('en-IN')}</span></div>
+                  <div className="flex justify-between font-bold bg-slate-50 px-2 py-1 rounded"><span>Balance Due</span><span className="font-mono">₹{(viewingBill.total - (viewingBill.paymentPaid||0)).toLocaleString('en-IN')}</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-slate-200 px-6 py-4">
+              <p className="text-xs font-bold text-slate-600 mb-2">Journal</p>
+              <table className="w-full text-xs">
+                <thead><tr className="text-slate-400 border-b border-slate-100"><th className="text-left py-1.5">Account</th><th className="text-right py-1.5">Debit</th><th className="text-right py-1.5">Credit</th></tr></thead>
+                <tbody>
+                  <tr className="border-b border-slate-50"><td className="py-1.5">Purchases / Cost of Goods & Services</td><td className="text-right font-mono">₹{viewingBill.subtotal.toLocaleString('en-IN')}</td><td></td></tr>
+                  {viewingBill.totalGst > 0 && <tr className="border-b border-slate-50"><td className="py-1.5">Input GST Asset</td><td className="text-right font-mono">₹{viewingBill.totalGst.toLocaleString('en-IN')}</td><td></td></tr>}
+                  {viewingBill.isReverseCharge && <tr className="border-b border-slate-50"><td className="py-1.5">GST Payable (Reverse Charge)</td><td></td><td className="text-right font-mono">₹{viewingBill.totalGst.toLocaleString('en-IN')}</td></tr>}
+                  {(viewingBill.tdsAmount||0) > 0 && <tr className="border-b border-slate-50"><td className="py-1.5">TDS Payable</td><td></td><td className="text-right font-mono">₹{viewingBill.tdsAmount.toLocaleString('en-IN')}</td></tr>}
+                  <tr><td className="py-1.5">Accounts Payable</td><td></td><td className="text-right font-mono">₹{viewingBill.total.toLocaleString('en-IN')}</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* RECORD SUPPLIER VENDOR BILL FORM */}
       {showBillForm && (
         <div id="supplier-bill-form" className="bg-white border border-slate-200 rounded-xl p-6">
@@ -887,7 +968,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                       <React.Fragment key={b.id}>
                       <tr className="hover:bg-[#F5F2ED]/40 transition-all text-[#2C2C24]">
                         <td className="py-3 px-3 font-mono font-semibold text-[#5A5A40] text-xs">
-                          {b.billNumber}
+                          <button onClick={() => setViewingBill(b)} className="hover:underline cursor-pointer">{b.billNumber}</button>
                           {b.isReverseCharge && <span className="ml-1.5 text-[8.5px] font-black bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded border border-amber-200 align-middle">RCM</span>}
                         </td>
                         <td className="py-3 px-3 font-semibold text-[#2C2C24]">{b.vendorName}</td>
