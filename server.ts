@@ -737,8 +737,8 @@ async function writeDB(orgId: string, state: DatabaseState): Promise<void> {
 // ── User Management API Routes ────────────────────────────────────────────────
 
 // Notifications
-app.get("/api/notifications", (req: any, res: any) => res.json(USER_DB.notifications));
-app.post("/api/notifications/clear", (req: any, res: any) => { USER_DB.notifications = []; res.json({ success: true }); });
+app.get("/api/notifications", authGuard, superAdminGuard, (req: any, res: any) => res.json(USER_DB.notifications));
+app.post("/api/notifications/clear", authGuard, superAdminGuard, (req: any, res: any) => { USER_DB.notifications = []; res.json({ success: true }); });
 
 // Registration request
 app.post("/api/auth/register-request", (req: any, res: any) => {
@@ -861,7 +861,7 @@ app.get("/api/auth/me", (req: any, res: any) => {
   const user = verifyTokenAndGetUser(req);
   if (!user) { res.status(401).json({ error: "Unauthorized." }); return; }
   const org = user.organizationId ? USER_DB.organizations.find((o: any) => o.id === user.organizationId) || null : null;
-  res.json({ user, organization: org });
+  res.json({ user: safeUser(user), organization: org });
 });
 
 // Terminate sessions
