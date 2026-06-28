@@ -182,6 +182,25 @@ function verifySessionToken(token: string): string | null {
   } catch { return null; }
 }
 
+function hashPassword(plain: string): string {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = crypto.scryptSync(plain, salt, 64).toString("hex");
+  return `scrypt:${salt}:${hash}`;
+}
+function isLegacyPlaintext(stored: string | undefined): boolean {
+  return !!stored && !stored.startsWith("scrypt:");
+}
+function safeUser(u: any) { if (!u) return u; const { password, ...rest } = u; return rest; }
+function verifyPassword(plain: string, stored: string | undefined): boolean {
+  if (!stored) return false;
+  if (isLegacyPlaintext(stored)) return stored === plain;
+  const [, salt, hash] = stored.split(":");
+  if (!salt || !hash) return false;
+  const check = crypto.scryptSync(plain, salt, 64).toString("hex");
+  const a = Buffer.from(hash, "hex"), b = Buffer.from(check, "hex");
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
 // Seed default users on cold start
 const seedUserDB = () => {
   if (USER_DB.users.length > 0) return; // Already seeded
@@ -206,7 +225,7 @@ const seedUserDB = () => {
       mobileNumber: process.env.SUPERADMIN_MOBILE || "",
       role: "Super Admin",
       status: "Active",
-      password: SUPERADMIN_PASSWORD,
+      password: hashPassword(SUPERADMIN_PASSWORD),
       permissions: ALL_PERMISSIONS_LIST.map(p => p.id),
       twoFactorEnabled: false,
       twoFactorVerified: false,
@@ -715,7 +734,8 @@ app.post("/api/auth/login", (req: any, res: any) => {
   const user = USER_DB.users.find((u: any) => u.email === email);
   if (!user) { res.status(401).json({ error: "Invalid credentials. User not found." }); return; }
   if (user.status === "Disabled") { res.status(403).json({ error: "Account disabled. Contact administrator." }); return; }
-  if (user.password !== password) { res.status(401).json({ error: "Invalid credentials. Wrong password." }); return; }
+  if (!verifyPassword(password, user.password)) { res.status(401).json({ error: "Invalid credentials. Wrong password." }); return; }
+  if (isLegacyPlaintext(user.password)) { user.password = hashPassword(password); }
   let org = null;
   if (user.organizationId) {
     org = USER_DB.organizations.find((o: any) => o.id === user.organizationId) || null;
@@ -725,7 +745,7 @@ app.post("/api/auth/login", (req: any, res: any) => {
   // if (user.twoFactorEnabled && !user.twoFactorVerified) { ... }
   user.lastLogin = new Date().toISOString();
   addAuditLog(user.organizationId, user.fullName, user.role, "User Login", `Logged in from ${req.ip || "127.0.0.1"}.`);
-  res.json({ token: signSessionToken(user.email), user, organization: org });
+  res.json({ token: signSessionToken(user.email), user: safeUser(user), organization: org });
 });
 
 // Verify 2FA
@@ -737,7 +757,7 @@ app.post("/api/auth/verify-2fa", (req: any, res: any) => {
   user.twoFactorVerified = true; user.activationCode = undefined; user.lastLogin = new Date().toISOString();
   const org = user.organizationId ? USER_DB.organizations.find((o: any) => o.id === user.organizationId) || null : null;
   addAuditLog(user.organizationId, user.fullName, user.role, "2FA Verified", "2FA OTP passed.");
-  res.json({ token: signSessionToken(user.email), user, organization: org });
+  res.json({ token: signSessionToken(user.email), user: safeUser(user), organization: org });
 });
 
 // Toggle 2FA
@@ -768,7 +788,7 @@ app.post("/api/auth/reset-password", (req: any, res: any) => {
   if (!user || user.resetCode !== code) { res.status(400).json({ error: "Invalid or expired reset code." }); return; }
   const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
   if (!passwordRegex.test(newPassword)) { res.status(400).json({ error: "Password must be 8+ chars with upper, lower, number, special char." }); return; }
-  user.password = newPassword; user.resetCode = undefined; user.status = "Active";
+  user.password = hashPassword(newPassword); user.resetCode = undefined; user.status = "Active";
   addAuditLog(user.organizationId, user.fullName, user.role, "Password Reset Complete", "Password reset successfully.");
   res.json({ success: true });
 });
@@ -798,7 +818,7 @@ app.post("/api/superadmin/registrations/:id/action", authGuard, superAdminGuard,
     reg.status = "Approved";
     const orgId = generateId("org");
     USER_DB.organizations.push({ id: orgId, name: reg.companyName, gstNumber: reg.gstNumber, status: "Active", allocatedSeats: reg.numberOfRequiredSeats, usedSeats: 1, createdAt: new Date().toISOString() });
-    USER_DB.users.push({ id: generateId("user"), organizationId: orgId, fullName: reg.adminName, email: reg.email, mobileNumber: reg.mobileNumber, role: "Admin", status: "Active", password: reg.password || "Admin@123", permissions: ALL_PERMISSIONS_LIST.map(p => p.id), twoFactorEnabled: false, createdAt: new Date().toISOString() });
+    USER_DB.users.push({ id: generateId("user"), organizationId: orgId, fullName: reg.adminName, email: reg.email, mobileNumber: reg.mobileNumber, role: "Admin", status: "Active", password: hashPassword(reg.password || "Admin@123"), permissions: ALL_PERMISSIONS_LIST.map(p => p.id), twoFactorEnabled: false, createdAt: new Date().toISOString() });
     USER_DB.notifications.unshift({ id: generateId("notif"), to: reg.email, subject: "BizKhata Account Approved", body: `Your account for ${reg.companyName} is approved. Login with the email and password you set during sign-up.`, type: "Email", timestamp: new Date().toISOString() });
     addAuditLog(null, req.user.fullName, req.user.role, "Approve Registration", `Approved '${reg.companyName}'.`);
   } else if (action === "Reject") {
@@ -874,7 +894,7 @@ app.put("/api/superadmin/organizations/:id", authGuard, superAdminGuard, (req: a
 // Users
 app.get("/api/users", authGuard, (req: any, res: any) => {
   const user = req.user;
-  res.json(user.role === "Super Admin" ? USER_DB.users : USER_DB.users.filter((u: any) => u.organizationId === user.organizationId));
+  res.json((user.role === "Super Admin" ? USER_DB.users : USER_DB.users.filter((u: any) => u.organizationId === user.organizationId)).map(safeUser));
 });
 
 app.post("/api/users", authGuard, (req: any, res: any) => {
@@ -889,12 +909,12 @@ app.post("/api/users", authGuard, (req: any, res: any) => {
   if (USER_DB.users.some((u: any) => u.email === email)) { res.status(400).json({ error: "Email already registered." }); return; }
   const tempPassword = `Temp@${Math.floor(1000 + Math.random() * 9000)}`;
   const activationCode = Math.random().toString(36).substring(2, 10);
-  const newUser = { id: generateId("user"), organizationId: targetOrgId, fullName, email, mobileNumber, department, designation, role, status: "Pending Activation", password: tempPassword, permissions: permissions || ["view_invoices", "view_reports"], twoFactorEnabled: false, createdAt: new Date().toISOString(), activationCode };
+  const newUser = { id: generateId("user"), organizationId: targetOrgId, fullName, email, mobileNumber, department, designation, role, status: "Pending Activation", password: hashPassword(tempPassword), permissions: permissions || ["view_invoices", "view_reports"], twoFactorEnabled: false, createdAt: new Date().toISOString(), activationCode };
   USER_DB.users.push(newUser);
   org.usedSeats = USER_DB.users.filter((u: any) => u.organizationId === targetOrgId && u.status !== "Disabled").length;
   USER_DB.notifications.unshift({ id: generateId("notif"), to: email, subject: `Welcome to BizKhata - ${org.name}`, body: `Hello ${fullName},\n\nTemp Password: ${tempPassword}\nRole: ${role}\n\nActivate: https://bizkhata-six.vercel.app/activate?code=${activationCode}&email=${email}`, type: "Email", timestamp: new Date().toISOString() });
   addAuditLog(targetOrgId, activeUser.fullName, activeUser.role, "User Created", `Created '${fullName}' as '${role}'.`);
-  res.status(201).json(newUser);
+  res.status(201).json(safeUser(newUser));
 });
 
 app.put("/api/users/:id", authGuard, (req: any, res: any) => {
@@ -913,7 +933,7 @@ app.put("/api/users/:id", authGuard, (req: any, res: any) => {
     if (status) { targetUser.status = status; const org = USER_DB.organizations.find((o: any) => o.id === targetUser.organizationId); if (org) org.usedSeats = USER_DB.users.filter((u: any) => u.organizationId === org.id && u.status !== "Disabled").length; }
   }
   addAuditLog(targetUser.organizationId, activeUser.fullName, activeUser.role, "User Updated", `Updated '${targetUser.email}'.`);
-  res.json(targetUser);
+  res.json(safeUser(targetUser));
 });
 
 app.post("/api/users/:id/reset-password", authGuard, (req: any, res: any) => {
@@ -923,7 +943,7 @@ app.post("/api/users/:id/reset-password", authGuard, (req: any, res: any) => {
   if (!targetUser) { res.status(404).json({ error: "User not found." }); return; }
   if (activeUser.role !== "Super Admin" && targetUser.organizationId !== activeUser.organizationId) { res.status(403).json({ error: "Tenant violation." }); return; }
   const tempPwd = `Temp@${Math.floor(1000 + Math.random() * 9000)}`;
-  targetUser.password = tempPwd; targetUser.status = "Pending Activation";
+  targetUser.password = hashPassword(tempPwd); targetUser.status = "Pending Activation";
   USER_DB.notifications.unshift({ id: generateId("notif"), to: targetUser.email, subject: "Password Reset by Admin", body: `New Temp Password: ${tempPwd}`, type: "Email", timestamp: new Date().toISOString() });
   addAuditLog(targetUser.organizationId, activeUser.fullName, activeUser.role, "Password Reset", `Reset pwd for '${targetUser.email}'.`);
   res.json({ success: true, tempPassword: tempPwd });
