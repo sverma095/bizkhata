@@ -980,6 +980,7 @@ app.post("/api/users", authGuard, requirePermission("manage_users"), (req: any, 
   if (activeUser.role !== "Admin" && activeUser.role !== "Super Admin") { res.status(403).json({ error: "Only Admins can create users." }); return; }
   const { fullName, email, mobileNumber, department, designation, role, permissions } = req.body;
   if (!fullName || !email || !mobileNumber || !role) { res.status(400).json({ error: "Name, email, mobile, role required." }); return; }
+  if (role === "Super Admin" && activeUser.role !== "Super Admin") { res.status(403).json({ error: "Only Super Admin can grant Super Admin role." }); return; }
   const targetOrgId = activeUser.role === "Super Admin" ? req.body.organizationId : activeUser.organizationId;
   const org = USER_DB.organizations.find((o: any) => o.id === targetOrgId);
   if (!org) { res.status(404).json({ error: "Organization not found." }); return; }
@@ -1006,7 +1007,10 @@ app.put("/api/users/:id", authGuard, requirePermission("manage_users"), (req: an
   if (department) targetUser.department = department;
   if (designation) targetUser.designation = designation;
   if (activeUser.role === "Admin" || activeUser.role === "Super Admin") {
-    if (role && targetUser.role !== "Super Admin") targetUser.role = role;
+    if (role && targetUser.role !== "Super Admin") {
+      if (role === "Super Admin" && activeUser.role !== "Super Admin") { res.status(403).json({ error: "Only Super Admin can grant Super Admin role." }); return; }
+      targetUser.role = role;
+    }
     if (permissions) targetUser.permissions = permissions;
     if (status) { targetUser.status = status; const org = USER_DB.organizations.find((o: any) => o.id === targetUser.organizationId); if (org) org.usedSeats = USER_DB.users.filter((u: any) => u.organizationId === org.id && u.status !== "Disabled").length; }
   }
