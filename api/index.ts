@@ -1,6 +1,7 @@
 import express from "express";
 import path from "path";
 import fs from "fs";
+import crypto from "crypto";
 import { fileURLToPath } from "url";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
@@ -155,6 +156,31 @@ const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBL
 const SUPERADMIN_EMAIL = process.env.SUPERADMIN_EMAIL || "owner@bizkhata.app";
 const SUPERADMIN_NAME = process.env.SUPERADMIN_NAME || "Platform Owner";
 const SUPERADMIN_PASSWORD = process.env.SUPERADMIN_PASSWORD || "Admin@123";
+// SECURITY: session tokens are HMAC-signed with this secret so they can't be forged by
+// guessing an email address. Set SESSION_SECRET in your environment for production —
+// the fallback below is fine only for local/dev use.
+const SESSION_SECRET = process.env.SESSION_SECRET || "dev-only-insecure-secret-set-SESSION_SECRET-env-var";
+if (!process.env.SESSION_SECRET) {
+  console.warn("⚠ SESSION_SECRET not set — using an insecure dev fallback. Set this env var in production.");
+}
+const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
+function signSessionToken(email: string): string {
+  const payload = Buffer.from(JSON.stringify({ email, exp: Date.now() + SESSION_TTL_MS })).toString("base64url");
+  const sig = crypto.createHmac("sha256", SESSION_SECRET).update(payload).digest("base64url");
+  return `${payload}.${sig}`;
+}
+function verifySessionToken(token: string): string | null {
+  const [payload, sig] = token.split(".");
+  if (!payload || !sig) return null;
+  const expectedSig = crypto.createHmac("sha256", SESSION_SECRET).update(payload).digest("base64url");
+  const a = Buffer.from(sig), b = Buffer.from(expectedSig);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  try {
+    const { email, exp } = JSON.parse(Buffer.from(payload, "base64url").toString());
+    if (Date.now() > exp) return null;
+    return email;
+  } catch { return null; }
+}
 
 // Seed default users on cold start
 const seedUserDB = () => {
@@ -211,7 +237,8 @@ const verifyTokenAndGetUser = (req: any): any | null => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
   const token = authHeader.replace("Bearer ", "");
-  const email = token.replace("TOKEN_", "");
+  const email = verifySessionToken(token);
+  if (!email) return null;
   return USER_DB.users.find((u: any) => u.email === email) || null;
 };
 
@@ -675,10 +702,10 @@ app.post("/api/auth/register-request", (req: any, res: any) => {
   if (USER_DB.users.some((u: any) => u.email === email) || USER_DB.registrationRequests.some((r: any) => r.email === email && r.status !== "Rejected")) {
     res.status(400).json({ error: "An account with this email already exists." }); return;
   }
-  const newReg = { id: generateId("reg"), companyName, gstNumber, adminName, email, mobileNumber, numberOfRequiredSeats: Number(numberOfRequiredSeats), status: "Pending", createdAt: new Date().toISOString() };
+  const newReg = { id: generateId("reg"), companyName, gstNumber, adminName, email, mobileNumber, password, numberOfRequiredSeats: Number(numberOfRequiredSeats), status: "Pending", createdAt: new Date().toISOString() };
   USER_DB.registrationRequests.unshift(newReg);
   USER_DB.notifications.unshift({ id: generateId("notif"), to: USER_DB.users.find((u: any) => u.role === "Super Admin")?.email || "owner@bizkhata.app", subject: "New Registration Request", body: `Company '${companyName}' registered by '${adminName}'.`, type: "Email", timestamp: new Date().toISOString() });
-  res.status(201).json(newReg);
+  res.status(201).json({ ...newReg, password: undefined });
 });
 
 // Login
@@ -698,7 +725,7 @@ app.post("/api/auth/login", (req: any, res: any) => {
   // if (user.twoFactorEnabled && !user.twoFactorVerified) { ... }
   user.lastLogin = new Date().toISOString();
   addAuditLog(user.organizationId, user.fullName, user.role, "User Login", `Logged in from ${req.ip || "127.0.0.1"}.`);
-  res.json({ token: `TOKEN_${user.email}`, user, organization: org });
+  res.json({ token: signSessionToken(user.email), user, organization: org });
 });
 
 // Verify 2FA
@@ -710,7 +737,7 @@ app.post("/api/auth/verify-2fa", (req: any, res: any) => {
   user.twoFactorVerified = true; user.activationCode = undefined; user.lastLogin = new Date().toISOString();
   const org = user.organizationId ? USER_DB.organizations.find((o: any) => o.id === user.organizationId) || null : null;
   addAuditLog(user.organizationId, user.fullName, user.role, "2FA Verified", "2FA OTP passed.");
-  res.json({ token: `TOKEN_${user.email}`, user, organization: org });
+  res.json({ token: signSessionToken(user.email), user, organization: org });
 });
 
 // Toggle 2FA
@@ -762,7 +789,7 @@ app.post("/api/auth/terminate-sessions", authGuard, (req: any, res: any) => {
 });
 
 // Super Admin - Registrations
-app.get("/api/superadmin/registrations", authGuard, superAdminGuard, (req: any, res: any) => res.json(USER_DB.registrationRequests));
+app.get("/api/superadmin/registrations", authGuard, superAdminGuard, (req: any, res: any) => res.json(USER_DB.registrationRequests.map((r: any) => ({ ...r, password: undefined }))));
 app.post("/api/superadmin/registrations/:id/action", authGuard, superAdminGuard, (req: any, res: any) => {
   const reg = USER_DB.registrationRequests.find((r: any) => r.id === req.params.id);
   if (!reg) { res.status(404).json({ error: "Registration not found." }); return; }
@@ -771,8 +798,8 @@ app.post("/api/superadmin/registrations/:id/action", authGuard, superAdminGuard,
     reg.status = "Approved";
     const orgId = generateId("org");
     USER_DB.organizations.push({ id: orgId, name: reg.companyName, gstNumber: reg.gstNumber, status: "Active", allocatedSeats: reg.numberOfRequiredSeats, usedSeats: 1, createdAt: new Date().toISOString() });
-    USER_DB.users.push({ id: generateId("user"), organizationId: orgId, fullName: reg.adminName, email: reg.email, mobileNumber: reg.mobileNumber, role: "Admin", status: "Active", password: "Admin@123", permissions: ALL_PERMISSIONS_LIST.map(p => p.id), twoFactorEnabled: false, createdAt: new Date().toISOString() });
-    USER_DB.notifications.unshift({ id: generateId("notif"), to: reg.email, subject: "BizKhata Account Approved", body: `Your account for ${reg.companyName} is approved. Login: ${reg.email} / Admin@123`, type: "Email", timestamp: new Date().toISOString() });
+    USER_DB.users.push({ id: generateId("user"), organizationId: orgId, fullName: reg.adminName, email: reg.email, mobileNumber: reg.mobileNumber, role: "Admin", status: "Active", password: reg.password || "Admin@123", permissions: ALL_PERMISSIONS_LIST.map(p => p.id), twoFactorEnabled: false, createdAt: new Date().toISOString() });
+    USER_DB.notifications.unshift({ id: generateId("notif"), to: reg.email, subject: "BizKhata Account Approved", body: `Your account for ${reg.companyName} is approved. Login with the email and password you set during sign-up.`, type: "Email", timestamp: new Date().toISOString() });
     addAuditLog(null, req.user.fullName, req.user.role, "Approve Registration", `Approved '${reg.companyName}'.`);
   } else if (action === "Reject") {
     reg.status = "Rejected";
