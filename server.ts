@@ -304,6 +304,21 @@ const superAdminGuard = (req: any, res: any, next: any) => {
   next();
 };
 
+// Granular permission enforcement. Until now, the per-user permission checkboxes shown in
+// Team Management were cosmetic — no route actually checked them server-side, so any logged-in
+// user could call any route regardless of assigned permissions. Super Admin and Owner/Admin
+// roles bypass this (they hold ALL_PERMISSIONS_LIST by default at creation), so this only
+// actually restricts limited-permission roles like Employee/Viewer, which is the point.
+const requirePermission = (permissionId: string) => (req: any, res: any, next: any) => {
+  const user = req.user;
+  if (user.role === "Super Admin") return next();
+  if (!Array.isArray(user.permissions) || !user.permissions.includes(permissionId)) {
+    res.status(403).json({ error: `Missing permission: ${permissionId}` });
+    return;
+  }
+  next();
+};
+
 
 let supabaseStatus: any = { configured: false, connected: false, error: null };
 
@@ -960,7 +975,7 @@ app.get("/api/users", authGuard, (req: any, res: any) => {
   res.json((user.role === "Super Admin" ? USER_DB.users : USER_DB.users.filter((u: any) => u.organizationId === user.organizationId)).map(safeUser));
 });
 
-app.post("/api/users", authGuard, (req: any, res: any) => {
+app.post("/api/users", authGuard, requirePermission("manage_users"), (req: any, res: any) => {
   const activeUser = req.user;
   if (activeUser.role !== "Admin" && activeUser.role !== "Super Admin") { res.status(403).json({ error: "Only Admins can create users." }); return; }
   const { fullName, email, mobileNumber, department, designation, role, permissions } = req.body;
@@ -980,7 +995,7 @@ app.post("/api/users", authGuard, (req: any, res: any) => {
   res.status(201).json(safeUser(newUser));
 });
 
-app.put("/api/users/:id", authGuard, (req: any, res: any) => {
+app.put("/api/users/:id", authGuard, requirePermission("manage_users"), (req: any, res: any) => {
   const activeUser = req.user;
   const targetUser = USER_DB.users.find((u: any) => u.id === req.params.id);
   if (!targetUser) { res.status(404).json({ error: "User not found." }); return; }
@@ -999,7 +1014,7 @@ app.put("/api/users/:id", authGuard, (req: any, res: any) => {
   res.json(safeUser(targetUser));
 });
 
-app.post("/api/users/:id/reset-password", authGuard, (req: any, res: any) => {
+app.post("/api/users/:id/reset-password", authGuard, requirePermission("manage_users"), (req: any, res: any) => {
   const activeUser = req.user;
   if (activeUser.role !== "Admin" && activeUser.role !== "Super Admin") { res.status(403).json({ error: "Admin required." }); return; }
   const targetUser = USER_DB.users.find((u: any) => u.id === req.params.id);
@@ -1094,7 +1109,7 @@ app.get("/api/supabase-status", async (req, res) => {
 });
 
 // Secure API endpoint to provisions new sub-users with random single-sign-on credentials
-app.post("/api/users/add", authGuard, async (req: any, res: any) => {
+app.post("/api/users/add", authGuard, requirePermission("manage_users"), async (req: any, res: any) => {
   const orgId = req.user.organizationId;
   if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
   const db = await readDB(orgId);
@@ -1204,7 +1219,7 @@ app.post("/api/company", authGuard, async (req: any, res: any) => {
   res.json({ success: true, db });
 });
 
-app.post("/api/customers", authGuard, async (req: any, res: any) => {
+app.post("/api/customers", authGuard, requirePermission("manage_customers"), async (req: any, res: any) => {
   const orgId = req.user.organizationId;
   if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
   const db = await readDB(orgId);
@@ -1235,7 +1250,7 @@ app.post("/api/customers", authGuard, async (req: any, res: any) => {
   res.json({ success: true, db });
 });
 
-app.post("/api/vendors", authGuard, async (req: any, res: any) => {
+app.post("/api/vendors", authGuard, requirePermission("manage_vendors"), async (req: any, res: any) => {
   const orgId = req.user.organizationId;
   if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
   const db = await readDB(orgId);
@@ -1266,7 +1281,7 @@ app.post("/api/vendors", authGuard, async (req: any, res: any) => {
   res.json({ success: true, db });
 });
 
-app.post("/api/items", authGuard, async (req: any, res: any) => {
+app.post("/api/items", authGuard, requirePermission("manage_items"), async (req: any, res: any) => {
   const orgId = req.user.organizationId;
   if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
   const db = await readDB(orgId);
@@ -1361,7 +1376,7 @@ function createInvoiceJournal(invoice: any, company: any) {
   };
 }
 
-app.post("/api/invoices", authGuard, async (req: any, res: any) => {
+app.post("/api/invoices", authGuard, requirePermission("create_invoices"), async (req: any, res: any) => {
   const orgId = req.user.organizationId;
   if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
   const db = await readDB(orgId);
@@ -1404,7 +1419,7 @@ app.post("/api/invoices", authGuard, async (req: any, res: any) => {
 });
 
 // Payments Recorder Double-Entry
-app.post("/api/payments", authGuard, async (req: any, res: any) => {
+app.post("/api/payments", authGuard, requirePermission("approve_payments"), async (req: any, res: any) => {
   const orgId = req.user.organizationId;
   if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
   const db = await readDB(orgId);
@@ -1485,7 +1500,7 @@ app.post("/api/payments", authGuard, async (req: any, res: any) => {
 });
 
 // Credit note issuer Double-Entry
-app.post("/api/credit-notes", authGuard, async (req: any, res: any) => {
+app.post("/api/credit-notes", authGuard, requirePermission("edit_invoices"), async (req: any, res: any) => {
   const orgId = req.user.organizationId;
   if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
   const db = await readDB(orgId);
@@ -1563,7 +1578,7 @@ app.post("/api/credit-notes", authGuard, async (req: any, res: any) => {
 });
 
 // Quick Expenses Entries Double-Entry
-app.post("/api/expenses", authGuard, async (req: any, res: any) => {
+app.post("/api/expenses", authGuard, requirePermission("manage_billing"), async (req: any, res: any) => {
   const orgId = req.user.organizationId;
   if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
   const db = await readDB(orgId);
@@ -1668,7 +1683,7 @@ app.post("/api/expenses", authGuard, async (req: any, res: any) => {
 });
 
 // Bills Double-Entry
-app.post("/api/bills", authGuard, async (req: any, res: any) => {
+app.post("/api/bills", authGuard, requirePermission("manage_billing"), async (req: any, res: any) => {
   const orgId = req.user.organizationId;
   if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
   const db = await readDB(orgId);
@@ -1776,7 +1791,7 @@ app.post("/api/bills", authGuard, async (req: any, res: any) => {
   res.json({ success: true, db });
 });
 
-app.post("/api/bills/pay", authGuard, async (req: any, res: any) => {
+app.post("/api/bills/pay", authGuard, requirePermission("approve_payments"), async (req: any, res: any) => {
   const orgId = req.user.organizationId;
   if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
   const db = await readDB(orgId);
@@ -1820,7 +1835,7 @@ app.post("/api/bills/pay", authGuard, async (req: any, res: any) => {
 });
 
 // Post Manual Journal entry
-app.post("/api/journals", authGuard, async (req: any, res: any) => {
+app.post("/api/journals", authGuard, requirePermission("create_journals"), async (req: any, res: any) => {
   const orgId = req.user.organizationId;
   if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
   const db = await readDB(orgId);
@@ -1871,7 +1886,7 @@ app.post("/api/journals", authGuard, async (req: any, res: any) => {
 });
 
 // Secure API endpoint to delete sub-users from Corporate Team Directory
-app.post("/api/users/remove", authGuard, async (req: any, res: any) => {
+app.post("/api/users/remove", authGuard, requirePermission("manage_users"), async (req: any, res: any) => {
   const orgId = req.user.organizationId;
   if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
   const db = await readDB(orgId);
@@ -2285,7 +2300,7 @@ app.post("/api/delivery-challans", authGuard, async (req: any, res: any) => {
 });
 
 // ── Bank Accounts API ────────────────────────────────────────────────────────
-app.post("/api/bank-accounts", authGuard, async (req: any, res: any) => {
+app.post("/api/bank-accounts", authGuard, requirePermission("view_banking"), async (req: any, res: any) => {
   try {
     const orgId = req.user.organizationId;
   if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
@@ -2304,7 +2319,7 @@ app.post("/api/bank-accounts", authGuard, async (req: any, res: any) => {
 });
 
 // ── Bank Transactions API ────────────────────────────────────────────────────
-app.post("/api/bank-transactions", authGuard, async (req: any, res: any) => {
+app.post("/api/bank-transactions", authGuard, requirePermission("view_banking"), async (req: any, res: any) => {
   try {
     const orgId = req.user.organizationId;
   if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
@@ -2323,7 +2338,7 @@ app.post("/api/bank-transactions", authGuard, async (req: any, res: any) => {
   } catch(e: any) { res.status(500).json({ error: e.message }); }
 });
 
-app.post("/api/bank-transactions/match", authGuard, async (req: any, res: any) => {
+app.post("/api/bank-transactions/match", authGuard, requirePermission("view_banking"), async (req: any, res: any) => {
   try {
     const orgId = req.user.organizationId;
   if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
