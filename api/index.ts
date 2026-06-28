@@ -753,8 +753,10 @@ app.post("/api/auth/verify-2fa", (req: any, res: any) => {
   const { email, otp } = req.body;
   const user = USER_DB.users.find((u: any) => u.email === email);
   if (!user) { res.status(404).json({ error: "User not found." }); return; }
+  user.resetCodeAttempts = (user.resetCodeAttempts || 0) + 1;
+  if (user.resetCodeAttempts > 5) { user.activationCode = undefined; res.status(429).json({ error: "Too many attempts. Request a new code." }); return; }
   if (user.activationCode !== otp) { res.status(400).json({ error: "Invalid OTP code." }); return; }
-  user.twoFactorVerified = true; user.activationCode = undefined; user.lastLogin = new Date().toISOString();
+  user.twoFactorVerified = true; user.activationCode = undefined; user.resetCodeAttempts = 0; user.lastLogin = new Date().toISOString();
   const org = user.organizationId ? USER_DB.organizations.find((o: any) => o.id === user.organizationId) || null : null;
   addAuditLog(user.organizationId, user.fullName, user.role, "2FA Verified", "2FA OTP passed.");
   res.json({ token: signSessionToken(user.email), user: safeUser(user), organization: org });
@@ -775,7 +777,9 @@ app.post("/api/auth/forgot-password", (req: any, res: any) => {
   if (user) {
     const resetCode = Math.floor(200000 + Math.random() * 800000).toString();
     user.resetCode = resetCode;
-    USER_DB.notifications.unshift({ id: generateId("notif"), to: email, subject: "BizKhata Password Reset", body: `Reset OTP: ${resetCode}. Link: https://bizkhata-six.vercel.app/reset-password?code=${resetCode}&email=${email}`, type: "Email", code: resetCode, timestamp: new Date().toISOString() });
+    user.resetCodeExpiry = Date.now() + 10 * 60 * 1000;
+    user.resetCodeAttempts = 0;
+    USER_DB.notifications.unshift({ id: generateId("notif"), to: email, subject: "BizKhata Password Reset", body: `Reset OTP: ${resetCode} (valid 10 minutes). Link: https://bizkhata-six.vercel.app/reset-password?code=${resetCode}&email=${email}`, type: "Email", code: resetCode, timestamp: new Date().toISOString() });
     addAuditLog(user.organizationId, user.fullName, user.role, "Password Reset Requested", "Reset OTP generated.");
   }
   res.json({ success: true, message: "If email exists, a reset link has been sent." });
@@ -785,10 +789,14 @@ app.post("/api/auth/forgot-password", (req: any, res: any) => {
 app.post("/api/auth/reset-password", (req: any, res: any) => {
   const { email, code, newPassword } = req.body;
   const user = USER_DB.users.find((u: any) => u.email === email);
-  if (!user || user.resetCode !== code) { res.status(400).json({ error: "Invalid or expired reset code." }); return; }
+  if (!user || !user.resetCode) { res.status(400).json({ error: "Invalid or expired reset code." }); return; }
+  if (Date.now() > (user.resetCodeExpiry || 0)) { user.resetCode = undefined; res.status(400).json({ error: "Reset code expired. Request a new one." }); return; }
+  user.resetCodeAttempts = (user.resetCodeAttempts || 0) + 1;
+  if (user.resetCodeAttempts > 5) { user.resetCode = undefined; res.status(429).json({ error: "Too many attempts. Request a new reset code." }); return; }
+  if (user.resetCode !== code) { res.status(400).json({ error: "Invalid or expired reset code." }); return; }
   const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
   if (!passwordRegex.test(newPassword)) { res.status(400).json({ error: "Password must be 8+ chars with upper, lower, number, special char." }); return; }
-  user.password = hashPassword(newPassword); user.resetCode = undefined; user.status = "Active";
+  user.password = hashPassword(newPassword); user.resetCode = undefined; user.resetCodeExpiry = undefined; user.resetCodeAttempts = 0; user.status = "Active";
   addAuditLog(user.organizationId, user.fullName, user.role, "Password Reset Complete", "Password reset successfully.");
   res.json({ success: true });
 });
