@@ -197,6 +197,30 @@ function isLegacyPlaintext(stored: string | undefined): boolean {
   return !!stored && !stored.startsWith("scrypt:");
 }
 function safeUser(u: any) { if (!u) return u; const { password, ...rest } = u; return rest; }
+
+// Real email delivery via Resend (set RESEND_API_KEY env var in Vercel). Falls back to
+// logging only — OTP/notification still lands in USER_DB.notifications either way, so
+// the in-app Notifications panel always shows it even with no email provider configured.
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const EMAIL_FROM = process.env.EMAIL_FROM || "BizKhata <onboarding@resend.dev>";
+async function sendEmail(to: string, subject: string, html: string): Promise<{ sent: boolean; reason?: string }> {
+  if (!RESEND_API_KEY) return { sent: false, reason: "RESEND_API_KEY not set — OTP only visible in-app Notifications." };
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    const r = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from: EMAIL_FROM, to, subject, html }),
+      signal: controller.signal
+    });
+    clearTimeout(timer);
+    if (!r.ok) return { sent: false, reason: `Resend API error: ${r.status}` };
+    return { sent: true };
+  } catch (err: any) {
+    return { sent: false, reason: err?.message || "Email send failed" };
+  }
+}
 function verifyPassword(plain: string, stored: string | undefined): boolean {
   if (!stored) return false;
   if (isLegacyPlaintext(stored)) return stored === plain;
@@ -734,7 +758,7 @@ app.post("/api/auth/register-request", (req: any, res: any) => {
 });
 
 // Login
-app.post("/api/auth/login", (req: any, res: any) => {
+app.post("/api/auth/login", async (req: any, res: any) => {
   const { email, password } = req.body;
   if (!email || !password) { res.status(400).json({ error: "Email and Password required." }); return; }
   const user = USER_DB.users.find((u: any) => u.email === email);
@@ -747,8 +771,18 @@ app.post("/api/auth/login", (req: any, res: any) => {
     org = USER_DB.organizations.find((o: any) => o.id === user.organizationId) || null;
     if (org && org.status === "Suspended") { res.status(403).json({ error: "Your organization is suspended. Contact BizKhata support." }); return; }
   }
-  // 2FA disabled for now - direct login
-  // if (user.twoFactorEnabled && !user.twoFactorVerified) { ... }
+  if (user.twoFactorEnabled) {
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.activationCode = otp;
+    user.resetCodeExpiry = Date.now() + 10 * 60 * 1000; // 10 minutes
+    user.resetCodeAttempts = 0;
+    user.twoFactorVerified = false;
+    const emailResult = await sendEmail(user.email, "Your BizKhata login code", `<p>Your one-time login code is:</p><h2>${otp}</h2><p>This code expires in 10 minutes.</p>`);
+    USER_DB.notifications.unshift({ id: generateId("notif"), to: user.email, subject: "Your BizKhata login code", body: `Your OTP is ${otp} (valid 10 minutes).`, type: "Email", code: otp, timestamp: new Date().toISOString() });
+    addAuditLog(user.organizationId, user.fullName, user.role, "2FA OTP Sent", emailResult.sent ? "Emailed login OTP." : `OTP generated (email not sent: ${emailResult.reason}).`);
+    res.json({ twoFactorRequired: true, email: user.email, emailSent: emailResult.sent });
+    return;
+  }
   user.lastLogin = new Date().toISOString();
   addAuditLog(user.organizationId, user.fullName, user.role, "User Login", `Logged in from ${req.ip || "127.0.0.1"}.`);
   res.json({ token: signSessionToken(user.email), user: safeUser(user), organization: org });
@@ -758,14 +792,29 @@ app.post("/api/auth/login", (req: any, res: any) => {
 app.post("/api/auth/verify-2fa", (req: any, res: any) => {
   const { email, otp } = req.body;
   const user = USER_DB.users.find((u: any) => u.email === email);
-  if (!user) { res.status(404).json({ error: "User not found." }); return; }
+  if (!user || !user.activationCode) { res.status(400).json({ error: "No pending OTP. Please log in again." }); return; }
+  if (Date.now() > (user.resetCodeExpiry || 0)) { user.activationCode = undefined; res.status(400).json({ error: "Code expired. Please log in again to get a new one." }); return; }
   user.resetCodeAttempts = (user.resetCodeAttempts || 0) + 1;
-  if (user.resetCodeAttempts > 5) { user.activationCode = undefined; res.status(429).json({ error: "Too many attempts. Request a new code." }); return; }
+  if (user.resetCodeAttempts > 5) { user.activationCode = undefined; res.status(429).json({ error: "Too many attempts. Please log in again to get a new code." }); return; }
   if (user.activationCode !== otp) { res.status(400).json({ error: "Invalid OTP code." }); return; }
   user.twoFactorVerified = true; user.activationCode = undefined; user.resetCodeAttempts = 0; user.lastLogin = new Date().toISOString();
   const org = user.organizationId ? USER_DB.organizations.find((o: any) => o.id === user.organizationId) || null : null;
   addAuditLog(user.organizationId, user.fullName, user.role, "2FA Verified", "2FA OTP passed.");
   res.json({ token: signSessionToken(user.email), user: safeUser(user), organization: org });
+});
+
+// Resend 2FA OTP
+app.post("/api/auth/resend-2fa", async (req: any, res: any) => {
+  const { email } = req.body;
+  const user = USER_DB.users.find((u: any) => u.email === email);
+  if (!user) { res.status(404).json({ error: "User not found." }); return; }
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  user.activationCode = otp;
+  user.resetCodeExpiry = Date.now() + 10 * 60 * 1000;
+  user.resetCodeAttempts = 0;
+  const emailResult = await sendEmail(user.email, "Your BizKhata login code", `<p>Your one-time login code is:</p><h2>${otp}</h2><p>This code expires in 10 minutes.</p>`);
+  USER_DB.notifications.unshift({ id: generateId("notif"), to: user.email, subject: "Your BizKhata login code", body: `Your OTP is ${otp} (valid 10 minutes).`, type: "Email", code: otp, timestamp: new Date().toISOString() });
+  res.json({ success: true, emailSent: emailResult.sent });
 });
 
 // Toggle 2FA

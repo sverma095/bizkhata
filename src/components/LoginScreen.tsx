@@ -10,7 +10,7 @@ interface LoginScreenProps {
 }
 
 export default function LoginScreen({ onLoginSuccess, initialView = 'login', initialEmail = '', initialCode = '' }: LoginScreenProps) {
-  const [view, setView] = useState<'login' | 'signup' | 'forgot' | 'reset'>(initialView === 'reset' ? 'reset' : 'login');
+  const [view, setView] = useState<'login' | 'signup' | 'forgot' | 'reset' | 'twofa'>(initialView === 'reset' ? 'reset' : 'login');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -19,6 +19,10 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
   // Login fields
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState('');
+
+  // 2FA fields
+  const [otp, setOtp] = useState('');
+  const [emailSent, setEmailSent] = useState(true);
 
   // Register fields
   const [companyName, setCompanyName] = useState('');
@@ -49,7 +53,36 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
       const res = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Login failed.');
+      if (data.twoFactorRequired) {
+        setEmailSent(data.emailSent !== false);
+        setOtp('');
+        setView('twofa');
+        return;
+      }
       onLoginSuccess(data);
+    } catch (err: any) { setError(err.message); }
+    finally { setLoading(false); }
+  };
+
+  const handleVerify2fa = async (e: React.FormEvent) => {
+    e.preventDefault(); clearMessages(); setLoading(true);
+    try {
+      const res = await fetch('/api/auth/verify-2fa', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, otp }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Verification failed.');
+      onLoginSuccess(data);
+    } catch (err: any) { setError(err.message); }
+    finally { setLoading(false); }
+  };
+
+  const handleResend2fa = async () => {
+    clearMessages(); setLoading(true);
+    try {
+      const res = await fetch('/api/auth/resend-2fa', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not resend code.');
+      setEmailSent(data.emailSent !== false);
+      setSuccess('A new code has been sent.');
     } catch (err: any) { setError(err.message); }
     finally { setLoading(false); }
   };
@@ -265,6 +298,35 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
           )}
 
           {/* RESET PASSWORD */}
+          {view === 'twofa' && (
+            <div className="space-y-5">
+              <div className="flex items-center gap-3">
+                <button onClick={() => { clearMessages(); setView('login'); }} className="p-1.5 hover:bg-slate-100 rounded-lg"><ArrowLeft className="w-4 h-4 text-slate-500" /></button>
+                <div>
+                  <h2 className="text-xl font-black text-slate-900">Enter Login Code</h2>
+                  <p className="text-slate-500 text-xs">
+                    {emailSent ? `A 6-digit code was emailed to ${email}` : `Code generated — check Notifications in-app (email delivery not configured)`}
+                  </p>
+                </div>
+              </div>
+              <form onSubmit={handleVerify2fa} className="space-y-4">
+                <div className="relative">
+                  <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input type="text" required autoFocus value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="6-digit code" maxLength={6}
+                    className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-slate-50" />
+                </div>
+                {error && <div className="flex items-center gap-2 text-red-600 text-xs bg-red-50 border border-red-100 rounded-lg p-2.5"><AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />{error}</div>}
+                {success && <div className="flex items-center gap-2 text-emerald-600 text-xs bg-emerald-50 border border-emerald-100 rounded-lg p-2.5"><CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />{success}</div>}
+                <button type="submit" disabled={loading || otp.length !== 6} className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold py-2.5 rounded-xl text-sm transition">
+                  {loading ? 'Verifying…' : 'Verify & Sign In'}
+                </button>
+                <button type="button" onClick={handleResend2fa} disabled={loading} className="w-full text-emerald-700 text-xs font-semibold hover:underline">
+                  Didn't get it? Resend code
+                </button>
+              </form>
+            </div>
+          )}
+
           {view === 'reset' && (
             <div className="space-y-5">
               <div className="flex items-center gap-3">
