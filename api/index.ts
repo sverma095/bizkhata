@@ -192,6 +192,31 @@ function isLegacyPlaintext(stored: string | undefined): boolean {
 }
 function safeUser(u: any) { if (!u) return u; const { password, ...rest } = u; return rest; }
 
+const FINANCIAL_LOCK_FIELDS: Record<string, string[]> = {
+  invoice: ["subtotal", "totalGst", "totalCgst", "totalSgst", "totalIgst", "total", "items", "customerId", "date", "tdsAmount", "tdsRate", "tdsSection", "discountValue", "shippingCharge", "otherCharges"],
+  bill: ["subtotal", "totalGst", "totalCgst", "totalSgst", "totalIgst", "total", "items", "vendorId", "date", "tdsAmount", "tdsSection", "isReverseCharge"],
+  expense: ["subtotal", "gstAmount", "tdsAmount", "tdsSection", "total", "vendorName", "category", "isReverseCharge"]
+};
+function checkFinancialLock(docType: keyof typeof FINANCIAL_LOCK_FIELDS, existing: any, incoming: any, draftStatuses: string[]): { locked: boolean; field?: string } {
+  if (!existing) return { locked: false };
+  if (draftStatuses.includes(existing.status)) return { locked: false };
+  for (const field of FINANCIAL_LOCK_FIELDS[docType]) {
+    if (field in incoming && JSON.stringify(incoming[field]) !== JSON.stringify(existing[field])) {
+      return { locked: true, field };
+    }
+  }
+  return { locked: false };
+}
+function diffFields(existing: any, incoming: any, fields: string[]): string {
+  const changes: string[] = [];
+  for (const f of fields) {
+    if (f in incoming && JSON.stringify(incoming[f]) !== JSON.stringify(existing[f])) {
+      changes.push(`${f}: ${JSON.stringify(existing[f])} → ${JSON.stringify(incoming[f])}`);
+    }
+  }
+  return changes.length ? changes.join("; ") : "no field changes";
+}
+
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const EMAIL_FROM = process.env.EMAIL_FROM || "BizKhata <onboarding@resend.dev>";
 async function sendEmail(to: string, subject: string, html: string): Promise<{ sent: boolean; reason?: string }> {
@@ -1391,8 +1416,17 @@ app.post("/api/invoices", authGuard, requirePermission("create_invoices"), async
   }
 
   const existingIndex = db.invoices.findIndex(inv => inv.id === invoiceData.id);
+  const existingInvoice = existingIndex >= 0 ? db.invoices[existingIndex] : null;
 
+  const lockCheck = checkFinancialLock("invoice", existingInvoice, invoiceData, ["Draft"]);
+  if (lockCheck.locked) {
+    res.status(423).json({ error: `This invoice is ${existingInvoice.status} — '${lockCheck.field}' can no longer be edited directly. Issue a Credit Note to correct it.` });
+    return;
+  }
+
+  let changeSummary = "";
   if (existingIndex >= 0) {
+    changeSummary = diffFields(existingInvoice, invoiceData, [...FINANCIAL_LOCK_FIELDS.invoice, "status", "dueDate"]);
     db.invoices[existingIndex] = { ...db.invoices[existingIndex], ...invoiceData };
     // remove previous journal for this invoice if any
     db.journals = db.journals.filter(j => j.id !== `j_inv_${invoiceData.id}`);
@@ -1411,8 +1445,8 @@ app.post("/api/invoices", authGuard, requirePermission("create_invoices"), async
     id: uuid(),
     timestamp: new Date().toISOString(),
     user,
-    action: invoiceData.isProforma ? "Save Proforma Invoice" : "Create Tax Invoice",
-    details: `Generated standard billing number ${invoiceData.invoiceNumber} for client ₹${invoiceData.total}`
+    action: existingIndex >= 0 ? "Edit Invoice" : (invoiceData.isProforma ? "Save Proforma Invoice" : "Create Tax Invoice"),
+    details: existingIndex >= 0 ? `${invoiceData.invoiceNumber}: ${changeSummary}` : `Generated standard billing number ${invoiceData.invoiceNumber} for client ₹${invoiceData.total}`
   });
 
   await writeDB(orgId, db);
@@ -1587,8 +1621,18 @@ app.post("/api/expenses", authGuard, requirePermission("manage_billing"), async 
   const user = req.body.authorUser || "User";
 
   const existingIndex = db.expenses.findIndex(e => e.id === exp.id);
+  const existingExpense = existingIndex >= 0 ? db.expenses[existingIndex] : null;
+
+  const lockCheck = checkFinancialLock("expense", existingExpense, exp, ["Draft", "Pending Approval"]);
+  if (lockCheck.locked) {
+    res.status(423).json({ error: `This expense is ${existingExpense.status} — '${lockCheck.field}' can no longer be edited directly. Record a reversing journal to correct it.` });
+    return;
+  }
+
   if (existingIndex >= 0) {
+    const changeSummary = diffFields(existingExpense, exp, [...FINANCIAL_LOCK_FIELDS.expense, "status"]);
     db.expenses[existingIndex] = { ...db.expenses[existingIndex], ...exp };
+    db.auditLogs.unshift({ id: uuid(), timestamp: new Date().toISOString(), user, action: "Edit Expense", details: `${exp.vendorName || exp.id}: ${changeSummary}` });
     // Clear any existing journal for this expense (if any)
     db.journals = db.journals.filter(j => j.id !== `j_exp_${exp.id}`);
   } else {
@@ -1689,8 +1733,18 @@ app.post("/api/bills", authGuard, requirePermission("manage_billing"), async (re
   const user = req.body.authorUser || "User";
 
   const existingIndex = db.bills.findIndex(b => b.id === bill.id);
+  const existingBill = existingIndex >= 0 ? db.bills[existingIndex] : null;
+
+  const lockCheck = checkFinancialLock("bill", existingBill, bill, ["Draft"]);
+  if (lockCheck.locked) {
+    res.status(423).json({ error: `This bill is ${existingBill.status} — '${lockCheck.field}' can no longer be edited directly. Issue a Debit Note to correct it.` });
+    return;
+  }
+
   if (existingIndex >= 0) {
+    const changeSummary = diffFields(existingBill, bill, [...FINANCIAL_LOCK_FIELDS.bill, "status", "dueDate", "paymentPaid"]);
     db.bills[existingIndex] = { ...db.bills[existingIndex], ...bill };
+    db.auditLogs.unshift({ id: uuid(), timestamp: new Date().toISOString(), user, action: "Edit Bill", details: `${bill.billNumber}: ${changeSummary}` });
     // Clear any existing journals for this bill
     db.journals = db.journals.filter(j => j.id !== `j_bill_${bill.id}`);
   } else {
