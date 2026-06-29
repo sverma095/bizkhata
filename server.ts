@@ -779,7 +779,18 @@ app.post("/api/auth/login", async (req: any, res: any) => {
   const user = USER_DB.users.find((u: any) => u.email === email);
   if (!user) { res.status(401).json({ error: "Invalid credentials. User not found." }); return; }
   if (user.status === "Disabled") { res.status(403).json({ error: "Account disabled. Contact administrator." }); return; }
-  if (!verifyPassword(password, user.password)) { res.status(401).json({ error: "Invalid credentials. Wrong password." }); return; }
+  if (user.loginLockUntil && Date.now() < user.loginLockUntil) {
+    const mins = Math.ceil((user.loginLockUntil - Date.now()) / 60000);
+    res.status(429).json({ error: `Too many failed attempts. Try again in ${mins} minute(s).` });
+    return;
+  }
+  if (!verifyPassword(password, user.password)) {
+    user.loginAttempts = (user.loginAttempts || 0) + 1;
+    if (user.loginAttempts >= 5) { user.loginLockUntil = Date.now() + 15 * 60 * 1000; user.loginAttempts = 0; }
+    res.status(401).json({ error: "Invalid credentials. Wrong password." });
+    return;
+  }
+  user.loginAttempts = 0; user.loginLockUntil = undefined;
   if (isLegacyPlaintext(user.password)) { user.password = hashPassword(password); }
   let org = null;
   if (user.organizationId) {
