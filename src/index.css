@@ -34,7 +34,19 @@ button:active { transform: scale(0.98); }
   * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
 }
 
-/* Print: only show elements marked .printable-area; hide everything else (sidebar, headers, modal buttons) */
+/* Global table polish — improves every data table app-wide without per-file edits,
+   since nearly every screen in BizKhata is a dense data table. */
+table tbody tr {
+  transition: background-color 120ms ease;
+}
+table tbody tr:hover {
+  background-color: rgba(15, 23, 42, 0.025);
+}
+table thead th {
+  font-feature-settings: "tnum";
+}
+
+
 @media print {
   body * { visibility: hidden; }
   .printable-area, .printable-area * { visibility: visible; }
