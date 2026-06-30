@@ -173,34 +173,50 @@ export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProp
   return (
     <div id="bizkhata-dashboard-wrapper" className="space-y-6 font-sans text-slate-800 animate-fade-in pb-12">
       
-      {/* 1. Bizkhata Hello + Helpline Header block */}
-      <div id="bizkhata-greeting-helpline-card" className="card-lift bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div className="flex items-center gap-4">
-          {/* Avatar badge */}
-          <div className="w-12 h-12 bg-amber-100 border border-amber-300 text-amber-800 rounded-full flex items-center justify-center font-bold text-lg shadow-inner uppercase">
-            {(db.company.name || db.company.legalName || "B")[0].toUpperCase()}
-          </div>
-          <div className="space-y-1">
-            <h1 id="bizkhata-hello-title" className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-              Hello, {db.company.name || "Welcome"}
-            </h1>
-            <div className="flex items-center text-xs text-slate-500 font-medium hover:text-blue-650 cursor-pointer">
-              <span>{db.company.legalName || db.company.name || "Your Organisation"} • All Locations</span>
-              <ChevronDown className="w-3.5 h-3.5 ml-1 text-slate-400" />
+      {/* 1. Hero header — gradient banner with inline quick stats */}
+      <div id="bizkhata-greeting-helpline-card" className="relative overflow-hidden rounded-2xl shadow-lg">
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950" />
+        <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)", backgroundSize: "24px 24px" }} />
+        <div className="relative p-5 md:p-6 flex flex-col gap-5">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-amber-500 text-amber-950 rounded-xl flex items-center justify-center font-black text-lg shadow-md uppercase shrink-0">
+                {(db.company.name || db.company.legalName || "B")[0].toUpperCase()}
+              </div>
+              <div className="space-y-0.5">
+                <h1 id="bizkhata-hello-title" className="text-xl font-bold text-white tracking-tight">
+                  Hello, {db.company.name || "Welcome"}
+                </h1>
+                <div className="flex items-center text-xs text-slate-300 font-medium hover:text-white cursor-pointer transition-colors w-fit">
+                  <span>{db.company.legalName || db.company.name || "Your Organisation"} • All Locations</span>
+                  <ChevronDown className="w-3.5 h-3.5 ml-1" />
+                </div>
+              </div>
+            </div>
+            <div className="text-left md:text-right space-y-0.5">
+              <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                <span className="font-semibold text-slate-200">BizKhata Support</span>
+                <span className="font-bold text-amber-400 font-mono text-sm">bizkhata.com</span>
+              </div>
+              <p className="text-[10px] text-slate-400 font-medium">Mon - Fri • 9:00 AM - 7:00 PM • Toll Free</p>
             </div>
           </div>
-        </div>
 
-        {/* Helpline information on right side of header */}
-        <div id="bizkhata-books-helpline-info" className="text-right border-l-0 md:border-l border-slate-200 pl-0 md:pl-6 space-y-1">
-          <div className="flex flex-wrap items-center justify-end gap-1.5 text-xs">
-            <span className="font-semibold text-slate-900">BizKhata Support</span>
-            <span className="font-bold text-blue-600 font-mono text-sm">bizkhata.com</span>
+          {/* Inline quick stats */}
+          <div className="grid grid-cols-3 gap-3 pt-4 border-t border-white/10">
+            <div className="space-y-0.5">
+              <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Bank Balance</p>
+              <p className={`text-lg font-bold font-mono ${bankBalance >= 0 ? "text-emerald-400" : "text-rose-400"}`}>₹{Math.abs(bankBalance).toLocaleString('en-IN')}</p>
+            </div>
+            <div className="space-y-0.5">
+              <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Overdue Receivables</p>
+              <p className={`text-lg font-bold font-mono ${totalOverdue > 0 ? "text-amber-400" : "text-emerald-400"}`}>₹{totalOverdue.toLocaleString('en-IN')}</p>
+            </div>
+            <div className="space-y-0.5">
+              <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Total Income (YTD)</p>
+              <p className="text-lg font-bold font-mono text-sky-400">₹{Math.abs(totalIncomeValue).toLocaleString('en-IN')}</p>
+            </div>
           </div>
-          <p className="text-[10px] text-slate-500 font-medium">Mon - Fri • 9:00 AM - 7:00 PM • Toll Free</p>
-          <p className="text-[10px] text-slate-400 font-sans tracking-tight">
-            English, हिंदी, தமிழ், తెలుగు, മലയാളം, ಕನ್ನಡ, मराठी, गुजराती, বাংলা
-          </p>
         </div>
       </div>
 
