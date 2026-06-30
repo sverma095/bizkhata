@@ -651,7 +651,7 @@ export default function Accounting({ db, defaultTab, onAddManualJournal, userRol
                   <button
                     type="button"
                     onClick={() => setShowJournalForm(true)}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2 rounded-lg cursor-pointer flex items-center gap-1.5 transition-colors shadow-xs"
+                    className="bg-indigo-600 hover:bg-indigo-700 shadow-sm hover:shadow text-white font-bold text-xs px-4 py-2 rounded-lg cursor-pointer flex items-center gap-1.5 transition-colors shadow-xs"
                   >
                     <Plus className="w-3.5 h-3.5" /> Pass Manual Journal
                   </button>

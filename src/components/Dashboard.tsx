@@ -645,7 +645,7 @@ export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProp
             Bizkhata automatically manages your Indian GST liabilities, TDS provisions, MSME aging alerts, and double-entry depreciation journals for the transition of Books from FY 25-26 into FY 26-27 under section 43B(h).
           </p>
           <div className="pt-2 flex justify-center gap-3">
-            <button className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-5 py-2.5 rounded-lg cursor-pointer">
+            <button className="bg-blue-600 hover:bg-blue-700 shadow-sm hover:shadow text-white font-bold text-xs px-5 py-2.5 rounded-lg cursor-pointer">
               Launch Reconciliation Audit
             </button>
             <button 

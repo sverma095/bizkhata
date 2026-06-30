@@ -45,7 +45,7 @@ export default class ErrorBoundary extends React.Component<{ children: React.Rea
             </div>
             <button
               onClick={this.handleReload}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2.5 rounded-lg transition"
+              className="w-full bg-blue-600 hover:bg-blue-700 shadow-sm hover:shadow text-white font-bold text-xs py-2.5 rounded-lg transition"
             >
               Reload BizKhata
             </button>

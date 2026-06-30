@@ -553,7 +553,7 @@ export default function AdminDashboard(props: AdminDashboardProps) {
                 <button
                   id="admin-btn-expand-tab"
                   onClick={() => setActiveTab('seats')}
-                  className="py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider rounded-lg shadow-xs transition flex items-center gap-1 cursor-pointer"
+                  className="py-1.5 px-3 bg-blue-600 hover:bg-blue-700 shadow-sm hover:shadow text-white font-bold text-xs uppercase tracking-wider rounded-lg shadow-xs transition flex items-center gap-1 cursor-pointer"
                 >
                   Request Seats Increase <ArrowUpRight className="w-3 h-3" />
                 </button>
@@ -896,7 +896,7 @@ export default function AdminDashboard(props: AdminDashboardProps) {
                       type="submit"
                       id="btn-admin-add-role"
                       disabled={!customRoleName || customRolePerms.length === 0}
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider rounded-lg transition disabled:opacity-40"
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 shadow-sm hover:shadow text-white font-bold text-xs uppercase tracking-wider rounded-lg transition disabled:opacity-40"
                     >
                       Commit Security Role Matrix
                     </button>
@@ -973,7 +973,7 @@ export default function AdminDashboard(props: AdminDashboardProps) {
                     <button
                       type="submit"
                       id="btn-admin-submit-seats"
-                      className="w-full py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider rounded transition shadow-2xs"
+                      className="w-full py-1.5 bg-blue-600 hover:bg-blue-700 shadow-sm hover:shadow text-white font-bold text-xs uppercase tracking-wider rounded transition shadow-2xs"
                     >
                       Submit Ticket
                     </button>

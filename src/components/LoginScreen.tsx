@@ -215,7 +215,7 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
                   </div>
                 </div>
                 <button type="submit" disabled={loading}
-                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-bold text-sm rounded-xl transition shadow-sm">
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 shadow-sm hover:shadow disabled:opacity-60 text-white font-bold text-sm rounded-xl transition shadow-sm">
                   {loading ? 'Signing in...' : 'Sign In'}
                 </button>
               </form>
@@ -264,7 +264,7 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
                   <input type="number" min={1} max={100} value={seats} onChange={e => setSeats(parseInt(e.target.value))}
                     className="w-24 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-center focus:outline-none focus:ring-2 focus:ring-emerald-400" />
                 </div>
-                <button type="submit" disabled={loading} className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-bold text-sm rounded-xl transition">
+                <button type="submit" disabled={loading} className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 shadow-sm hover:shadow disabled:opacity-60 text-white font-bold text-sm rounded-xl transition">
                   {loading ? 'Submitting...' : 'Submit Registration Request'}
                 </button>
               </form>
@@ -287,7 +287,7 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
                   <input type="email" required value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} placeholder="your@email.com"
                     className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-slate-50" />
                 </div>
-                <button type="submit" disabled={loading} className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-bold text-sm rounded-xl transition">
+                <button type="submit" disabled={loading} className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 shadow-sm hover:shadow disabled:opacity-60 text-white font-bold text-sm rounded-xl transition">
                   {loading ? 'Sending...' : 'Send Reset Code'}
                 </button>
                 <button type="button" onClick={() => { clearMessages(); setView('reset'); }} className="w-full text-xs text-emerald-600 hover:underline text-center">
@@ -355,7 +355,7 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
                     {showNewPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-                <button type="submit" disabled={loading} className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-bold text-sm rounded-xl transition">
+                <button type="submit" disabled={loading} className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 shadow-sm hover:shadow disabled:opacity-60 text-white font-bold text-sm rounded-xl transition">
                   {loading ? 'Updating...' : 'Update Password'}
                 </button>
               </form>
