@@ -16,6 +16,7 @@ import {
   X,
   CreditCard,
   AlertCircle,
+  CheckCircle2,
   Users,
   Edit,
   ChevronDown,
@@ -528,9 +529,39 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
 
   const taxInvoices = db.invoices.filter(i => !i.isProforma);
   const proformaInvoices = db.invoices.filter(i => i.isProforma);
+  const todayStr = new Date().toISOString().split("T")[0];
+  const totalOutstanding = taxInvoices.filter(i => i.status !== "Paid" && i.status !== "Cancelled").reduce((s, i) => s + (i.total - (i.paymentReceived || 0)), 0);
+  const totalOverdueInv = taxInvoices.filter(i => i.status !== "Paid" && i.status !== "Cancelled" && i.dueDate < todayStr).reduce((s, i) => s + (i.total - (i.paymentReceived || 0)), 0);
+  const totalPaidThisMonth = taxInvoices.filter(i => i.status === "Paid" && (i.date || "").slice(0, 7) === todayStr.slice(0, 7)).reduce((s, i) => s + i.total, 0);
 
   return (
     <div id="billing-view-container" className="space-y-6 animate-fade-in p-2">
+
+      {/* Quick-stat strip — same warm palette as the rest of this screen */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="card-lift bg-white border border-[#E5E1D8] rounded-xl p-4 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-[#8C867A] font-bold">Total Outstanding</p>
+            <p className="text-lg font-bold text-[#2C2C24] font-mono mt-0.5">₹{totalOutstanding.toLocaleString('en-IN')}</p>
+          </div>
+          <div className="w-9 h-9 rounded-full bg-[#F5F2ED] flex items-center justify-center"><FileText className="w-4 h-4 text-[#5A5A40]" /></div>
+        </div>
+        <div className="card-lift bg-white border border-[#E5E1D8] rounded-xl p-4 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-[#8C867A] font-bold">Overdue</p>
+            <p className={`text-lg font-bold font-mono mt-0.5 ${totalOverdueInv > 0 ? "text-rose-600" : "text-[#2C2C24]"}`}>₹{totalOverdueInv.toLocaleString('en-IN')}</p>
+          </div>
+          <div className="w-9 h-9 rounded-full bg-rose-50 flex items-center justify-center"><AlertCircle className="w-4 h-4 text-rose-500" /></div>
+        </div>
+        <div className="card-lift bg-white border border-[#E5E1D8] rounded-xl p-4 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-[#8C867A] font-bold">Collected This Month</p>
+            <p className="text-lg font-bold text-emerald-600 font-mono mt-0.5">₹{totalPaidThisMonth.toLocaleString('en-IN')}</p>
+          </div>
+          <div className="w-9 h-9 rounded-full bg-emerald-50 flex items-center justify-center"><CheckCircle2 className="w-4 h-4 text-emerald-600" /></div>
+        </div>
+      </div>
+
       {/* Upper Segment Row */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#F5F2ED] p-4 rounded-xl border border-[#E5E1D8]">
         <div id="segment-view-filters" className="flex bg-white p-1.5 rounded-lg border border-[#E5E1D8] gap-2 w-full sm:w-auto flex-wrap">
