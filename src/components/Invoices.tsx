@@ -184,6 +184,8 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
 
   // Form State
   const [customerId, setCustomerId] = useState("");
+  const [manualInvoiceNumber, setManualInvoiceNumber] = useState("");
+  const [billingAddressOverride, setBillingAddressOverride] = useState<string | null>(null);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState(new Date().toISOString().split('T')[0]);
   const [isProforma, setIsProforma] = useState(false);
@@ -227,6 +229,8 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
     setPaymentTerms('Net 30');
     setInvoiceNotes('');
     setIsRecurring(false);
+    setManualInvoiceNumber("");
+    setBillingAddressOverride(null);
   };
 
   useEffect(() => {
@@ -383,12 +387,17 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
       discountType: discountType || undefined,
       isRecurring: isRecurring || undefined,
       recurringFrequency: isRecurring ? recurringFrequency : undefined,
+      billingAddress: billingAddressOverride !== null ? billingAddressOverride : undefined,
     };
+
+    if (manualInvoiceNumber.trim()) {
+      invoicePayload.invoiceNumber = manualInvoiceNumber.trim();
+    }
 
     // If editing existing, include id and preserve fields
     if (editingInvoice) {
       invoicePayload.id = editingInvoice.id;
-      invoicePayload.invoiceNumber = editingInvoice.invoiceNumber;
+      invoicePayload.invoiceNumber = manualInvoiceNumber.trim() || editingInvoice.invoiceNumber;
       invoicePayload.irn = editingInvoice.irn;
       invoicePayload.ackNo = editingInvoice.ackNo;
     }
@@ -455,6 +464,8 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
       rate: it.rate,
       gstRate: it.gstRate
     })));
+    setManualInvoiceNumber(inv.invoiceNumber || "");
+    setBillingAddressOverride(inv.billingAddress ?? null);
     setShowForm(true);
   };
 
@@ -588,7 +599,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
           </div>
 
           <form id="frm-invoice-draft" onSubmit={(e) => e.preventDefault()} className="space-y-4" autoComplete="off">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="space-y-1.5">
                 <label id="lbl-fld-cust" className="text-xs text-slate-600 font-medium">Customer Master Record</label>
                 <select
@@ -607,18 +618,44 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                 {customerId && (() => {
                   const cust = db.customers.find((c: any) => c.id === customerId);
                   if (!cust) return null;
+                  const effectiveAddress = billingAddressOverride !== null ? billingAddressOverride : cust.billingAddress;
                   return (
                     <div className="mt-1.5 bg-blue-50 border border-blue-100 rounded-lg p-2.5 text-[10px] space-y-0.5">
                       {cust.legalName && cust.legalName !== cust.name && <div className="text-slate-500">Legal: <span className="text-slate-800">{cust.legalName}</span></div>}
                       {cust.gstin && <div className="text-slate-500">GSTIN: <span className="font-mono text-emerald-700">{cust.gstin}</span></div>}
                       {cust.pan && <div className="text-slate-500">PAN: <span className="font-mono text-slate-700">{cust.pan}</span></div>}
-                      {cust.billingAddress && <div className="text-slate-500">Address: <span className="text-slate-700">{cust.billingAddress}</span></div>}
+                      <div className="text-slate-500 flex items-start gap-1.5">
+                        <span className="shrink-0">Address:</span>
+                        {billingAddressOverride !== null ? (
+                          <textarea
+                            value={billingAddressOverride}
+                            onChange={(e) => setBillingAddressOverride(e.target.value)}
+                            rows={2}
+                            className="flex-1 bg-white border border-blue-200 rounded px-1.5 py-0.5 text-slate-700 text-[10px] outline-none focus:border-blue-400"
+                          />
+                        ) : (
+                          <>
+                            <span className="text-slate-700">{effectiveAddress || "—"}</span>
+                            <button type="button" onClick={() => setBillingAddressOverride(cust.billingAddress || "")} className="text-blue-600 hover:underline shrink-0 ml-auto">Edit for this invoice</button>
+                          </>
+                        )}
+                      </div>
                       {cust.email && <div className="text-slate-500">Email: <span className="text-slate-700">{cust.email}</span></div>}
                       {cust.phone && <div className="text-slate-500">Phone: <span className="text-slate-700">{cust.phone}</span></div>}
                       {!cust.gstin && <div className="text-amber-400 font-semibold">⚠ Unregistered — IGST/CGST+SGST applies as B2C</div>}
                     </div>
                   );
                 })()}
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs text-slate-600 font-medium">Invoice #</label>
+                <input
+                  type="text"
+                  value={manualInvoiceNumber}
+                  onChange={(e) => setManualInvoiceNumber(e.target.value)}
+                  placeholder="Auto-generated if left blank"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-800 text-xs font-mono focus:border-blue-500 outline-none"
+                />
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs text-slate-600 font-medium">Invoice Date</label>
@@ -2304,13 +2341,14 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                 <div className="grid grid-cols-2 gap-6 py-5 border-b border-slate-200">
                   {(() => {
                     const cust = db.customers.find(c => c.id === showViewModal.customerId);
+                    const effectiveAddr = showViewModal.billingAddress || cust?.billingAddress;
                     return (
                       <>
                         <div>
                           <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Bill To</div>
                           <div className="font-bold text-slate-900 text-[12px]">{cust?.legalName || showViewModal.customerName}</div>
                           {cust?.name && cust.name !== cust.legalName && <div className="text-slate-500 text-[10px]">{cust.name}</div>}
-                          {cust?.billingAddress && <div className="text-slate-600 text-[10px] whitespace-pre-line leading-relaxed mt-1">{cust.billingAddress}</div>}
+                          {effectiveAddr && <div className="text-slate-600 text-[10px] whitespace-pre-line leading-relaxed mt-1">{effectiveAddr}</div>}
                           <div className="mt-1.5 space-y-0.5">
                             {cust?.gstin ? <div className="font-mono text-[10px] font-bold text-slate-700">GSTIN: {cust.gstin}</div> : <div className="text-[10px] text-amber-600 font-semibold">Unregistered (B2C)</div>}
                             {cust?.pan && <div className="font-mono text-[10px] text-slate-500">PAN: {cust.pan}</div>}
@@ -2320,8 +2358,8 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                         </div>
                         <div>
                           <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Ship To</div>
-                          {cust?.billingAddress ? (
-                            <div className="text-slate-600 text-[10px] whitespace-pre-line leading-relaxed">{cust.billingAddress}</div>
+                          {effectiveAddr ? (
+                            <div className="text-slate-600 text-[10px] whitespace-pre-line leading-relaxed">{effectiveAddr}</div>
                           ) : (
                             <div className="text-slate-400 text-[10px] italic">Same as billing address</div>
                           )}

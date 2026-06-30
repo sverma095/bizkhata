@@ -1432,6 +1432,9 @@ app.post("/api/invoices", authGuard, requirePermission("create_invoices"), async
   if (!invoiceData.invoiceNumber) {
     const lastNum = db.invoices.length;
     invoiceData.invoiceNumber = `INV-2026-${String(lastNum + 1).padStart(3, "0")}`;
+  } else {
+    const dupe = db.invoices.find(inv => inv.invoiceNumber === invoiceData.invoiceNumber && inv.id !== invoiceData.id);
+    if (dupe) { res.status(409).json({ error: `Invoice number '${invoiceData.invoiceNumber}' is already in use.` }); return; }
   }
 
   const existingIndex = db.invoices.findIndex(inv => inv.id === invoiceData.id);

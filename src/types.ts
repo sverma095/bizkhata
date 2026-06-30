@@ -110,6 +110,7 @@ export interface Invoice {
   invoiceNumber: string;
   customerId: string;
   customerName: string;
+  billingAddress?: string; // override of the customer's default address, for this invoice only
   date: string;
   dueDate: string;
   items: InvoiceItem[];
