@@ -1776,6 +1776,9 @@ app.post("/api/bills", authGuard, requirePermission("manage_billing"), async (re
     bill.id = "bill_" + uuid();
     if (!bill.billNumber) {
       bill.billNumber = `BILL-DUE-${String(db.bills.length + 1).padStart(3, "0")}`;
+    } else {
+      const dupe = db.bills.find(b => b.billNumber === bill.billNumber && b.id !== bill.id);
+      if (dupe) { res.status(409).json({ error: `Bill number '${bill.billNumber}' is already in use.` }); return; }
     }
     db.bills.push(bill);
   }

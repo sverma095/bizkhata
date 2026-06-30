@@ -94,6 +94,10 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
   // Bill Form State
   const [billVendorId, setBillVendorId] = useState("");
   const [billNumber, setBillNumber] = useState("");
+  const [billAddressOverride, setBillAddressOverride] = useState<string | null>(null);
+  const [billDiscountValue, setBillDiscountValue] = useState(0);
+  const [billDiscountType, setBillDiscountType] = useState<"percent" | "amount">("percent");
+  const [billDiscountTiming, setBillDiscountTiming] = useState<"before_tax" | "after_tax">("after_tax");
   const [billDate, setBillDate] = useState(new Date().toISOString().split('T')[0]);
   const [billDueDate, setBillDueDate] = useState(new Date().toISOString().split('T')[0]);
   const [billSubtotal, setBillSubtotal] = useState(0);
@@ -187,18 +191,29 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
 
     const sameState = vend.address.toLowerCase().includes(db.company.state.toLowerCase());
 
+    const discountAmt = billDiscountType === "percent"
+      ? Math.round(sub * billDiscountValue / 100 * 100) / 100
+      : Number(billDiscountValue);
+
+    // Before-tax: discount reduces the taxable value, so GST is computed on the
+    // discounted amount. After-tax: GST stays computed on full price (cash discount).
+    const netSubtotal = billDiscountTiming === "before_tax" ? Math.max(0, sub - discountAmt) : sub;
+    const effectiveGstAmt = billDiscountTiming === "before_tax" ? (netSubtotal * gstPct) / 100 : gstAmt;
+
     // Under RCM, the vendor does NOT charge GST on the bill — the buyer self-assesses
     // and pays it directly to the government. The bill total payable to the vendor
     // therefore excludes GST; the GST liability is tracked separately via isReverseCharge.
     // TDS deducted at source is withheld from the vendor and owed to the government instead,
     // so it also reduces the net amount actually payable to the vendor.
-    const billTotal = (billIsRcm ? sub : sub + gstAmt) - Number(billTds);
+    const billSubtotalAfterDiscount = billDiscountTiming === "before_tax" ? netSubtotal : sub - discountAmt;
+    const billTotal = (billIsRcm ? billSubtotalAfterDiscount : billSubtotalAfterDiscount + effectiveGstAmt) - Number(billTds);
 
     try {
       await onAddBill({
         billNumber,
         vendorId: billVendorId,
         vendorName: vend.name,
+        billingAddress: billAddressOverride !== null ? billAddressOverride : undefined,
         date: billDate,
         dueDate: billDueDate,
         items: [
@@ -206,31 +221,35 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
             itemId: "item_2", // stationery default
             name: "Procured Supplies / Raw Materials",
             qty: 1,
-            rate: sub,
+            rate: billSubtotalAfterDiscount,
             gstRate: gstPct,
-            amount: sub,
-            cgst: sameState ? gstAmt / 2 : 0,
-            sgst: sameState ? gstAmt / 2 : 0,
-            igst: !sameState ? gstAmt : 0
+            amount: billSubtotalAfterDiscount,
+            cgst: sameState ? effectiveGstAmt / 2 : 0,
+            sgst: sameState ? effectiveGstAmt / 2 : 0,
+            igst: !sameState ? effectiveGstAmt : 0
           }
         ],
-        subtotal: sub,
-        totalGst: gstAmt,
-        totalCgst: sameState ? gstAmt / 2 : 0,
-        totalSgst: sameState ? gstAmt / 2 : 0,
-        totalIgst: !sameState ? gstAmt : 0,
+        subtotal: billSubtotalAfterDiscount,
+        totalGst: effectiveGstAmt,
+        totalCgst: sameState ? effectiveGstAmt / 2 : 0,
+        totalSgst: sameState ? effectiveGstAmt / 2 : 0,
+        totalIgst: !sameState ? effectiveGstAmt : 0,
         total: billTotal,
         status: "Approved",
         paymentPaid: 0,
         isReverseCharge: billIsRcm,
         rcmGstPaid: false,
         tdsAmount: Number(billTds) || undefined,
-        tdsSection: billTds > 0 ? billTdsSection : undefined
+        tdsSection: billTds > 0 ? billTdsSection : undefined,
+        discountValue: billDiscountValue || undefined,
+        discountType: billDiscountValue ? billDiscountType : undefined,
+        discountTiming: billDiscountValue ? billDiscountTiming : undefined
       });
 
       setShowBillForm(false);
       // clean
-      setBillNumber(""); setBillSubtotal(0); setBillTds(0);
+      setBillNumber(""); setBillSubtotal(0); setBillTds(0); setBillAddressOverride(null);
+      setBillDiscountValue(0); setBillDiscountType("percent"); setBillDiscountTiming("after_tax");
     } catch (err: any) {
       alert(err.message || "Could not save bill. Please check your connection and try again.");
     }
@@ -770,7 +789,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                 </div>
               </div>
               <div className="flex justify-between text-xs mb-4">
-                <div><p className="text-slate-400">Bill From</p><p className="font-semibold">{viewingBill.vendorName}</p></div>
+                <div><p className="text-slate-400">Bill From</p><p className="font-semibold">{viewingBill.vendorName}</p>{viewingBill.billingAddress && <p className="text-slate-500 text-[10px] whitespace-pre-line mt-0.5">{viewingBill.billingAddress}</p>}</div>
                 <div className="text-right"><p className="text-slate-400">Bill Date: <span className="text-slate-700">{viewingBill.date}</span></p><p className="text-slate-400">Due Date: <span className="text-slate-700">{viewingBill.dueDate}</span></p></div>
               </div>
               <table className="w-full text-xs border border-slate-200 rounded overflow-hidden mb-4">
@@ -836,12 +855,28 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                 {billVendorId && (() => {
                   const vend = db.vendors.find((v: any) => v.id === billVendorId);
                   if (!vend) return null;
+                  const effectiveAddress = billAddressOverride !== null ? billAddressOverride : vend.billingAddress;
                   return (
                     <div className="mt-1.5 bg-blue-50 border border-blue-100 rounded-lg p-2.5 text-[10px] space-y-0.5">
                       {vend.legalName && vend.legalName !== vend.name && <div className="text-slate-500">Legal: <span className="text-slate-700">{vend.legalName}</span></div>}
                       {vend.gstin && <div className="text-slate-400">GSTIN: <span className="font-mono text-emerald-400">{vend.gstin}</span></div>}
                       {vend.pan && <div className="text-slate-500">PAN: <span className="font-mono text-slate-700">{vend.pan}</span></div>}
-                      {vend.billingAddress && <div className="text-slate-400">Address: <span className="text-slate-300">{vend.billingAddress}</span></div>}
+                      <div className="text-slate-400 flex items-start gap-1.5">
+                        <span className="shrink-0">Address:</span>
+                        {billAddressOverride !== null ? (
+                          <textarea
+                            value={billAddressOverride}
+                            onChange={(e) => setBillAddressOverride(e.target.value)}
+                            rows={2}
+                            className="flex-1 bg-white border border-blue-200 rounded px-1.5 py-0.5 text-slate-700 text-[10px] outline-none focus:border-blue-400"
+                          />
+                        ) : (
+                          <>
+                            <span className="text-slate-300">{effectiveAddress || "—"}</span>
+                            <button type="button" onClick={() => setBillAddressOverride(vend.billingAddress || "")} className="text-blue-500 hover:underline shrink-0 ml-auto">Edit for this bill</button>
+                          </>
+                        )}
+                      </div>
                       {vend.email && <div className="text-slate-400">Email: <span className="text-slate-300">{vend.email}</span></div>}
                       {!vend.gstin && <div className="text-amber-400 font-semibold">⚠ Unregistered Vendor</div>}
                     </div>
@@ -909,6 +944,29 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
               </div>
 
               <div className="space-y-1.5 col-span-2">
+                <label className="text-xs font-bold text-[#5A5A40]">Discount</label>
+                <div className="flex items-center gap-2">
+                  <select value={billDiscountType} onChange={e => setBillDiscountType(e.target.value as any)}
+                    className="px-2 py-2 border border-[#E5E1D8] rounded text-sm">
+                    <option value="percent">%</option>
+                    <option value="amount">₹</option>
+                  </select>
+                  <input
+                    type="number" min={0} value={billDiscountValue}
+                    onChange={(e) => setBillDiscountValue(parseFloat(e.target.value) || 0)}
+                    className="flex-1 px-3 py-2 border border-[#E5E1D8] rounded text-sm"
+                    placeholder="0"
+                  />
+                </div>
+                {billDiscountValue > 0 && (
+                  <div className="flex items-center gap-3 text-[10px] pt-0.5">
+                    <label className="flex items-center gap-1 cursor-pointer text-[#5A5A40]"><input type="radio" checked={billDiscountTiming === "before_tax"} onChange={() => setBillDiscountTiming("before_tax")} className="accent-[#5A5A40]" /> Before Tax</label>
+                    <label className="flex items-center gap-1 cursor-pointer text-[#5A5A40]"><input type="radio" checked={billDiscountTiming === "after_tax"} onChange={() => setBillDiscountTiming("after_tax")} className="accent-[#5A5A40]" /> After Tax</label>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-1.5 col-span-2">
                 <label className="text-xs font-bold text-[#5A5A40]">TDS Deducted at Source (₹)</label>
                 <input
                   type="number" min={0} value={billTds}
@@ -927,17 +985,28 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
               </div>
 
               {/* Calculations review */}
-              <div className="bg-slate-100 p-3 rounded border border-slate-200 flex justify-between items-center text-xs font-mono select-none">
-                <div className="text-slate-500">
-                  <p>{billIsRcm ? "Self-Assessed GST (RCM)" : "Incurred GST"}: ₹{(billSubtotal * billGstRate) / 100}</p>
-                  {billIsRcm && <p className="text-[10px] text-amber-600 font-sans">Not paid to vendor — pay this directly via GST portal.</p>}
-                  {billTds > 0 && <p className="text-indigo-500">less TDS withheld: ₹{billTds} (cr. TDS Payable)</p>}
-                </div>
-                <div className="text-right">
-                  <p className="text-[10px] text-slate-500 font-normal font-sans text-slate-400">{billIsRcm ? "Payable to vendor (excl. GST):" : "Total payable sum:"}</p>
-                  <p className="text-indigo-400 font-bold">₹{(billIsRcm ? billSubtotal : billSubtotal + (billSubtotal * billGstRate) / 100) - billTds}</p>
-                </div>
-              </div>
+              {(() => {
+                const sub = Number(billSubtotal);
+                const discountAmt = billDiscountType === "percent" ? Math.round(sub * billDiscountValue / 100 * 100) / 100 : Number(billDiscountValue);
+                const netSub = billDiscountTiming === "before_tax" ? Math.max(0, sub - discountAmt) : sub;
+                const gstAmt = (netSub * billGstRate) / 100;
+                const subAfterDiscount = billDiscountTiming === "before_tax" ? netSub : sub - discountAmt;
+                const payable = (billIsRcm ? subAfterDiscount : subAfterDiscount + gstAmt) - billTds;
+                return (
+                  <div className="bg-slate-100 p-3 rounded border border-slate-200 flex justify-between items-center text-xs font-mono select-none">
+                    <div className="text-slate-500">
+                      {discountAmt > 0 && <p className="text-emerald-600">less discount ({billDiscountTiming === "before_tax" ? "before tax" : "after tax"}): -₹{discountAmt.toLocaleString('en-IN')}</p>}
+                      <p>{billIsRcm ? "Self-Assessed GST (RCM)" : "Incurred GST"}: ₹{gstAmt.toLocaleString('en-IN')}</p>
+                      {billIsRcm && <p className="text-[10px] text-amber-600 font-sans">Not paid to vendor — pay this directly via GST portal.</p>}
+                      {billTds > 0 && <p className="text-indigo-500">less TDS withheld: ₹{billTds} (cr. TDS Payable)</p>}
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] text-slate-500 font-normal font-sans text-slate-400">{billIsRcm ? "Payable to vendor (excl. GST):" : "Total payable sum:"}</p>
+                      <p className="text-indigo-400 font-bold">₹{payable.toLocaleString('en-IN')}</p>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="flex justify-end gap-3 pt-3 border-t border-[#E5E1D8] font-medium font-bold">

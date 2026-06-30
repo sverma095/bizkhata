@@ -237,6 +237,7 @@ export interface Bill {
   billNumber: string; // vendor bill number
   vendorId: string;
   vendorName: string;
+  billingAddress?: string; // override of the vendor's default address, for this bill only
   date: string;
   dueDate: string;
   items: BillItem[];
@@ -252,6 +253,9 @@ export interface Bill {
   rcmGstPaid?: boolean; // whether the self-assessed RCM GST has been deposited
   tdsAmount?: number; // TDS deducted at source when paying this vendor bill
   tdsSection?: string; // e.g. "194C", "194J" — under Section 393 (IT Act 2025) for filing
+  discountValue?: number;
+  discountType?: 'amount' | 'percent';
+  discountTiming?: 'before_tax' | 'after_tax';
 }
 
 export interface JournalLine {
