@@ -125,7 +125,8 @@ export interface Invoice {
   tdsRate?: number;
   tdsSection?: string; // e.g. "194J", "194Q" — under Section 393 (IT Act 2025) for filing
   discountValue?: number;
-  discountType?: 'flat' | 'percent';
+  discountType?: 'amount' | 'percent';
+  discountTiming?: 'before_tax' | 'after_tax';
   shippingCharge?: number;
   otherCharges?: number;
   status: 'Draft' | 'Sent' | 'Approved' | 'Paid' | 'Cancelled' | 'E-Invoiced' | 'Digitally Signed' | 'Converted';

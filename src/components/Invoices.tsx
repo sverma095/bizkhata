@@ -198,6 +198,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
   const [draftInvoiceNum, setDraftInvoiceNum] = useState("");
   const [discountType, setDiscountType] = useState<'percent'|'amount'>('percent');
   const [discountValue, setDiscountValue] = useState(0);
+  const [discountTiming, setDiscountTiming] = useState<'before_tax'|'after_tax'>('after_tax');
   const [shippingCharge, setShippingCharge] = useState(0);
   const [applyTcs, setApplyTcs] = useState(false);
   const [otherCharges, setOtherCharges] = useState(0);
@@ -224,6 +225,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
     setTdsAmount(0);
     setRoundingOff(false);
     setDiscountValue(0);
+    setDiscountTiming('after_tax');
     setShippingCharge(0);
     setOtherCharges(0);
     setPaymentTerms('Net 30');
@@ -321,7 +323,25 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
   const discountAmount = discountType === 'percent'
     ? Math.round(liveResults.subtotal * discountValue / 100 * 100) / 100
     : discountValue;
-  const finalTotal = liveResults.total - discountAmount + shippingCharge + otherCharges;
+
+  // Before-tax: the discount reduces the taxable value itself, so GST is computed on the
+  // post-discount amount — the customer owes less tax too. Each tax component (CGST/SGST/
+  // IGST) is scaled down proportionally since calculateGst already split it per the
+  // intra/inter-state rule.
+  // After-tax: GST stays exactly as computed on the full price (correct, since the sale
+  // value for tax purposes hasn't changed) — the discount just reduces the final amount
+  // payable, like a cash/settlement discount.
+  const taxScaleFactor = discountTiming === 'before_tax' && liveResults.subtotal > 0
+    ? Math.max(0, (liveResults.subtotal - discountAmount) / liveResults.subtotal)
+    : 1;
+  const effectiveGst = Math.round(liveResults.totalGst * taxScaleFactor * 100) / 100;
+  const effectiveCgst = Math.round(liveResults.cgst * taxScaleFactor * 100) / 100;
+  const effectiveSgst = Math.round(liveResults.sgst * taxScaleFactor * 100) / 100;
+  const effectiveIgst = Math.round(liveResults.igst * taxScaleFactor * 100) / 100;
+
+  const finalTotal = discountTiming === 'before_tax'
+    ? (liveResults.subtotal - discountAmount) + effectiveGst + shippingCharge + otherCharges
+    : liveResults.total - discountAmount + shippingCharge + otherCharges;
 
   const handleInvoiceSubmit = async (e: React.FormEvent, overrideStatus?: 'Draft' | 'Sent' | 'Approved') => {
     if (e && e.preventDefault) e.preventDefault();
@@ -366,16 +386,17 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
       date,
       dueDate,
       items: finalItems,
-      subtotal: liveResults.subtotal,
-      totalGst: liveResults.totalGst,
-      totalCgst: liveResults.cgst,
-      totalSgst: liveResults.sgst,
-      totalIgst: liveResults.igst,
+      subtotal: discountTiming === 'before_tax' ? Math.round((liveResults.subtotal - discountAmount) * 100) / 100 : liveResults.subtotal,
+      totalGst: discountTiming === 'before_tax' ? effectiveGst : liveResults.totalGst,
+      totalCgst: discountTiming === 'before_tax' ? effectiveCgst : liveResults.cgst,
+      totalSgst: discountTiming === 'before_tax' ? effectiveSgst : liveResults.sgst,
+      totalIgst: discountTiming === 'before_tax' ? effectiveIgst : liveResults.igst,
       total: netTotal,
       tcsAmount: applyTcs ? Math.round(liveResults.total * 0.001 * 100) / 100 : undefined,
       tdsAmount: tdsAmount || undefined,
       tdsRate: tdsSection ? tdsRate : undefined,
       tdsSection: tdsSection || undefined,
+      discountTiming,
       status: finalStatus,
       isProforma,
       paymentReceived: editingInvoice?.paymentReceived || 0,
@@ -466,6 +487,9 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
     })));
     setManualInvoiceNumber(inv.invoiceNumber || "");
     setBillingAddressOverride(inv.billingAddress ?? null);
+    setDiscountValue(inv.discountValue || 0);
+    setDiscountType(inv.discountType || 'percent');
+    setDiscountTiming(inv.discountTiming || 'after_tax');
     setShowForm(true);
   };
 
@@ -838,26 +862,8 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                 <span>Subtotal (Net Revenue):</span>
                 <span className="font-mono font-medium text-slate-200">₹{liveResults.subtotal.toLocaleString('en-IN')}</span>
               </div>
-              {liveResults.cgst > 0 && (
-                <>
-                  <div className="flex justify-between text-slate-400">
-                    <span>CGST (Central GST):</span>
-                    <span className="font-mono text-slate-200">₹{liveResults.cgst.toLocaleString('en-IN')}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-400">
-                    <span>SGST (State GST):</span>
-                    <span className="font-mono text-slate-200">₹{liveResults.sgst.toLocaleString('en-IN')}</span>
-                  </div>
-                </>
-              )}
-              {liveResults.igst > 0 && (
-                <div className="flex justify-between text-slate-400">
-                  <span>IGST (Integrated GST):</span>
-                  <span className="font-mono text-slate-200">₹{liveResults.igst.toLocaleString('en-IN')}</span>
-                </div>
-              )}
 
-              {/* Discount */}
+              {/* Discount — applied before-tax (reduces taxable value & GST) or after-tax (cash discount, GST unaffected) */}
               <div className="border-t border-slate-800 pt-2 space-y-1.5">
                 <label className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wide">Discount</label>
                 <div className="flex items-center gap-2">
@@ -873,7 +879,46 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                   />
                   {discountAmount > 0 && <span className="text-emerald-400 text-[10px] font-mono">-₹{discountAmount.toLocaleString('en-IN')}</span>}
                 </div>
+                {discountValue > 0 && (
+                  <div className="flex items-center gap-3 text-[10px] pl-0.5">
+                    <label className="flex items-center gap-1 cursor-pointer text-slate-400"><input type="radio" checked={discountTiming === 'before_tax'} onChange={() => setDiscountTiming('before_tax')} className="accent-emerald-500" /> Before Tax</label>
+                    <label className="flex items-center gap-1 cursor-pointer text-slate-400"><input type="radio" checked={discountTiming === 'after_tax'} onChange={() => setDiscountTiming('after_tax')} className="accent-emerald-500" /> After Tax</label>
+                  </div>
+                )}
+                {discountValue > 0 && (
+                  <p className="text-[9px] text-slate-500">
+                    {discountTiming === 'before_tax'
+                      ? "Reduces the taxable value — GST is calculated on the discounted amount."
+                      : "GST stays calculated on the full price — discount reduces only the amount payable."}
+                  </p>
+                )}
               </div>
+
+              {discountTiming === 'before_tax' && discountValue > 0 && (
+                <div className="flex justify-between text-slate-400">
+                  <span>Taxable Value (after discount):</span>
+                  <span className="font-mono text-slate-200">₹{(liveResults.subtotal - discountAmount).toLocaleString('en-IN')}</span>
+                </div>
+              )}
+              {effectiveCgst > 0 && (
+                <>
+                  <div className="flex justify-between text-slate-400">
+                    <span>CGST (Central GST):</span>
+                    <span className="font-mono text-slate-200">₹{effectiveCgst.toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-400">
+                    <span>SGST (State GST):</span>
+                    <span className="font-mono text-slate-200">₹{effectiveSgst.toLocaleString('en-IN')}</span>
+                  </div>
+                </>
+              )}
+              {effectiveIgst > 0 && (
+                <div className="flex justify-between text-slate-400">
+                  <span>IGST (Integrated GST):</span>
+                  <span className="font-mono text-slate-200">₹{effectiveIgst.toLocaleString('en-IN')}</span>
+                </div>
+              )}
+
               {/* Shipping + Other Charges */}
               <div className="flex gap-2">
                 <div className="flex-1 space-y-1">
@@ -973,7 +1018,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                   Round off total to nearest ₹1
                 </label>
                 {roundingOff && (() => {
-                  const preRound = liveResults.total - tdsAmount;
+                  const preRound = finalTotal - tdsAmount;
                   const rounded = Math.round(preRound);
                   const diff = rounded - preRound;
                   return diff !== 0 ? (
