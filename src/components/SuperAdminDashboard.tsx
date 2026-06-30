@@ -113,7 +113,7 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
         })
       });
       if (!res.ok) { const e2 = await res.json(); throw new Error(e2.error || 'Failed to enroll organization.'); }
-      showFeedback(`Enrolled '${newOrgName}' successfully.`);
+      showFeedback(`Enrolled '${newOrgName}' successfully. The org's Admin can now log in with the email/password set here — Super Admin accounts don't have their own ledger, so you won't see "Add Client" etc. work under this login.`);
       setShowNewOrgForm(false);
       setNewOrgName(''); setNewOrgLegal(''); setNewOrgPan(''); setNewOrgGstin('');
       setNewOrgSeats(4); setNewOrgPackage('Standard'); setNewOrgPricing(2499); setNewOrgEmail('');

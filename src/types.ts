@@ -205,6 +205,17 @@ export interface Expense {
   attachmentUrl?: string;
   attachmentName?: string;
   status?: 'Draft' | 'Pending Approval' | 'Approved';
+  // Zoho-style GST Treatment tab
+  expenseType?: 'Goods' | 'Services';
+  sacCode?: string; // Services Accounting Code (when expenseType = Services)
+  hsnCode?: string; // when expenseType = Goods
+  gstTreatment?: 'regular' | 'composition' | 'unregistered' | 'consumer' | 'overseas' | 'sez' | 'deemed_export' | 'non_gst' | 'out_of_scope' | 'tax_deductor' | 'sez_developer' | 'isd';
+  sourceOfSupply?: string; // state code, e.g. "TS"
+  destinationOfSupply?: string; // state code
+  taxRate?: number; // selected slab e.g. 18
+  amountIsTaxInclusive?: boolean; // true = entered amount already includes GST
+  customerId?: string; // billable-to-customer (for client rebilling)
+  itemized?: { description: string; account: string; amount: number }[]; // optional multi-line itemization
 }
 
 export interface BillItem {

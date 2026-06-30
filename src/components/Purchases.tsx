@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { DatabaseState, Vendor, Expense, Bill } from "../types.js";
+import { INDIAN_STATES } from "../lib/gst.js";
 import { 
   Users, 
   Receipt, 
@@ -66,6 +67,29 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
   const [expTdsSection, setExpTdsSection] = useState("194C");
   const [expMode, setExpMode] = useState("Corporate Card");
   const [expAttachmentName, setExpAttachmentName] = useState("");
+  // GST Treatment tab
+  const [expTab, setExpTab] = useState<"details" | "gst">("details");
+  const [expType, setExpType] = useState<"Goods" | "Services">("Services");
+  const [expSac, setExpSac] = useState("");
+  const [expHsn, setExpHsn] = useState("");
+  const [expGstTreatment, setExpGstTreatment] = useState("");
+  const [expSourceSupply, setExpSourceSupply] = useState("");
+  const [expDestSupply, setExpDestSupply] = useState(db.company?.state || "");
+  const [expTaxRate, setExpTaxRate] = useState(18);
+  const [expTaxInclusive, setExpTaxInclusive] = useState(false);
+  const [expCustomerId, setExpCustomerId] = useState("");
+
+  // Auto-calculate GST from the entered amount + selected rate + inclusive/exclusive toggle,
+  // instead of requiring manual GST entry (matches standard Zoho-style expense UX).
+  useEffect(() => {
+    if (expTaxRate <= 0) { setExpGst(0); return; }
+    if (expTaxInclusive) {
+      const base = expSubtotal / (1 + expTaxRate / 100);
+      setExpGst(Math.round((expSubtotal - base) * 100) / 100);
+    } else {
+      setExpGst(Math.round(expSubtotal * expTaxRate) / 100);
+    }
+  }, [expSubtotal, expTaxRate, expTaxInclusive]);
 
   // Bill Form State
   const [billVendorId, setBillVendorId] = useState("");
@@ -112,29 +136,40 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
     if (expSubtotal <= 0) return alert("Amount must be greater than 0");
     
     const finalStatus = overrideStatus || "Approved";
+    const netSubtotal = expTaxInclusive ? Math.round((expSubtotal - expGst) * 100) / 100 : Number(expSubtotal);
 
     try {
       await onAddExpense({
         date: expDate,
         vendorName: expVendor,
         category: expCategory,
-        subtotal: Number(expSubtotal),
+        subtotal: netSubtotal,
         gstAmount: Number(expGst),
         tdsAmount: Number(expTds),
         tdsSection: expTds > 0 ? expTdsSection : undefined,
         paymentMode: expMode,
         // Under RCM, GST isn't paid to the vendor — it's self-assessed and paid to the
         // government directly, so it's excluded from the cash amount settled here.
-        total: (expIsRcm ? Number(expSubtotal) : Number(expSubtotal) + Number(expGst)) - Number(expTds),
+        total: (expIsRcm ? netSubtotal : netSubtotal + Number(expGst)) - Number(expTds),
         isReverseCharge: expIsRcm || undefined,
         rcmGstPaid: expIsRcm ? false : undefined,
         attachmentName: expAttachmentName || undefined,
-        status: finalStatus
+        status: finalStatus,
+        expenseType: expType,
+        sacCode: expType === "Services" ? (expSac || undefined) : undefined,
+        hsnCode: expType === "Goods" ? (expHsn || undefined) : undefined,
+        gstTreatment: expGstTreatment || undefined,
+        sourceOfSupply: expSourceSupply || undefined,
+        destinationOfSupply: expDestSupply || undefined,
+        taxRate: expGst > 0 ? expTaxRate : undefined,
+        amountIsTaxInclusive: expTaxInclusive || undefined,
+        customerId: expCustomerId || undefined
       });
 
       setShowExpenseForm(false);
       // clean
       setExpVendor(""); setExpSubtotal(0); setExpGst(0); setExpTds(0); setExpIsRcm(false); setExpAttachmentName("");
+      setExpSac(""); setExpHsn(""); setExpGstTreatment(""); setExpSourceSupply(""); setExpCustomerId(""); setExpTaxInclusive(false); setExpTab("details");
     } catch (err: any) {
       alert(err.message || "Could not save expense. Please check your connection and try again.");
     }
@@ -412,7 +447,19 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
             </div>
           </div>
 
+          {/* Tab switcher: Details | GST Treatment */}
+          <div className="flex gap-1 mb-4 border-b border-slate-200">
+            <button type="button" onClick={() => setExpTab("details")} className={`px-4 py-2 text-xs font-bold border-b-2 -mb-px transition ${expTab === "details" ? "border-blue-600 text-blue-700" : "border-transparent text-slate-400 hover:text-slate-600"}`}>Expense Details</button>
+            <button type="button" onClick={() => setExpTab("gst")} className={`px-4 py-2 text-xs font-bold border-b-2 -mb-px transition flex items-center gap-1.5 ${expTab === "gst" ? "border-blue-600 text-blue-700" : "border-transparent text-slate-400 hover:text-slate-600"}`}>
+              GST Treatment
+              {expGstTreatment && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />}
+            </button>
+          </div>
+
           <form onSubmit={handleExpenseSubmit} className="space-y-4 text-xs text-slate-300">
+
+            {expTab === "details" && (
+            <>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-1.5 font-sans">
                 <label className="text-slate-400">Merchant / Creditor Description</label>
@@ -449,9 +496,24 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
               </div>
             </div>
 
+            {/* Goods vs Services — drives whether SAC or HSN shows on the GST Treatment tab */}
+            <div className="flex items-center gap-5 font-sans">
+              <span className="text-slate-400">Expense Type<span className="text-red-500">*</span></span>
+              <label className="flex items-center gap-1.5 cursor-pointer text-slate-700"><input type="radio" checked={expType === "Goods"} onChange={() => setExpType("Goods")} className="accent-blue-600" /> Goods</label>
+              <label className="flex items-center gap-1.5 cursor-pointer text-slate-700"><input type="radio" checked={expType === "Services"} onChange={() => setExpType("Services")} className="accent-blue-600" /> Services</label>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="space-y-1.5">
-                <label className="text-slate-400">Expense Value Net of GST (₹)</label>
+                <label className="text-slate-400">Amount Is</label>
+                <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded px-3 py-2">
+                  <label className="flex items-center gap-1.5 cursor-pointer text-slate-700"><input type="radio" checked={expTaxInclusive} onChange={() => setExpTaxInclusive(true)} className="accent-blue-600" /> Inclusive</label>
+                  <label className="flex items-center gap-1.5 cursor-pointer text-slate-700"><input type="radio" checked={!expTaxInclusive} onChange={() => setExpTaxInclusive(false)} className="accent-blue-600" /> Exclusive</label>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-slate-400">{expTaxInclusive ? "Total Amount (incl. GST) (₹)" : "Expense Value Net of GST (₹)"}</label>
                 <input 
                   type="number" required min={1} value={expSubtotal}
                   onChange={(e) => setExpSubtotal(parseFloat(e.target.value) || 0)}
@@ -460,11 +522,22 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
               </div>
 
               <div className="space-y-1.5">
+                <label className="text-slate-400">Tax Rate</label>
+                <select value={expTaxRate} onChange={(e) => setExpTaxRate(parseFloat(e.target.value))}
+                  className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 font-semibold focus:border-blue-500 outline-none">
+                  <option value={0}>No Tax</option>
+                  <option value={5}>GST 5%</option>
+                  <option value={12}>GST 12%</option>
+                  <option value={18}>GST 18%</option>
+                  <option value={28}>GST 28%</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
                 <label className="text-slate-400">Input-Tax GST Reclaim (₹)</label>
                 <input 
-                  type="number" min={0} value={expGst}
-                  onChange={(e) => setExpGst(parseFloat(e.target.value) || 0)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 font-mono focus:border-blue-500 outline-none"
+                  type="number" min={0} value={expGst} readOnly
+                  className="w-full bg-slate-100 border border-slate-200 rounded px-3 py-2 text-slate-600 font-mono outline-none cursor-not-allowed"
                 />
               </div>
 
@@ -514,6 +587,15 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                   <option value="Petty Cash">In-Hand Petty Cash</option>
                 </select>
               </div>
+
+              <div className="space-y-1.5 font-sans">
+                <label className="text-slate-400">Bill to Customer (optional)</label>
+                <select value={expCustomerId} onChange={(e) => setExpCustomerId(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:border-blue-500 outline-none">
+                  <option value="">Not billable</option>
+                  {(db.customers || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
             </div>
 
             {/* Custom file attachments - Drag & Drop or manual select layout */}
@@ -545,16 +627,83 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-[10.5px] font-mono mt-3 select-none leading-relaxed">
                   <div className="text-slate-500 border-r border-slate-200 pr-2">
-                    <p className="text-emerald-400 font-semibold">• dr. Category Expense: ₹{expSubtotal}</p>
+                    <p className="text-emerald-400 font-semibold">• dr. Category Expense: ₹{expTaxInclusive ? Math.round((expSubtotal - expGst) * 100) / 100 : expSubtotal}</p>
                     {expGst > 0 && <p className="text-teal-400 font-semibold">• dr. Input GST: ₹{expGst}</p>}
                   </div>
                   <div className="text-slate-450 pl-2">
                     {expTds > 0 && <p className="text-indigo-450 font-semibold">• cr. TDS Payable: ₹{expTds}</p>}
-                    <p className="text-rose-450 font-semibold">• cr. Corporate Bank Account: ₹{expSubtotal + expGst - expTds}</p>
+                    <p className="text-rose-450 font-semibold">• cr. Corporate Bank Account: ₹{(expTaxInclusive ? expSubtotal : expSubtotal + expGst) - expTds}</p>
                   </div>
                 </div>
               </div>
             </div>
+            </>
+            )}
+
+            {expTab === "gst" && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5 font-sans">
+                  <label className="text-slate-400">{expType === "Services" ? "SAC (Services Accounting Code)" : "HSN Code"}</label>
+                  <input
+                    type="text"
+                    value={expType === "Services" ? expSac : expHsn}
+                    onChange={(e) => expType === "Services" ? setExpSac(e.target.value) : setExpHsn(e.target.value)}
+                    placeholder={expType === "Services" ? "e.g. 998314" : "e.g. 8443"}
+                    className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 font-mono focus:border-blue-500 outline-none"
+                  />
+                </div>
+                <div className="space-y-1.5 font-sans">
+                  <label className="text-slate-400">GST Treatment <span className="text-red-500">*</span></label>
+                  <select value={expGstTreatment} onChange={(e) => setExpGstTreatment(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 font-semibold focus:border-blue-500 outline-none">
+                    <option value="">Select treatment…</option>
+                    <option value="regular">Registered Business — Regular</option>
+                    <option value="composition">Registered Business — Composition</option>
+                    <option value="unregistered">Unregistered Business</option>
+                    <option value="consumer">Consumer</option>
+                    <option value="overseas">Overseas</option>
+                    <option value="sez">Special Economic Zone</option>
+                    <option value="deemed_export">Deemed Export</option>
+                    <option value="non_gst">Non-GST Supply</option>
+                    <option value="out_of_scope">Out Of Scope</option>
+                    <option value="tax_deductor">Tax Deductor</option>
+                    <option value="sez_developer">SEZ Developer</option>
+                    <option value="isd">Input Service Distributor</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5 font-sans">
+                  <label className="text-slate-400">Source of Supply <span className="text-red-500">*</span></label>
+                  <select value={expSourceSupply} onChange={(e) => setExpSourceSupply(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:border-blue-500 outline-none">
+                    <option value="">Select State/Province…</option>
+                    {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1.5 font-sans">
+                  <label className="text-slate-400">Destination of Supply <span className="text-red-500">*</span></label>
+                  <select value={expDestSupply} onChange={(e) => setExpDestSupply(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:border-blue-500 outline-none">
+                    <option value="">Select State/Province…</option>
+                    {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  {expSourceSupply && expDestSupply && (
+                    <p className="text-[10px] text-slate-400">{expSourceSupply === expDestSupply ? "Intra-state — CGST + SGST applies" : "Inter-state — IGST applies"}</p>
+                  )}
+                </div>
+              </div>
+
+              <label className="flex items-center gap-2 cursor-pointer bg-amber-50 border border-amber-200 rounded-lg p-2.5">
+                <input type="checkbox" checked={expIsRcm} onChange={e => setExpIsRcm(e.target.checked)} className="accent-amber-600" />
+                <span className="text-xs text-amber-800">
+                  <span className="font-bold">This transaction is applicable for Reverse Charge</span> — you self-assess and pay GST directly to the government instead of the vendor.
+                </span>
+              </label>
+            </div>
+            )}
 
             <div className="flex justify-end gap-3 pt-3 border-t border-slate-200">
               <button type="button" onClick={() => setShowExpenseForm(false)} className="border border-slate-300 px-4 py-2 rounded text-slate-600">Cancel</button>
