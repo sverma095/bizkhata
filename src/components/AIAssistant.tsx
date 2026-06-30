@@ -211,7 +211,7 @@ Grand Sum: 118000.00 INR`
       {/* OCR TAB VIEW */}
       {activeTab === "ocr" && (
         <div id="ai-ocr-panel" className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white border border-[#E5E1D8] rounded-2xl p-6 space-y-4 shadow-sm">
+          <div className="card-lift bg-white border border-[#E5E1D8] rounded-2xl p-6 space-y-4 shadow-sm">
             <h3 className="font-bold text-[#2C2C24] text-sm flex items-center gap-2">
               <Upload className="text-[#5A5A40] w-4 h-4" />
               OCR Document Parser

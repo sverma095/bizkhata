@@ -106,13 +106,13 @@ export default function VendorCredits({ db, onSaveVC }: Props) {
           { label: "Open", value: vendorCredits.filter(v=>v.status==="Open").length },
           { label: "Credit Value", value: `₹${vendorCredits.reduce((a,c)=>a+c.total,0).toLocaleString("en-IN",{maximumFractionDigits:0})}` },
         ].map(s=>(
-          <div key={s.label} className="bg-white border border-slate-200 rounded-xl p-4">
+          <div key={s.label} className="card-lift bg-white border border-slate-200 rounded-xl p-4">
             <div className="text-[10px] text-slate-500 uppercase tracking-wide font-semibold">{s.label}</div>
             <div className="text-xl font-bold mt-1 text-slate-800">{s.value}</div>
           </div>
         ))}
       </div>
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+      <div className="card-lift bg-white border border-slate-200 rounded-xl overflow-hidden">
         <table className="w-full text-xs">
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>{["Credit #","Vendor","Date","Bill #","Reason","Amount","Status","Action"].map(h=>(

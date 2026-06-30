@@ -94,7 +94,7 @@ export default function Payments({ db, onRecordPayment }: PaymentsProps) {
 
       {/* RECORD PAYMENT RECEIVED FORM */}
       {showForm && (
-        <div id="payment-received-form" className="bg-white border border-[#E5E1D8] rounded-2xl p-6 shadow-sm">
+        <div id="payment-received-form" className="card-lift bg-white border border-[#E5E1D8] rounded-2xl p-6 shadow-sm">
           <div className="flex justify-between items-center border-b border-[#E5E1D8] pb-3 mb-4">
             <h4 className="text-sm font-bold text-[#2C2C24] flex items-center gap-2">
               <Check className="w-4 h-4 text-emerald-600" />

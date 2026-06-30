@@ -241,7 +241,7 @@ export default function UserDashboard(props: UserDashboardProps) {
           <div className="lg:col-span-8 space-y-8">
             
             {/* Active Permissions visual block list */}
-            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-3xs" id="user-clearances-matrix">
+            <div className="card-lift bg-white p-6 rounded-2xl border border-slate-100 shadow-3xs" id="user-clearances-matrix">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
                 <ShieldCheck className="w-4.5 h-4.5 text-sky-500" />
                 Active Dynamic Permission Matrix (PBAC)
@@ -271,7 +271,7 @@ export default function UserDashboard(props: UserDashboardProps) {
             </div>
 
             {/* Simulated interactive billing module */}
-            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-3xs" id="user-interactive-workspace">
+            <div className="card-lift bg-white p-6 rounded-2xl border border-slate-100 shadow-3xs" id="user-interactive-workspace">
               <div className="flex justify-between items-center mb-3">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                   <FileText className="w-4.5 h-4.5 text-sky-500" />
@@ -368,7 +368,7 @@ export default function UserDashboard(props: UserDashboardProps) {
           <div className="lg:col-span-4 space-y-6">
             
             {/* 2-Factor authentication switch */}
-            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-3xs" id="user-2fa-panel">
+            <div className="card-lift bg-white p-6 rounded-2xl border border-slate-100 shadow-3xs" id="user-2fa-panel">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5 flex items-center gap-1.5">
                 <Key className="w-4 h-4 text-sky-505" />
                 Two-Factor Security (2FA)
@@ -453,7 +453,7 @@ export default function UserDashboard(props: UserDashboardProps) {
             </div>
 
             {/* Session Management controls (Section 12) */}
-            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-3xs" id="user-sessions-panel">
+            <div className="card-lift bg-white p-6 rounded-2xl border border-slate-100 shadow-3xs" id="user-sessions-panel">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5 flex items-center gap-1.5">
                 <Sliders className="w-4 h-4 text-sky-505" />
                 Active Device Sessions

@@ -135,10 +135,10 @@ export default function FixedAssets({ db, onSaveAsset }: Props) {
       </div>
       <div className="grid grid-cols-3 gap-3">
         {[{label:"Total Assets",value:assets.length,mono:false},{label:"Gross Block",value:`₹${totalCost.toLocaleString("en-IN",{maximumFractionDigits:0})}`,mono:true},{label:"Net Block (WDV)",value:`₹${totalCurrentValue.toLocaleString("en-IN",{maximumFractionDigits:0})}`,mono:true}].map(s=>(
-          <div key={s.label} className="bg-white border border-slate-200 rounded-xl p-4"><div className="text-[10px] text-slate-500 uppercase tracking-wide font-semibold">{s.label}</div><div className={`text-xl font-bold mt-1 text-slate-800 ${s.mono?"font-mono":""}`}>{s.value}</div></div>
+          <div key={s.label} className="card-lift bg-white border border-slate-200 rounded-xl p-4"><div className="text-[10px] text-slate-500 uppercase tracking-wide font-semibold">{s.label}</div><div className={`text-xl font-bold mt-1 text-slate-800 ${s.mono?"font-mono":""}`}>{s.value}</div></div>
         ))}
       </div>
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+      <div className="card-lift bg-white border border-slate-200 rounded-xl overflow-hidden">
         <table className="w-full text-xs">
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>{["Asset Name","Category","Purchase Date","Cost (₹)","Method","Acc. Dep. (₹)","Net Book Value (₹)","Status","Actions"].map(h=><th key={h} className="py-3 px-3 text-left text-[10px] font-bold text-slate-500 uppercase">{h}</th>)}</tr>

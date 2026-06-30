@@ -236,7 +236,7 @@ export default function SalesOrders({ db, onSaveSO, onConvertToInvoice }: Props)
           { label: "Invoiced", value: stats.invoiced, color: "text-emerald-700" },
           { label: "Order Value", value: `₹${stats.value.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, color: "text-slate-800" },
         ].map(s => (
-          <div key={s.label} className="bg-white border border-slate-200 rounded-xl p-4">
+          <div key={s.label} className="card-lift bg-white border border-slate-200 rounded-xl p-4">
             <div className="text-[10px] text-slate-500 uppercase tracking-wide font-semibold">{s.label}</div>
             <div className={`text-xl font-bold mt-1 ${s.color}`}>{s.value}</div>
           </div>
@@ -254,7 +254,7 @@ export default function SalesOrders({ db, onSaveSO, onConvertToInvoice }: Props)
       </div>
 
       {/* Table */}
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+      <div className="card-lift bg-white border border-slate-200 rounded-xl overflow-hidden">
         <table className="w-full text-xs">
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>{["SO Number", "Customer", "Date", "Delivery Date", "Amount", "Status", "Actions"].map(h => (

@@ -167,7 +167,7 @@ export default function DeliveryChallans({ db, onSaveChallan }: Props) {
           { label: "Open", value: challans.filter(c => c.status === "Open").length },
           { label: "Delivered", value: challans.filter(c => c.status === "Delivered").length },
         ].map(s => (
-          <div key={s.label} className="bg-white border border-slate-200 rounded-xl p-4">
+          <div key={s.label} className="card-lift bg-white border border-slate-200 rounded-xl p-4">
             <div className="text-[10px] text-slate-500 uppercase tracking-wide font-semibold">{s.label}</div>
             <div className="text-xl font-bold mt-1 text-slate-800">{s.value}</div>
           </div>
@@ -181,7 +181,7 @@ export default function DeliveryChallans({ db, onSaveChallan }: Props) {
         ))}
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+      <div className="card-lift bg-white border border-slate-200 rounded-xl overflow-hidden">
         <table className="w-full text-xs">
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>{["Challan #", "Customer", "Date", "Invoice Ref", "Items", "Status", "Actions"].map(h => (

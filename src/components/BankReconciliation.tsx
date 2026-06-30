@@ -167,7 +167,7 @@ export default function BankReconciliation({ db, onSaveBankAccount, onSaveBankTr
             const outflow = txns.reduce((s, t) => s + t.debit, 0);
             const unrecon = txns.filter(t => t.status === "Unreconciled").length;
             return (
-              <div key={acc.id} className="bg-white border border-slate-200 rounded-xl p-5 space-y-3 hover:shadow-md transition cursor-pointer" onClick={() => { setSelectedAccountId(acc.id); setActiveView("reconcile"); }}>
+              <div key={acc.id} className="card-lift bg-white border border-slate-200 rounded-xl p-5 space-y-3 cursor-pointer" onClick={() => { setSelectedAccountId(acc.id); setActiveView("reconcile"); }}>
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
                     <Building2 className="w-5 h-5 text-blue-600" />
@@ -199,7 +199,7 @@ export default function BankReconciliation({ db, onSaveBankAccount, onSaveBankTr
             {selectedAccountId && <span className="text-xs text-slate-500">{unreconciled.length} unreconciled transaction(s)</span>}
           </div>
           {selectedAccountId && (
-            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+            <div className="card-lift bg-white border border-slate-200 rounded-xl overflow-hidden">
               <table className="w-full text-xs">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>{["Date","Description","Debit (₹)","Credit (₹)","Balance (₹)","Status","Match","Action"].map(h => (

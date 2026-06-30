@@ -77,7 +77,7 @@ export default function ChartOfAccountsCRUD({ db, onSaveAccount, onDeleteAccount
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {ACCOUNT_TYPES.map(t => (
-          <div key={t} className="bg-white border border-slate-200 rounded-xl p-3 cursor-pointer hover:shadow-sm" onClick={() => setFilterType(filterType === t ? "All" : t)}>
+          <div key={t} className="card-lift bg-white border border-slate-200 rounded-xl p-3 cursor-pointer" onClick={() => setFilterType(filterType === t ? "All" : t)}>
             <div className="text-[10px] text-slate-500 font-semibold uppercase">{t}s</div>
             <div className="text-lg font-bold text-slate-800 mt-1">{db.accounts.filter(a => a.type === t).length}</div>
             <div className="text-[10px] font-mono text-slate-500">₹{db.accounts.filter(a => a.type === t).reduce((s, a) => s + a.balance, 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}</div>
@@ -135,7 +135,7 @@ export default function ChartOfAccountsCRUD({ db, onSaveAccount, onDeleteAccount
       </div>
 
       {/* Accounts table grouped by type */}
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+      <div className="card-lift bg-white border border-slate-200 rounded-xl overflow-hidden">
         <table className="w-full text-xs">
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>

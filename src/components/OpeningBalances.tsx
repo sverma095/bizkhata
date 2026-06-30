@@ -95,7 +95,7 @@ export default function OpeningBalances({ db, onSaveOpeningBalances }: Props) {
       </div>
 
       {/* Balance entry table */}
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+      <div className="card-lift bg-white border border-slate-200 rounded-xl overflow-hidden">
         <div className="grid grid-cols-12 bg-slate-800 text-white text-[10px] font-bold uppercase tracking-widest px-4 py-2.5">
           <div className="col-span-6">Account</div>
           <div className="col-span-2 text-center">Type</div>

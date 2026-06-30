@@ -526,7 +526,7 @@ export default function AdminDashboard(props: AdminDashboardProps) {
           )}
 
           {/* Seat Utilization meters row */}
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs" id="admin-seats-panel">
+          <div className="card-lift bg-white p-5 rounded-xl border border-slate-200 shadow-xs" id="admin-seats-panel">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div className="flex-1 w-full">
                 <div className="flex justify-between items-center mb-1.5">
@@ -567,7 +567,7 @@ export default function AdminDashboard(props: AdminDashboardProps) {
             )}
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs" id="admin-view-container">
+          <div className="card-lift bg-white rounded-xl border border-slate-200 p-6 shadow-xs" id="admin-view-container">
           
           {/* TAB 1: USER MANAGEMENT GRID */}
           {activeTab === 'users' && (
