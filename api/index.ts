@@ -509,7 +509,7 @@ if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== "MY_GEMINI_API_
 // Default Chart of Accounts as specified in page 5 of PDF
 const DEFAULT_ACCOUNTS: Account[] = [
   // Assets
-  { code: "bank_account", name: "Bank Account", type: "Asset", balance: 500000 },
+  { code: "bank_account", name: "Bank Account", type: "Asset", balance: 0 },
   { code: "cash", name: "Cash", type: "Asset", balance: 0 },
   { code: "accounts_receivable", name: "Accounts Receivable", type: "Asset", balance: 0 },
   { code: "tds_receivable", name: "TDS Receivable", type: "Asset", balance: 0 },
@@ -530,7 +530,7 @@ const DEFAULT_ACCOUNTS: Account[] = [
   { code: "professional_fees", name: "Professional Fees", type: "Expense", balance: 0 },
   { code: "bank_charges", name: "Bank Charges", type: "Expense", balance: 0 },
   // Equity
-  { code: "capital", name: "Capital", type: "Equity", balance: 500000 },
+  { code: "capital", name: "Capital", type: "Equity", balance: 0 },
   { code: "retained_earnings", name: "Retained Earnings", type: "Equity", balance: 0 }
 ];
 
@@ -807,6 +807,10 @@ app.post("/api/auth/login", async (req: any, res: any) => {
   if (user.organizationId) {
     org = USER_DB.organizations.find((o: any) => o.id === user.organizationId) || null;
     if (org && org.status === "Suspended") { res.status(403).json({ error: "Your organization is suspended. Contact BizKhata support." }); return; }
+  if (org && org.subscriptionExpiresAt && new Date(org.subscriptionExpiresAt) < new Date()) {
+    org.status = "Suspended";
+    res.status(403).json({ error: `Your subscription expired on ${new Date(org.subscriptionExpiresAt).toLocaleDateString('en-IN')}. Please renew with BizKhata support to continue.` }); return;
+  }
   }
   if (user.twoFactorEnabled) {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -913,14 +917,26 @@ app.get("/api/superadmin/registrations", authGuard, superAdminGuard, (req: any, 
 app.post("/api/superadmin/registrations/:id/action", authGuard, superAdminGuard, (req: any, res: any) => {
   const reg = USER_DB.registrationRequests.find((r: any) => r.id === req.params.id);
   if (!reg) { res.status(404).json({ error: "Registration not found." }); return; }
-  const { action, feedback } = req.body;
+  const { action, feedback, subscriptionMonths } = req.body;
   if (action === "Approve") {
     reg.status = "Approved";
     const orgId = generateId("org");
-    USER_DB.organizations.push({ id: orgId, name: reg.companyName, gstNumber: reg.gstNumber, status: "Active", allocatedSeats: reg.numberOfRequiredSeats, usedSeats: 1, createdAt: new Date().toISOString() });
+    const approvedAt = new Date().toISOString();
+    const months = Math.max(1, Math.min(120, parseInt(subscriptionMonths) || 12));
+    const subscriptionExpiresAt = new Date(Date.now() + months * 30 * 24 * 60 * 60 * 1000).toISOString();
+    USER_DB.organizations.push({ id: orgId, name: reg.companyName, gstNumber: reg.gstNumber, status: "Active", allocatedSeats: reg.numberOfRequiredSeats, usedSeats: 1, createdAt: reg.createdAt, approvedAt, subscriptionExpiresAt, subscriptionMonths: months });
     USER_DB.users.push({ id: generateId("user"), organizationId: orgId, fullName: reg.adminName, email: reg.email, mobileNumber: reg.mobileNumber, role: "Admin", status: "Active", password: hashPassword(reg.password || "Admin@123"), permissions: ALL_PERMISSIONS_LIST.map(p => p.id), twoFactorEnabled: false, createdAt: new Date().toISOString() });
-    USER_DB.notifications.unshift({ id: generateId("notif"), to: reg.email, subject: "BizKhata Account Approved", body: `Your account for ${reg.companyName} is approved. Login with the email and password you set during sign-up.`, type: "Email", timestamp: new Date().toISOString() });
-    addAuditLog(null, req.user.fullName, req.user.role, "Approve Registration", `Approved '${reg.companyName}'.`);
+    // Seed a clean blank ledger for the new org in Supabase (no demo data, zero balances)
+    const cleanState = getInitialState();
+    cleanState.company.name = reg.companyName;
+    cachedDbByOrg.set(orgId, cleanState);
+    if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+      supabaseREST("POST", orgId, { state: cleanState }).catch(() => {
+        supabaseREST("PATCH" as any, orgId, { state: cleanState }).catch(() => {});
+      });
+    }
+    USER_DB.notifications.unshift({ id: generateId("notif"), to: reg.email, subject: "BizKhata Account Approved", body: `Your account for ${reg.companyName} is approved for ${months} month(s). Login with the email and password you set during sign-up. Subscription valid until: ${new Date(subscriptionExpiresAt).toLocaleDateString('en-IN')}.`, type: "Email", timestamp: new Date().toISOString() });
+    addAuditLog(null, req.user.fullName, req.user.role, "Approve Registration", `Approved '${reg.companyName}' for ${months} months until ${new Date(subscriptionExpiresAt).toLocaleDateString('en-IN')}.`);
   } else if (action === "Reject") {
     reg.status = "Rejected";
     addAuditLog(null, req.user.fullName, req.user.role, "Reject Registration", `Rejected '${reg.companyName}'. Reason: ${feedback}`);
@@ -984,10 +1000,25 @@ app.get("/api/superadmin/organizations", authGuard, superAdminGuard, (req: any, 
 app.put("/api/superadmin/organizations/:id", authGuard, superAdminGuard, (req: any, res: any) => {
   const org = USER_DB.organizations.find((o: any) => o.id === req.params.id);
   if (!org) { res.status(404).json({ error: "Organization not found." }); return; }
-  const { status, allocatedSeats } = req.body;
+  const { status, allocatedSeats, subscriptionExpiresAt } = req.body;
   if (status) { org.status = status; if (status === "Suspended") USER_DB.users.forEach((u: any) => { if (u.organizationId === org.id) u.status = "Disabled"; }); }
   if (allocatedSeats !== undefined) { const s = Number(allocatedSeats); if (s < org.usedSeats) { res.status(400).json({ error: `Cannot go below ${org.usedSeats} used seats.` }); return; } org.allocatedSeats = s; }
-  addAuditLog(null, req.user.fullName, req.user.role, "Update Organization", `Updated '${org.name}': status=${status}, seats=${allocatedSeats}`);
+  if (subscriptionExpiresAt) { org.subscriptionExpiresAt = subscriptionExpiresAt; if (status !== "Suspended") org.status = "Active"; }
+  addAuditLog(null, req.user.fullName, req.user.role, "Update Organization", `Updated '${org.name}': status=${status}, seats=${allocatedSeats}, expiry=${subscriptionExpiresAt}`);
+  res.json(org);
+});
+
+// Extend subscription
+app.post("/api/superadmin/organizations/:id/extend-subscription", authGuard, superAdminGuard, (req: any, res: any) => {
+  const org = USER_DB.organizations.find((o: any) => o.id === req.params.id);
+  if (!org) { res.status(404).json({ error: "Organization not found." }); return; }
+  const { months } = req.body;
+  const base = org.subscriptionExpiresAt && new Date(org.subscriptionExpiresAt) > new Date() ? new Date(org.subscriptionExpiresAt) : new Date();
+  base.setMonth(base.getMonth() + (Number(months) || 12));
+  org.subscriptionExpiresAt = base.toISOString();
+  org.status = "Active";
+  USER_DB.users.forEach((u: any) => { if (u.organizationId === org.id && u.status === "Disabled") u.status = "Active"; });
+  addAuditLog(null, req.user.fullName, req.user.role, "Extend Subscription", `Extended '${org.name}' by ${months} months until ${org.subscriptionExpiresAt}`);
   res.json(org);
 });
 
@@ -2198,7 +2229,7 @@ app.post("/api/ai/explain-report", authGuard, async (req: any, res: any) => {
   const { reportType, data } = req.body;
   if (!ai) {
     return res.json({
-      explanation: "### Bizkhata Al Financial Analyst Summary\nTo get personalized AI summaries and forecast charts, please activate the GEMINI_API_KEY in the Secrets panel.\n\nFrom the heuristic view:\n1. **Tax compliance** looks good, with CGST and SGST correctly structured between Interstate and Intrastate registers.\n2. **Bank Reserves** are stable, supported by a ₹5,00,000 opening capital injection."
+      explanation: "### BizKhata AI Financial Analyst\nTo get personalized AI summaries and forecast charts, please activate the GEMINI_API_KEY in the Secrets panel.\n\nFrom the heuristic view:\n1. **Tax compliance** looks good with CGST/SGST structured correctly for intra-state and IGST for inter-state supplies.\n2. **Bank Reserves** reflect your current opening balance as entered in Company Setup → Opening Balances."
     });
   }
 
