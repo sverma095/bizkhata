@@ -498,6 +498,27 @@ export default function AdminDashboard(props: AdminDashboardProps) {
             <p className="text-xs text-slate-505 font-medium mt-0.5">
               Authorized Tenant Node: GSTIN <span className="font-mono font-bold uppercase text-slate-700">{company.gstNumber}</span>
             </p>
+            {(company as any).approvedAt && (
+              <div className="flex items-center gap-4 mt-1">
+                <span className="text-[10px] text-slate-400">
+                  Registered: <span className="font-mono text-slate-600">{new Date((company as any).createdAt || (company as any).approvedAt).toLocaleDateString('en-IN')}</span>
+                </span>
+                <span className="text-[10px] text-slate-400">
+                  Approved: <span className="font-mono text-emerald-600">{new Date((company as any).approvedAt).toLocaleDateString('en-IN')}</span>
+                </span>
+                {(company as any).subscriptionExpiresAt && (() => {
+                  const expiry = new Date((company as any).subscriptionExpiresAt);
+                  const daysLeft = Math.ceil((expiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                  const isExpired = daysLeft <= 0;
+                  const isSoon = daysLeft > 0 && daysLeft <= 30;
+                  return (
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${isExpired ? 'bg-rose-100 text-rose-700' : isSoon ? 'bg-amber-100 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                      {isExpired ? '⚠ Subscription Expired' : `✓ Valid until ${expiry.toLocaleDateString('en-IN')} (${daysLeft}d)`}
+                    </span>
+                  );
+                })()}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-3">
