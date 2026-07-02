@@ -251,9 +251,26 @@ function verifyPassword(plain: string, stored: string | undefined): boolean {
 const seedUserDB = () => {
   if (USER_DB.users.length > 0) return; // Already seeded
 
-  const orgId = "org_bizkhata_default";
+  const ownerOrgId = "org_verma_consultancy";
+  const demoOrgId = "org_bizkhata_default";
+  const approvedAt = "2026-01-01T00:00:00Z";
+  const subscriptionExpiresAt = "2027-01-01T00:00:00Z";
+
   USER_DB.organizations.push({
-    id: orgId,
+    id: ownerOrgId,
+    name: "Verma Consultancy Services",
+    gstNumber: "09AABFV1234A1Z5",
+    status: "Active",
+    allocatedSeats: 10,
+    usedSeats: 1,
+    createdAt: "2026-01-01T00:00:00Z",
+    approvedAt,
+    subscriptionExpiresAt,
+    subscriptionMonths: 12
+  });
+
+  USER_DB.organizations.push({
+    id: demoOrgId,
     name: "My Organization",
     gstNumber: "",
     status: "Active",
@@ -278,8 +295,24 @@ const seedUserDB = () => {
       createdAt: "2026-01-01T00:00:00Z"
     },
     {
+      id: "user_verma_owner",
+      organizationId: ownerOrgId,
+      fullName: "Sunil Verma",
+      email: "svtiger543939@gmail.com",
+      mobileNumber: "+919876543210",
+      department: "Management",
+      designation: "Owner",
+      role: "Admin",
+      status: "Active",
+      password: hashPassword("Admin@123"),
+      permissions: ALL_PERMISSIONS_LIST.map(p => p.id),
+      twoFactorEnabled: false,
+      twoFactorVerified: false,
+      createdAt: "2026-01-01T00:00:00Z"
+    },
+    {
       id: "user_admin_default",
-      organizationId: orgId,
+      organizationId: demoOrgId,
       fullName: "Admin User",
       email: "admin@bizkhata.com",
       mobileNumber: "+919000000000",
@@ -287,7 +320,7 @@ const seedUserDB = () => {
       designation: "Administrator",
       role: "Admin",
       status: "Active",
-      password: "Admin@123",
+      password: hashPassword("Admin@123"),
       permissions: ALL_PERMISSIONS_LIST.map(p => p.id),
       twoFactorEnabled: false,
       twoFactorVerified: false,
@@ -356,6 +389,17 @@ if (SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL !== "MY_SUPABASE_URL") {
 // accounting ledger is fully isolated — this was previously a single shared `cachedDb`,
 // which meant every signed-up organization read and wrote the exact same books.
 const cachedDbByOrg: Map<string, any> = new Map();
+
+// Pre-populate in-memory cache with clean state for Verma Consultancy org
+// so first login always shows zero balances, never stale Supabase demo data
+{
+  const vermaState = getInitialState();
+  vermaState.company.name = "Verma Consultancy Services";
+  vermaState.company.legalName = "Verma Consultancy Services";
+  vermaState.company.gstin = "09AABFV1234A1Z5";
+  vermaState.company.state = "Uttar Pradesh";
+  cachedDbByOrg.set("org_verma_consultancy", vermaState);
+}
 
 // __dirname fallback for CJS/ESM compatibility
 const __filename = (() => { try { return fileURLToPath(import.meta.url); } catch { return ''; } })();
@@ -538,7 +582,7 @@ const DEFAULT_ACCOUNTS: Account[] = [
 const uuid = () => Math.random().toString(36).substring(2, 11);
 
 // Clean initial state for go-live — no demo data
-const getInitialState = (): DatabaseState => {
+function getInitialState(): DatabaseState {
   return {
     company: {
       name: "Your Company Name",
