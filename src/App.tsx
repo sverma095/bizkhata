@@ -24,6 +24,7 @@ import ChartOfAccountsCRUD from "./components/ChartOfAccountsCRUD.jsx";
 import FixedAssets from "./components/FixedAssets.jsx";
 import BizKhataCompleteUpgrade from "./components/BizKhataCompleteUpgrade.jsx";
 import CompanySetup from "./components/CompanySetup.jsx";
+import OrgSettings from "./components/OrgSettings.js";
 
 // Lucide Icons
 import { 
@@ -169,6 +170,9 @@ export default function App() {
   // Seats threshold states
   const [customSeatsVal, setCustomSeatsVal] = useState<number>(5);
   const [seatsLoading, setSeatsLoading] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editingUserRole, setEditingUserRole] = useState<string>("");
 
   // Sub-tabs routing configurations
   const [saleSubTab, setSaleSubTab] = useState<"tax" | "proforma" | "notes" | "customers">("tax");
@@ -1558,7 +1562,7 @@ export default function App() {
 
             {/* system parameters configuration */}
             {activeTab === "settings" && (
-              <CompanySetup 
+              <OrgSettings
                 db={db}
                 onUpdateCompany={handleUpdateCompany}
                 onUpdateRole={handleUpdateRole}
@@ -1908,344 +1912,205 @@ export default function App() {
             {/* ----- Multi-User Roles & Seating Panel ----- */}
             {activeTab === "users" && (
               <div className="space-y-6 animate-fade-in font-sans">
-                
-                {/* Visual Header */}
-                <div className="flex justify-between items-center pb-4 border-b border-slate-200">
+                <div className="flex justify-between items-center pb-4 border-b border-gray-200">
                   <div>
-                    <h2 className="text-lg font-bold text-slate-900">Corporate Seats & Team Directory</h2>
-                    <p className="text-xs text-slate-500">Configure corporate user authorization, invite accountants, and scale licensed seats (Bizkhata model).</p>
+                    <h2 className="text-lg font-bold text-gray-900">Users & Roles</h2>
+                    <p className="text-xs text-gray-500">Manage team members within your organization.</p>
                   </div>
-                  <span className="text-[10px] uppercase font-mono font-bold bg-[#E2EAFC] text-blue-800 rounded px-2.5 py-1 tracking-wider border border-blue-200">
-                     Symmetric SSO Engine Active
-                  </span>
-                </div>
-
-                {/* Dashboard Metrics Row */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-xs space-y-1">
-                    <p className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">Subscribed Seats</p>
-                    <div className="text-2xl font-black text-slate-805 font-mono">
-                      {db?.userSeatsLimit || 5} <span className="text-xs font-medium text-slate-400">Users</span>
-                    </div>
-                    <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden mt-2">
-                      <div 
-                        className="bg-emerald-500 h-full transition duration-300" 
-                        style={{ width: `${Math.min(100, (((db?.users?.length || 2) / (db?.userSeatsLimit || 5)) * 100))}%` }} 
-                      />
-                    </div>
-                  </div>
-
-                  <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-xs space-y-1">
-                    <p className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">Occupied Seats</p>
-                    <div className="text-2xl font-black text-slate-805 text-emerald-600 font-mono">
-                      {db?.users?.length || 2} <span className="text-xs font-medium text-slate-400">Active</span>
-                    </div>
-                    <p className="text-[9px] text-slate-505 mt-1">Configured account credentials</p>
-                  </div>
-
-                  <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-xs space-y-1">
-                    <p className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">Vacant Slots</p>
-                    <div className="text-2xl font-black text-slate-805 text-blue-600 font-mono">
-                      {Math.max(0, (db?.userSeatsLimit || 5) - (db?.users?.length || 2))} <span className="text-xs font-medium text-slate-400 text-slate-500">Free</span>
-                    </div>
-                    <p className="text-[9px] text-slate-505 mt-1">Ready for sub-tenant invite</p>
-                  </div>
-
-                  <div className="bg-white border border-slate-200 text-slate-800 p-4 rounded-xl flex items-center justify-between shadow-xs">
-                    <div className="space-y-1">
-                      <p className="text-[9px] font-extrabold text-[#00D779] uppercase tracking-wider">Session Actor</p>
-                      <p className="text-[11.5px] font-bold truncate max-w-[130px]" title={activeUserName}>{activeUserName}</p>
-                      <p className="text-[9.5px] text-slate-400 uppercase tracking-widest font-mono text-[8px]">{activeRole}</p>
-                    </div>
-                    <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 font-bold text-[#00D779] flex items-center justify-center uppercase text-xs">
-                      {activeUserName ? activeUserName[0] : "A"}
-                    </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-gray-500 bg-gray-100 border border-gray-200 px-3 py-1.5 rounded">
+                      <span className="font-semibold text-gray-700">{(db?.users || []).length}</span> / {db?.userSeatsLimit || 5} seats used
+                    </span>
+                    <button
+                      onClick={() => setShowInviteModal(true)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 rounded-lg flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Invite User
+                    </button>
                   </div>
                 </div>
 
-                {/* Newly Invited Success Alert Modal Overlay inside tab */}
-                {newlyInvitedUser && (
-                  <div className="bg-emerald-50 border border-emerald-200 p-5 rounded-2xl space-y-3 shadow-sm animate-fade-in text-xs">
-                    <div className="flex justify-between items-center text-emerald-900 font-bold">
-                      <span className="flex items-center gap-1.5 uppercase tracking-wider text-[10.5px]">
-                        📬 Simulated SSO Password Multi-tenant Invitation Dispatched!
-                      </span>
-                      <button 
-                        onClick={() => setNewlyInvitedUser(null)}
-                        className="text-emerald-500 hover:text-emerald-900 bg-emerald-100/50 p-1 rounded-full w-5 h-5 flex items-center justify-center font-bold"
-                      >
-                        ✕
-                      </button>
+                {/* Seats bar */}
+                <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4">
+                  <div className="flex-1">
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-gray-500">Seats Used</span>
+                      <span className="font-semibold text-gray-700">{(db?.users || []).length} of {db?.userSeatsLimit || 5}</span>
                     </div>
-                    
-                    <div className="text-emerald-800 space-y-2 leading-relaxed text-xs">
-                      <p>
-                        An email containing setup instructions and secure access codes has been successfully sent to <strong className="underline select-all">{newlyInvitedUser.email}</strong>.
-                      </p>
-                      <div className="bg-white border border-emerald-100 p-4 rounded-xl grid grid-cols-1 sm:grid-cols-3 gap-3 font-sans mt-3 shadow-xs">
-                        <div>
-                          <span className="text-[9px] uppercase font-bold text-slate-400 block">Configured Name:</span>
-                          <span className="font-semibold text-slate-800">{newlyInvitedUser.name}</span>
-                        </div>
-                        <div>
-                          <span className="text-[9px] uppercase font-bold text-slate-400 block">Login Email address:</span>
-                          <span className="font-semibold text-slate-800 select-all">{newlyInvitedUser.email}</span>
-                        </div>
-                        <div className="bg-amber-50 rounded-lg p-2 border border-amber-200">
-                          <span className="text-[9.5px] uppercase font-mono font-bold text-amber-700 block">Received SSO Password:</span>
-                          <span className="font-mono text-xs font-black text-slate-900 select-all">{newlyInvitedUser.password}</span>
-                        </div>
-                      </div>
-                      <p className="text-[10px] text-slate-500 italic mt-1 bg-slate-50/50 border border-slate-200/50 p-2 rounded">
-                        *Tip: You may copy the password above, click <strong>"Sign Out"</strong> at the header, and immediately log in as the newly created user to verify their system permissions!
-                      </p>
+                    <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                      <div className="bg-blue-600 h-full transition-all" style={{ width: `${Math.min(100, ((db?.users || []).length / (db?.userSeatsLimit || 5)) * 100)}%` }} />
                     </div>
                   </div>
-                )}
+                  <div className="text-xs text-gray-400 border-l border-gray-200 pl-4">
+                    <p>Need more seats?</p>
+                    <button className="text-blue-600 hover:underline font-medium" onClick={() => alert("Contact owner@bizkhata.app to increase seat allocation.")}>Request Upgrade</button>
+                  </div>
+                </div>
 
-                {/* Primary Panel Action Cards: Upgrade Seating AND Invite Forms */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                  
-                  {/* LEFT: Invite Form Panel */}
-                  <div className="lg:col-span-12 xl:col-span-8 bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
-                    <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest border-b border-slate-100 pb-2">
-                      Invite Corporate Professional (Bizkhata Flow)
-                    </h3>
-                    
-                    <form onSubmit={handleInviteUser} className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-sans">
+                {/* Invite modal */}
+                {showInviteModal && (
+                  <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm space-y-4">
+                    <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+                      <h3 className="text-sm font-semibold text-gray-800">Invite New User</h3>
+                      <button onClick={() => setShowInviteModal(false)} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
+                    </div>
+                    <form onSubmit={handleInviteUser} className="grid grid-cols-2 gap-4 text-xs">
                       <div className="space-y-1">
-                        <label className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Member Full Name *</label>
-                        <input 
-                          type="text" 
-                          required
-                          placeholder="e.g. Anand Mahindra"
-                          value={inviteName}
-                          onChange={(e) => setInviteName(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 focus:outline-none focus:border-blue-500 rounded p-2 text-xs text-slate-800"
-                        />
+                        <label className="text-gray-600 font-medium">Full Name *</label>
+                        <input type="text" required value={inviteName} onChange={e => setInviteName(e.target.value)} placeholder="e.g. Rahul Sharma"
+                          className="w-full border border-gray-300 rounded px-3 py-2 text-gray-800 focus:border-blue-500 outline-none bg-white" />
                       </div>
-
                       <div className="space-y-1">
-                        <label className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Linked Mobile No. (MCA Link) *</label>
-                        <input 
-                          type="tel" 
-                          required
-                          placeholder="e.g. 9811223344"
-                          value={inviteMobile}
-                          onChange={(e) => setInviteMobile(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 focus:outline-none focus:border-blue-500 rounded p-2 text-xs text-slate-800"
-                        />
+                        <label className="text-gray-600 font-medium">Email *</label>
+                        <input type="email" required value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="rahul@company.com"
+                          className="w-full border border-gray-300 rounded px-3 py-2 text-gray-800 focus:border-blue-500 outline-none bg-white" />
                       </div>
-
                       <div className="space-y-1">
-                        <label className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">SSO Email Address *</label>
-                        <input 
-                          type="email" 
-                          required
-                          placeholder="e.g. anand@mahindra.com"
-                          value={inviteEmail}
-                          onChange={(e) => setInviteEmail(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 focus:outline-none focus:border-blue-500 rounded p-2 text-xs text-slate-800"
-                        />
+                        <label className="text-gray-600 font-medium">Mobile *</label>
+                        <input type="tel" required value={inviteMobile} onChange={e => setInviteMobile(e.target.value)} placeholder="+91 98XXXXXXXX"
+                          className="w-full border border-gray-300 rounded px-3 py-2 text-gray-800 focus:border-blue-500 outline-none bg-white" />
                       </div>
-
                       <div className="space-y-1">
-                        <label className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">System Domain Access Role *</label>
-                        <select 
-                          value={inviteRole}
-                          onChange={(e) => setInviteRole(e.target.value as any)}
-                          className="w-full bg-slate-50 border border-slate-200 focus:outline-none focus:border-blue-500 rounded p-2 text-xs text-slate-800 font-semibold"
-                        >
-                          <option value={UserRole.User}>User (General Entry Operator - Entry only)</option>
-                          <option value={UserRole.Accountant}>Accountant (Books Entry, Chart of Accounts, pass Journals & View)</option>
-                          <option value={UserRole.Auditor}>Auditor (Review & Transaction Approval access)</option>
-                          <option value={UserRole.Admin}>Admin (Management & All Transaction Approvals)</option>
-                          <option value={UserRole.Owner}>Owner (Unlimited Controls)</option>
-                          <option value={UserRole.Viewer}>Viewer (Read-only status monitoring)</option>
+                        <label className="text-gray-600 font-medium">Role *</label>
+                        <select value={inviteRole} onChange={e => setInviteRole(e.target.value as any)}
+                          className="w-full border border-gray-300 rounded px-3 py-2 text-gray-800 focus:border-blue-500 outline-none bg-white">
+                          <option value="Accountant">Accountant</option>
+                          <option value="Staff">Staff</option>
+                          <option value={UserRole.Admin}>Admin</option>
+                          <option value={UserRole.Viewer}>Viewer (Read-only)</option>
                         </select>
                       </div>
-
-                      <div className="sm:col-span-2 pt-2 flex justify-end">
-                        <button
-                          type="submit"
-                          disabled={inviteLoading}
-                          className="bg-blue-650 hover:bg-blue-700 text-white font-bold px-6 py-2.5 rounded-lg flex items-center gap-2 transition tracking-wide text-xs cursor-pointer shadow-sm"
-                        >
-                          {inviteLoading ? "Mailing password..." : "Invite Member & Generate Credentials"}
+                      <div className="col-span-2 flex justify-end gap-3 pt-1">
+                        <button type="button" onClick={() => setShowInviteModal(false)} className="border border-gray-300 text-gray-600 text-xs px-4 py-2 rounded hover:bg-gray-50">Cancel</button>
+                        <button type="submit" disabled={inviteLoading} className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-5 py-2 rounded cursor-pointer disabled:opacity-60">
+                          {inviteLoading ? "Sending..." : "Send Invite"}
                         </button>
                       </div>
                     </form>
-                  </div>
-
-                  {/* RIGHT: Upgrade Limit slider simulator */}
-                  <div className="lg:col-span-12 xl:col-span-4 bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
-                    <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest border-b border-slate-100 pb-2">
-                      Adjust Subscribed Seats Capacity on-demand
-                    </h3>
-                    
-                    <div className="space-y-3 text-xs font-sans">
-                      <div className="flex justify-between items-center bg-slate-50 p-3 rounded-lg border border-slate-200">
-                        <span className="font-semibold text-slate-605">Current Capacity Limit:</span>
-                        <span className="text-lg font-black text-blue-700 font-mono">{db?.userSeatsLimit || 5} User Seats</span>
+                    {newlyInvitedUser && (
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-xs text-green-800">
+                        ✓ Invited <strong>{newlyInvitedUser.name}</strong> ({newlyInvitedUser.email}) — Temp password: <span className="font-mono font-bold select-all bg-white px-1 rounded">{newlyInvitedUser.password}</span>
                       </div>
-                      
-                      <div className="space-y-1">
-                        <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Set Capacity Slider:</label>
-                        <input 
-                          type="range"
-                          min="1"
-                          max="25"
-                          value={customSeatsVal}
-                          onChange={(e) => setCustomSeatsVal(Number(e.target.value))}
-                          className="w-full accent-blue-600 cursor-pointer h-1 rounded-sm bg-slate-200"
-                        />
-                        <div className="flex justify-between text-[8px] font-mono text-slate-400 pt-1">
-                          <span>1 Seat</span>
-                          <span> {customSeatsVal} Selected Slots</span>
-                          <span>25 Seats Maximum</span>
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={handleUpdateCorporateSeats}
-                        disabled={seatsLoading}
-                        className="bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 p-3 rounded-lg w-full text-center transition text-xs flex justify-center items-center gap-1.5 shadow-sm cursor-pointer"
-                      >
-                        {seatsLoading ? "Updating quota config..." : "Simulate Licensing Change (Scale)"}
-                      </button>
-                    </div>
+                    )}
                   </div>
+                )}
 
-                </div>
-
-                {/* Team Directory Table */}
-                <div className="space-y-3">
-                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Active Corporate Team Directory</h3>
-                  <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
-                        <tr>
-                          <th className="p-3.5">System User Name</th>
-                          <th className="p-3.5">SSO Email Address</th>
-                          <th className="p-3.5">Registered Mobile</th>
-                          <th className="p-3.5">Assigned Domain Role</th>
-                          <th className="p-3.5">System Status</th>
-                          <th className="p-3.5">Assigned Access Password</th>
-                          <th className="p-3.5 text-right">Actions Desk</th>
+                {/* Users Table */}
+                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 border-b border-gray-200 text-[11px] text-gray-500 uppercase font-semibold">
+                      <tr>
+                        <th className="px-4 py-3 text-left">Name</th>
+                        <th className="px-4 py-3 text-left">Email</th>
+                        <th className="px-4 py-3 text-left">Mobile</th>
+                        <th className="px-4 py-3 text-left">Role</th>
+                        <th className="px-4 py-3 text-left">Status</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {(db?.users || []).map(u => (
+                        <tr key={u.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 font-medium text-gray-800">{u.name || u.fullName}</td>
+                          <td className="px-4 py-3 text-gray-600 font-mono text-xs">{u.email}</td>
+                          <td className="px-4 py-3 text-gray-500 text-xs">{u.mobile || u.mobileNumber || "—"}</td>
+                          <td className="px-4 py-3">
+                            {editingUserId === u.id ? (
+                              <select defaultValue={u.role}
+                                onChange={e => setEditingUserRole(e.target.value)}
+                                className="border border-gray-300 rounded px-2 py-1 text-xs text-gray-700 bg-white outline-none">
+                                <option value="Accountant">Accountant</option>
+                                <option value="Staff">Staff</option>
+                                <option value={UserRole.Admin}>Admin</option>
+                                <option value={UserRole.Viewer}>Viewer</option>
+                              </select>
+                            ) : (
+                              <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${
+                                u.role === "Admin" ? "bg-blue-50 text-blue-700 border-blue-200" :
+                                u.role === "Accountant" ? "bg-purple-50 text-purple-700 border-purple-200" :
+                                u.role === "Viewer" ? "bg-gray-50 text-gray-600 border-gray-200" :
+                                "bg-green-50 text-green-700 border-green-200"
+                              }`}>{u.role}</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`text-[11px] font-medium flex items-center gap-1 ${u.status === "Active" ? "text-green-600" : "text-amber-600"}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${u.status === "Active" ? "bg-green-500" : "bg-amber-400"}`} />
+                              {u.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {!u.isOwner && u.role !== "Super Admin" ? (
+                              <div className="flex items-center justify-end gap-2">
+                                {editingUserId === u.id ? (
+                                  <>
+                                    <button onClick={async () => {
+                                      await authFetch(`/api/users/${u.id}`, { method: "PUT", body: JSON.stringify({ role: editingUserRole }) });
+                                      setEditingUserId(null);
+                                      const r = await authFetch("/api/db"); if (r.ok) { const d = await r.json(); setDb(d); }
+                                    }} className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1 rounded cursor-pointer">Save</button>
+                                    <button onClick={() => setEditingUserId(null)} className="border border-gray-300 text-gray-600 text-xs px-3 py-1 rounded cursor-pointer">Cancel</button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button onClick={() => { setEditingUserId(u.id); setEditingUserRole(u.role); }}
+                                      className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-xs px-3 py-1 rounded cursor-pointer">Edit</button>
+                                    <button onClick={() => handleDeleteUser(u.id)}
+                                      className="border border-red-200 text-red-600 hover:bg-red-50 text-xs px-3 py-1 rounded cursor-pointer">Delete</button>
+                                  </>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-gray-400 italic">—</span>
+                            )}
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 font-sans">
-                        {(db?.users || [
-                          { id: "usr_default_admin", name: "System Administrator", email: "admin@company.com", mobile: "", role: UserRole.Owner, password: "Admin@123" }
-                        ]).map((u) => (
-                          <tr key={u.id} className="hover:bg-slate-50/70 transition-colors">
-                            <td className="p-3.5 font-bold text-slate-800">{u.name}</td>
-                            <td className="p-3.5 font-mono text-slate-600 select-all">{u.email}</td>
-                            <td className="p-3.5 font-mono text-slate-500">{u.mobile}</td>
-                            <td className="p-3.5">
-                              <span className={`text-[9px] font-bold uppercase rounded px-2 py-0.5 border ${
-                                u.role === UserRole.Owner 
-                                  ? "bg-amber-50 text-amber-700 border-amber-200"
-                                  : u.role === UserRole.Admin
-                                  ? "bg-rose-50 text-rose-750 border-rose-200"
-                                  : u.role === UserRole.Auditor
-                                  ? "bg-cyan-50 text-cyan-750 border-cyan-200"
-                                  : u.role === UserRole.Accountant
-                                  ? "bg-blue-50 text-blue-700 border-blue-200"
-                                  : u.role === UserRole.User
-                                  ? "bg-violet-50 text-violet-750 border-violet-200"
-                                  : "bg-slate-50 text-slate-655 border-slate-200"
-                              }`}>
-                                {u.role}
-                              </span>
-                            </td>
-                            <td className="p-3.5">
-                              <span className="flex items-center gap-1.5 text-emerald-600 font-semibold text-[10.5px]">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> SSO Synchronous
-                              </span>
-                            </td>
-                            <td className="p-3.5">
-                              <span className="font-mono text-xs font-bold text-slate-900 bg-slate-100 px-2.5 py-1 rounded select-all border border-slate-200">
-                                {u.password || "Admin@123 (Default)"}
-                              </span>
-                            </td>
-                            <td className="p-3.5 text-right font-sans">
-                              {!u.isOwner ? (
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteUser(u.id)}
-                                  className="text-red-600 hover:text-white hover:bg-red-600 border border-red-300 font-bold px-3 py-1 rounded transition-all text-[11px] cursor-pointer"
-                                >
-                                  Revoke Seats Access
-                                </button>
-                              ) : (
-                                <span className="text-[11px] text-slate-400 font-bold italic">System Owner</span>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* Simulated Outbound SMTP Mailbox */}
-                <div className="bg-slate-50 text-slate-800 p-5 rounded-2xl space-y-4 shadow-lg border border-slate-200 font-sans leading-relaxed">
-                  <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-                    <div>
-                      <h3 className="text-xs font-extrabold text-[#00D779] uppercase tracking-widest flex items-center gap-1.5">
-                        <Mail className="w-4 h-4 text-[#00D779]" /> Outbound SMTP Mailbox Simulation Desk (Bizkhata Connect Link)
-                      </h3>
-                      <p className="text-[10px] text-slate-400">Verifying real-time secure registration and single-sign-on password emails dispatched by Bizkhata infrastructure.</p>
-                    </div>
-                    <button 
-                      onClick={() => {
-                        const clearedDb = { ...db, mailLogs: [] };
-                        setDb(clearedDb);
-                        alert("Simulated SMTP memory records successfully cleared!");
-                      }} 
-                      className="text-slate-400 hover:text-white hover:bg-slate-800 px-3 py-1 text-[10px] font-semibold tracking-wide border border-slate-800 rounded"
-                    >
-                      Empty Outbox List
-                    </button>
-                  </div>
-
-                  {(!db?.mailLogs || db.mailLogs.length === 0) ? (
-                    <div className="p-6 text-center text-slate-500 font-mono text-[10.5px]">
-                      No outgoing email records logged. Try creating a sub-user above to review real-time password dispatching mock mails!
-                    </div>
-                  ) : (
-                    <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2">
-                      {db.mailLogs.map((mail) => (
-                        <div key={mail.id} className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 font-sans text-xs space-y-2 mt-1">
-                          <div className="flex justify-between items-center text-[10.5px] border-b border-slate-800 pb-2">
-                            <div>
-                              To: <strong className="text-emerald-400 select-all">{mail.to}</strong>
-                            </div>
-                            <span className="font-mono text-slate-500 text-[10px]">{mail.timestamp ? new Date(mail.timestamp).toLocaleTimeString() : 'Just now'}</span>
-                          </div>
-                          <div className="font-semibold text-slate-202">
-                            Subject: {mail.subject}
-                          </div>
-                          <pre className="whitespace-pre-line text-slate-600 font-sans text-[11px] leading-relaxed select-text mt-1 p-3 bg-slate-50 border border-slate-200 rounded-lg max-h-[200px] overflow-y-auto">
-                            {mail.body}
-                          </pre>
-                        </div>
                       ))}
-                    </div>
-                  )}
+                      {(!db?.users || db.users.length === 0) && (
+                        <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400 text-sm">No users yet. Invite team members using the button above.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
 
+                {/* Roles Reference */}
+                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                  <div className="px-5 py-3 border-b border-gray-200 bg-gray-50">
+                    <h3 className="text-sm font-semibold text-gray-700">Roles</h3>
+                  </div>
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 border-b border-gray-200 text-[11px] text-gray-500 uppercase font-semibold">
+                      <tr>
+                        <th className="px-5 py-2.5 text-left w-40">Role Name ↑</th>
+                        <th className="px-5 py-2.5 text-left">Description</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {[
+                        { name: "Accountant", desc: "This role is ideal for an accountant who takes care of tax filing, compliance and your business finance." },
+                        { name: "Admin", desc: "Unrestricted access to all modules." },
+                        { name: "Purchase/Expense", desc: "Access to manage purchase orders, expenses and bills only." },
+                        { name: "Staff", desc: "Access to all modules except reports, settings and accountant." },
+                        { name: "Staff - Assigned Customers Only", desc: "Access to all modules, transactions and data of assigned customers and all vendors except reports, settings and accountant." },
+                        { name: "Viewer", desc: "Read-only access to view invoices, reports and transactions." },
+                      ].map(r => (
+                        <tr key={r.name} className="hover:bg-gray-50">
+                          <td className="px-5 py-3 text-blue-600 font-medium text-sm">{r.name}</td>
+                          <td className="px-5 py-3 text-gray-600 text-sm">{r.desc}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
 
 
-          </div>
-
           {/* Solid humble compliance footer */}
           <footer className="p-4 border-t border-slate-200 text-center text-[10.5px] text-slate-550 select-none bg-slate-50">
-            Bizkhata Ledger Synchronization Engine • GSTIN Interstater compliance compliant with Ministry of Corporate Affairs, India.
+            Bizkhata Ledger Synchronization Engine • GSTIN compliant with Ministry of Corporate Affairs, India.
           </footer>
+          </div>
 
         </main>
       </div>
