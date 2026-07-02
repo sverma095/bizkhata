@@ -26,7 +26,8 @@ import {
   ArrowLeft,
   ExternalLink,
   FileSpreadsheet,
-  MoreVertical
+  MoreVertical,
+  Upload
 } from "lucide-react";
 
 interface InvoicesProps {
@@ -638,31 +639,34 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
 
       {/* NEW INVOICE FORM */}
       {showForm && (
-        <div id="billing-invoice-form" className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
-          <div className="flex justify-between items-center border-b border-slate-200 pb-3">
-            <h3 id="lbl-create-inv-title" className="text-sm font-bold text-slate-800 flex items-center gap-2.5">
-              <Sparkles className="w-4 h-4 text-emerald-400" />
-              {isProforma ? "Drafting New Proforma Invoice" : editingInvoice ? `Editing Invoice ${editingInvoice.invoiceNumber}` : (window as any).__convertingFromProformaId ? "Converting Proforma → Tax Invoice (Review & Edit)" : "Drafting New GST Tax Invoice"}
+        <div id="billing-invoice-form" className="bg-white border border-gray-200 rounded-xl shadow-sm">
+          {/* Page header */}
+          <div className="flex justify-between items-center border-b border-gray-200 px-6 py-4">
+            <h3 id="lbl-create-inv-title" className="text-base font-semibold text-gray-800 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-blue-600" />
+              {isProforma ? "New Proforma Invoice" : editingInvoice ? `Edit Invoice ${editingInvoice.invoiceNumber}` : (window as any).__convertingFromProformaId ? "Convert Proforma → Tax Invoice" : "New Invoice"}
             </h3>
             <button 
               id="btn-close-inv-form"
               onClick={() => setShowForm(false)}
-              className="p-1 text-slate-400 hover:text-slate-700"
+              className="p-1 text-gray-400 hover:text-gray-600"
             >
-              <X className="w-4 h-4" />
+              <X className="w-5 h-5" />
             </button>
           </div>
 
-          <form id="frm-invoice-draft" onSubmit={(e) => e.preventDefault()} className="space-y-4" autoComplete="off">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <form id="frm-invoice-draft" onSubmit={(e) => e.preventDefault()} className="space-y-0" autoComplete="off">
+            {/* Header fields */}
+            <div className="px-6 py-5 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
               <div className="space-y-1.5">
-                <label id="lbl-fld-cust" className="text-xs text-slate-600 font-medium">Customer Master Record</label>
+                <label id="lbl-fld-cust" className="text-xs text-gray-600 font-medium">Customer Name <span className="text-red-500">*</span></label>
                 <select
                   id="fld-cust-select"
                   required
                   value={customerId}
                   onChange={(e) => setCustomerId(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-800 text-xs focus:border-blue-500 outline-none"
+                  className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-800 text-sm focus:border-blue-500 outline-none"
                 >
                   <option value="">-- Choose Customer --</option>
                   {db.customers.map(c => (
@@ -703,434 +707,387 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                 })()}
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs text-slate-600 font-medium">Invoice #</label>
-                <input
-                  type="text"
-                  value={manualInvoiceNumber}
-                  onChange={(e) => setManualInvoiceNumber(e.target.value)}
-                  placeholder="Auto-generated if left blank"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-800 text-xs font-mono focus:border-blue-500 outline-none"
+                <label className="text-xs text-gray-600 font-medium">Invoice #</label>
+                <div className="flex items-center gap-2">
+                  <select className="bg-white border border-gray-300 rounded px-2 py-2 text-gray-700 text-sm outline-none">
+                    <option>Default Transaction Series</option>
+                  </select>
+                  <input
+                    type="text"
+                    value={manualInvoiceNumber}
+                    onChange={(e) => setManualInvoiceNumber(e.target.value)}
+                    placeholder="Auto-generated"
+                    className="flex-1 bg-white border border-gray-300 rounded px-3 py-2 text-gray-800 text-sm font-mono focus:border-blue-500 outline-none"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs text-gray-600 font-medium">Order Number</label>
+                <input type="text" placeholder=""
+                  className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-800 text-sm focus:border-blue-500 outline-none"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs text-slate-600 font-medium">Invoice Date</label>
+                <label className="text-xs text-gray-600 font-medium">Invoice Date <span className="text-red-500">*</span></label>
                 <input type="date" required value={date}
                   onChange={(e) => { setDate(e.target.value); applyPaymentTerms(paymentTerms, e.target.value); }}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-800 text-xs focus:border-blue-500 outline-none"
+                  className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-800 text-sm focus:border-blue-500 outline-none"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs text-slate-400 font-medium">Payment Terms</label>
-                <select value={paymentTerms} onChange={(e) => { setPaymentTerms(e.target.value); applyPaymentTerms(e.target.value, date); }}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-800 text-xs focus:border-blue-500 outline-none"
-                >
-                  <option>Due on Receipt</option>
-                  <option>Net 15</option>
-                  <option>Net 30</option>
-                  <option>Net 45</option>
-                  <option>Net 60</option>
-                  <option>Net 90</option>
-                  <option>End of Month</option>
-                  <option>End of Next Month</option>
-                </select>
+                <label className="text-xs text-gray-600 font-medium">Terms</label>
+                <div className="flex items-center gap-2">
+                  <select value={paymentTerms} onChange={(e) => { setPaymentTerms(e.target.value); applyPaymentTerms(e.target.value, date); }}
+                    className="flex-1 bg-white border border-gray-300 rounded px-3 py-2 text-gray-800 text-sm focus:border-blue-500 outline-none"
+                  >
+                    <option>Due on Receipt</option>
+                    <option>Net 15</option>
+                    <option>Net 30</option>
+                    <option>Net 45</option>
+                    <option>Net 60</option>
+                    <option>Net 90</option>
+                    <option>End of Month</option>
+                    <option>End of Next Month</option>
+                  </select>
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-500">Due Date</label>
+                    <input type="date" required value={dueDate} onChange={(e) => setDueDate(e.target.value)}
+                      className="bg-white border border-gray-300 rounded px-3 py-2 text-gray-800 text-sm focus:border-blue-500 outline-none"
+                    />
+                  </div>
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-xs text-slate-400 font-medium">Due Date</label>
-                <input type="date" required value={dueDate} onChange={(e) => setDueDate(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-800 text-xs focus:border-blue-500 outline-none"
-                />
-              </div>
+            </div>
+
+            {/* Subject field */}
+            <div className="space-y-1.5">
+              <label className="text-xs text-gray-600 font-medium">Subject</label>
+              <input type="text" placeholder="Let your customer know what this Invoice is for"
+                className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-800 text-sm focus:border-blue-500 outline-none"
+              />
+            </div>
             </div>
 
             {/* Invoicing State tax preview */}
             {customerId && (
-              <div className="bg-slate-950 px-4 py-2 border border-slate-850 rounded-lg flex items-center justify-between text-[11px]">
-                <span className="text-slate-400">
+              <div className="bg-blue-50 px-4 py-2 border-y border-blue-100 flex items-center justify-between text-xs">
+                <span className="text-gray-500">
                   Tax Calculation Mode:
                 </span>
-                <span className="font-semibold text-indigo-400 font-mono">
+                <span className="font-semibold text-blue-700">
                   {sameState 
-                    ? `Intra-state (Karnataka -> Karnataka): CGST split (SGST 9% / CGST 9%)`
-                    : `Inter-state (Karnataka -> ${customerState}): Integrated GST (IGST 18%)`
+                    ? `Intra-state: CGST + SGST`
+                    : `Inter-state (→ ${customerState}): IGST`
                   }
                 </span>
               </div>
             )}
 
-            {/* Nested Invoicing Line Items Table */}
-            <div className="space-y-2">
-              <label className="text-xs text-slate-400 font-bold">Billing Items Breakdown</label>
-              <div className="space-y-2.5">
+            {/* Item Table - Zoho Books style */}
+            <div className="border-t border-gray-200">
+              <div className="px-6 py-3 flex items-center justify-between bg-gray-50 border-b border-gray-200">
+                <span className="text-sm font-semibold text-gray-700">Item Table</span>
+                <button type="button" className="text-xs text-blue-600 hover:underline">Bulk Actions</button>
+              </div>
+              {/* Table header */}
+              <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-gray-50 text-gray-500 uppercase text-[11px] font-semibold">
+                    <th className="text-left px-4 py-2.5 w-[35%]">Item Details</th>
+                    <th className="text-right px-3 py-2.5 w-[10%]">Quantity</th>
+                    <th className="text-right px-3 py-2.5 w-[12%]">Rate</th>
+                    <th className="text-center px-3 py-2.5 w-[15%]">Tax</th>
+                    <th className="text-right px-3 py-2.5 w-[12%]">Amount</th>
+                    <th className="w-8"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
                 {formItems.map((item, idx) => (
-                  <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-start bg-slate-950/40 p-3 rounded-lg border border-slate-850">
-                    <div className="md:col-span-5 space-y-1.5">
+                  <tr key={idx} className="group">
+                    <td className="px-4 py-2.5">
                       <select
                         required
                         value={item.itemId}
                         onChange={(e) => handleFormItemChange(idx, "itemId", e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-850 rounded px-2 py-1 text-slate-300 text-xs focus:border-slate-700 outline-none"
+                        className="w-full bg-white border border-gray-300 rounded px-2 py-1.5 text-gray-800 text-xs focus:border-blue-500 outline-none"
                       >
-                        <option value="">-- Choose Item / Service --</option>
+                        <option value="">Type or click to select an item.</option>
                         {db.items.map(it => (
                           <option key={it.id} value={it.id}>{it.name} (₹{it.salesRate})</option>
                         ))}
-                        <option value="custom">★ Custom Item (Manual Entry) ★</option>
+                        <option value="custom">Custom Item</option>
                       </select>
                       {item.itemId === "custom" && (
                         <input
                           type="text"
                           required
                           value={item.name}
-                          placeholder="Type item description / name manually..."
+                          placeholder="Item description..."
                           onChange={(e) => handleFormItemChange(idx, "name", e.target.value)}
-                          className="w-full bg-slate-950 border-indigo-900 border rounded px-2 py-1 text-slate-200 text-xs placeholder-slate-500 focus:border-indigo-600 outline-none"
+                          className="w-full mt-1 bg-white border border-gray-300 rounded px-2 py-1 text-gray-800 text-xs focus:border-blue-500 outline-none"
                         />
                       )}
-                      
-                      {/* Interactive Manual HSN or SAC code entry input as requested */}
-                      <div className="flex items-center gap-1.5 pt-0.5">
-                        <span className="text-[10px] text-slate-500 font-mono font-bold">HSN/SAC Code:</span>
+                      <div className="flex items-center gap-1 mt-1">
+                        <span className="text-[10px] text-gray-400">HSN/SAC:</span>
                         <input
                           type="text"
-                          required
                           value={item.hsnSac || ""}
-                          placeholder="e.g. 9983"
+                          placeholder="Code"
                           onChange={(e) => handleFormItemChange(idx, "hsnSac", e.target.value)}
-                          className="bg-slate-950 border border-slate-800 rounded px-2 py-0.5 text-slate-300 text-[10px] font-mono focus:border-indigo-650 focus:ring-1 focus:ring-indigo-650 outline-none w-28"
+                          className="bg-white border border-gray-200 rounded px-1.5 py-0.5 text-gray-600 text-[10px] font-mono outline-none w-20 focus:border-blue-400"
                         />
                       </div>
-                    </div>
-                    <div className="md:col-span-2 space-y-1">
+                    </td>
+                    <td className="px-3 py-2.5">
                       <input 
-                        type="number"
-                        min={1}
-                        required
-                        value={item.qty}
-                        placeholder="Qty"
+                        type="number" min={1} required value={item.qty} placeholder="1.00"
                         onChange={(e) => handleFormItemChange(idx, "qty", parseInt(e.target.value) || 1)}
-                        className="w-full bg-slate-950 border border-slate-855 rounded px-2 py-1 text-slate-300 text-xs text-center focus:border-slate-700 outline-none"
+                        className="w-full bg-white border border-gray-300 rounded px-2 py-1.5 text-gray-800 text-xs text-right focus:border-blue-500 outline-none"
                       />
-                    </div>
-                    <div className="md:col-span-2 space-y-1">
+                    </td>
+                    <td className="px-3 py-2.5">
                       <input 
-                        type="number"
-                        min={0}
-                        required
-                        value={item.rate}
-                        placeholder="Rate (₹)"
+                        type="number" min={0} required value={item.rate} placeholder="0.00"
                         onChange={(e) => handleFormItemChange(idx, "rate", parseFloat(e.target.value) || 0)}
-                        className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-slate-700 text-xs text-right focus:border-blue-500 outline-none"
+                        className="w-full bg-white border border-gray-300 rounded px-2 py-1.5 text-gray-800 text-xs text-right focus:border-blue-500 outline-none"
                       />
-                    </div>
-                    {orgIsGstRegistered && (
-                    <div className="md:col-span-2 space-y-1">
-                      <select
-                        value={item.gstRate}
-                        onChange={(e) => handleFormItemChange(idx, "gstRate", parseFloat(e.target.value))}
-                        className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-slate-700 text-xs focus:border-blue-500 outline-none"
-                        title="GST Rate"
-                      >
-                        <option value={0}>0% GST (Exempt)</option>
-                        <option value={0.1}>0.1% GST</option>
-                        <option value={0.25}>0.25% GST</option>
-                        <option value={1.5}>1.5% GST</option>
-                        <option value={3}>3% GST</option>
-                        <option value={5}>5% GST</option>
-                        <option value={6}>6% GST</option>
-                        <option value={7.5}>7.5% GST</option>
-                        <option value={12}>12% GST</option>
-                        <option value={18}>18% GST</option>
-                        <option value={28}>28% GST</option>
-                      </select>
-                    </div>
-                    )}
-                    {!orgIsGstRegistered && (
-                    <div className="md:col-span-2 space-y-1">
-                      <div className="w-full bg-orange-50 border border-orange-200 rounded px-2 py-1 text-orange-600 text-xs text-center font-semibold">No GST</div>
-                    </div>
-                    )}
-                    <div className="md:col-span-1 space-y-1">
-                      <div className="flex items-center gap-1">
-                        <input type="number" min={0} max={100} step={0.5} value={item.discount || 0}
-                          placeholder="Disc%"
-                          onChange={(e) => handleFormItemChange(idx, "discount", parseFloat(e.target.value) || 0)}
-                          className="w-full bg-white border border-slate-200 rounded px-1 py-1 text-slate-700 text-xs text-center focus:border-amber-500 outline-none"
-                          title="Discount %"
-                        />
-                        <span className="text-slate-500 text-[10px]">%</span>
-                      </div>
-                    </div>
-                    <div className="md:col-span-2 text-right p-1 font-mono text-slate-300 text-xs">
-                      {item.discount > 0 && <div className="text-slate-500 line-through text-[10px]">₹{(item.qty * item.rate).toLocaleString('en-IN')}</div>}
-                      ₹ {(item.qty * item.rate * (1 - (item.discount||0)/100)).toLocaleString('en-IN', {maximumFractionDigits:2})}
-                    </div>
-                    <div className="md:col-span-1 flex justify-center">
+                    </td>
+                    <td className="px-3 py-2.5">
+                      {orgIsGstRegistered ? (
+                        <select
+                          value={item.gstRate}
+                          onChange={(e) => handleFormItemChange(idx, "gstRate", parseFloat(e.target.value))}
+                          className="w-full bg-white border border-gray-300 rounded px-2 py-1.5 text-gray-800 text-xs focus:border-blue-500 outline-none"
+                        >
+                          <option value={0}>Select a Tax</option>
+                          <option value={5}>GST 5%</option>
+                          <option value={12}>GST 12%</option>
+                          <option value={18}>GST 18%</option>
+                          <option value={28}>GST 28%</option>
+                        </select>
+                      ) : (
+                        <div className="text-center text-gray-400 text-xs">No GST</div>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 text-right font-mono text-gray-800 text-xs">
+                      {(item.qty * item.rate * (1 - (item.discount||0)/100)).toLocaleString('en-IN', {maximumFractionDigits:2})}
+                    </td>
+                    <td className="pr-2 py-2.5">
                       <button 
                         type="button"
                         onClick={() => handleRemoveItemRow(idx)}
                         disabled={formItems.length === 1}
-                        className="text-rose-500 hover:text-rose-400 p-1"
+                        className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition p-1"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
+                    </td>
+                  </tr>
+                ))}
+                </tbody>
+              </table>
+              </div>
+              {/* Add Row */}
+              <div className="px-4 py-3 border-t border-gray-100 flex gap-3">
+                <button
+                  type="button"
+                  onClick={handleAddItemRow}
+                  className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Add New Row
+                </button>
+              </div>
+
+              {/* Summary + Totals — Zoho right-aligned panel */}
+              <div className="flex justify-end px-4 pb-4">
+                <div className="w-72 text-xs space-y-2 border border-gray-200 rounded-lg p-4 bg-gray-50">
+                  <div className="flex justify-between text-gray-600">
+                    <span>Sub Total</span>
+                    <span className="font-mono text-gray-800">{liveResults.subtotal.toLocaleString('en-IN', {minimumFractionDigits:2})}</span>
+                  </div>
+
+                  {/* Discount row */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500 w-20 shrink-0">Discount</span>
+                    <input type="number" min={0} step={0.01} value={discountValue}
+                      onChange={(e) => setDiscountValue(parseFloat(e.target.value)||0)}
+                      className="flex-1 bg-white border border-gray-300 rounded px-2 py-1 text-gray-800 text-xs outline-none text-right"
+                      placeholder="0"
+                    />
+                    <select value={discountType} onChange={(e) => setDiscountType(e.target.value as any)}
+                      className="bg-white border border-gray-300 rounded px-1 py-1 text-gray-700 text-xs outline-none">
+                      <option value="percent">%</option>
+                      <option value="amount">₹</option>
+                    </select>
+                    <span className="font-mono text-gray-800 w-14 text-right">{discountAmount > 0 ? `-${discountAmount.toLocaleString('en-IN', {minimumFractionDigits:2})}` : '0.00'}</span>
+                  </div>
+
+                  {effectiveCgst > 0 && <>
+                    <div className="flex justify-between text-gray-600">
+                      <span>CGST</span>
+                      <span className="font-mono text-gray-800">{effectiveCgst.toLocaleString('en-IN', {minimumFractionDigits:2})}</span>
+                    </div>
+                    <div className="flex justify-between text-gray-600">
+                      <span>SGST</span>
+                      <span className="font-mono text-gray-800">{effectiveSgst.toLocaleString('en-IN', {minimumFractionDigits:2})}</span>
+                    </div>
+                  </>}
+                  {effectiveIgst > 0 && (
+                    <div className="flex justify-between text-gray-600">
+                      <span>IGST</span>
+                      <span className="font-mono text-gray-800">{effectiveIgst.toLocaleString('en-IN', {minimumFractionDigits:2})}</span>
+                    </div>
+                  )}
+
+                  {/* TDS / TCS */}
+                  <div className="flex items-center gap-2 pt-1">
+                    <label className="flex items-center gap-1 text-gray-600 cursor-pointer">
+                      <input type="radio" name="taxadj" checked={!applyTcs} onChange={() => setApplyTcs(false)} className="accent-blue-600" /> TDS
+                    </label>
+                    <label className="flex items-center gap-1 text-gray-600 cursor-pointer">
+                      <input type="radio" name="taxadj" checked={applyTcs} onChange={() => { setApplyTcs(true); setTdsSection(""); setTdsAmount(0); }} className="accent-blue-600" /> TCS
+                    </label>
+                    {!applyTcs ? (
+                      <select
+                        value={tdsSection}
+                        onChange={(e) => {
+                          const sec = e.target.value;
+                          setTdsSection(sec);
+                          const rateMap: Record<string,number> = {
+                            "194C_ind": 1, "194C_comp": 2, "194J_prof": 10, "194J_tech": 2,
+                            "194I_land": 10, "194I_plant": 2, "194A": 10, "194H": 2, "194IA": 1,
+                            "194IB": 2, "194IC": 10, "194M": 5, "194N": 2, "194O": 1, "194Q": 0.1, "206C": 1
+                          };
+                          const rate = rateMap[sec] || 0;
+                          setTdsRate(rate);
+                          setTdsAmount(Math.round(liveResults.subtotal * rate / 100 * 100) / 100);
+                        }}
+                        className="flex-1 bg-white border border-gray-300 rounded px-2 py-1 text-gray-700 text-xs outline-none"
+                      >
+                        <option value="">Select a Tax</option>
+                        <optgroup label="Contract (194C)">
+                          <option value="194C_ind">Contractor Ind/HUF @ 1%</option>
+                          <option value="194C_comp">Contractor Company @ 2%</option>
+                        </optgroup>
+                        <optgroup label="Professional (194J)">
+                          <option value="194J_prof">Professional Services @ 10%</option>
+                          <option value="194J_tech">Technical Services @ 2%</option>
+                        </optgroup>
+                        <optgroup label="Rent (194I)">
+                          <option value="194I_land">Land/Building @ 10%</option>
+                          <option value="194I_plant">Plant/Machinery @ 2%</option>
+                        </optgroup>
+                        <optgroup label="Other">
+                          <option value="194A">Interest @ 10%</option>
+                          <option value="194H">Commission @ 2%</option>
+                          <option value="194Q">Purchase of Goods @ 0.1%</option>
+                        </optgroup>
+                      </select>
+                    ) : (
+                      <span className="flex-1 text-xs text-blue-600">TCS @ 0.1% (206C)</span>
+                    )}
+                  </div>
+
+                  {/* Round off */}
+                  <div className="flex items-center justify-between border-t border-gray-200 pt-2">
+                    <label className="flex items-center gap-1.5 text-gray-500 cursor-pointer">
+                      <input type="checkbox" id="chk-rounding" checked={roundingOff} onChange={(e) => setRoundingOff(e.target.checked)} className="accent-blue-600" />
+                      Round off
+                    </label>
+                    {roundingOff && (() => {
+                      const preRound = finalTotal - tdsAmount;
+                      const diff = Math.round(preRound) - preRound;
+                      return diff !== 0 ? <span className="font-mono text-xs text-gray-500">{diff > 0 ? '+' : ''}{diff.toFixed(2)}</span> : null;
+                    })()}
+                  </div>
+
+                  <div className="border-t border-gray-300 pt-2 flex justify-between font-bold text-gray-900 text-sm">
+                    <span>Total (₹)</span>
+                    <span className="font-mono text-blue-700">
+                      ₹{(() => {
+                        const base = finalTotal - tdsAmount;
+                        return (roundingOff ? Math.round(base) : Math.round(base * 100) / 100).toLocaleString('en-IN', {minimumFractionDigits:2});
+                      })()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Notes, T&C, Attach */}
+            <div className="border-t border-gray-200 px-6 py-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-1.5">
+                  <label className="text-xs text-gray-600 font-medium">Customer Notes</label>
+                  <textarea rows={4} value={invoiceNotes} onChange={(e) => setInvoiceNotes(e.target.value)}
+                    placeholder="e.g. Note: Invoice payment to be done using the regular bank-to-bank transfer/wire"
+                    className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-700 text-xs focus:border-blue-400 outline-none resize-none"
+                  />
+                  <p className="text-[10px] text-gray-400">Will be displayed on the invoice</p>
+                </div>
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs text-gray-600 font-medium">Terms & Conditions</label>
+                    <textarea rows={4} value={termsAndConditions} onChange={(e) => setTermsAndConditions(e.target.value)}
+                      placeholder="Enter the terms and conditions of your business to be displayed in your transaction"
+                      className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-700 text-xs focus:border-blue-400 outline-none resize-none"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs text-gray-600 font-medium">Attach File(s) to Invoice</label>
+                    <div className="flex items-center gap-2">
+                      <button type="button" className="flex items-center gap-1.5 border border-gray-300 bg-white text-gray-600 text-xs px-3 py-1.5 rounded hover:bg-gray-50">
+                        <Upload className="w-3.5 h-3.5" /> Upload File
+                      </button>
+                      <span className="text-[10px] text-gray-400">You can upload a maximum of 10 files, 10MB each</span>
                     </div>
                   </div>
-                ))}
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={handleAddItemRow}
-                className="flex items-center gap-1 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-[11px] font-semibold text-indigo-600 px-3 py-1.5 rounded transition cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                Add Row Item
-              </button>
-            </div>
-
-            {/* Summary tax pane */}
-            <div className="bg-slate-950/70 p-4 rounded-xl border border-slate-850 ml-auto max-w-sm text-xs space-y-2">
-              <div className="flex justify-between text-slate-400">
-                <span>Subtotal (Net Revenue):</span>
-                <span className="font-mono font-medium text-slate-200">₹{liveResults.subtotal.toLocaleString('en-IN')}</span>
-              </div>
-
-              {/* Discount — applied before-tax (reduces taxable value & GST) or after-tax (cash discount, GST unaffected) */}
-              <div className="border-t border-slate-800 pt-2 space-y-1.5">
-                <label className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wide">Discount</label>
-                <div className="flex items-center gap-2">
-                  <select value={discountType} onChange={(e) => setDiscountType(e.target.value as any)}
-                    className="bg-white border border-slate-200 rounded px-2 py-1 text-slate-800 text-[10px] outline-none">
-                    <option value="percent">%</option>
-                    <option value="amount">₹</option>
+              <div className="flex items-center gap-4 mt-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={isRecurring} onChange={(e) => setIsRecurring(e.target.checked)} className="accent-blue-600" />
+                  <span className="text-xs text-gray-600 font-medium">Make Recurring</span>
+                </label>
+                {isRecurring && (
+                  <select value={recurringFrequency} onChange={(e) => setRecurringFrequency(e.target.value as any)}
+                    className="bg-white border border-gray-300 rounded px-2 py-1.5 text-gray-700 text-xs outline-none">
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="quarterly">Quarterly</option>
+                    <option value="yearly">Yearly</option>
                   </select>
-                  <input type="number" min={0} step={0.01} value={discountValue}
-                    onChange={(e) => setDiscountValue(parseFloat(e.target.value)||0)}
-                    className="flex-1 bg-emerald-50 border border-emerald-200 rounded px-2 py-1 text-emerald-700 text-[10px] font-mono outline-none text-right"
-                    placeholder="0"
-                  />
-                  {discountAmount > 0 && <span className="text-emerald-400 text-[10px] font-mono">-₹{discountAmount.toLocaleString('en-IN')}</span>}
-                </div>
-                {discountValue > 0 && (
-                  <div className="flex items-center gap-3 text-[10px] pl-0.5">
-                    <label className="flex items-center gap-1 cursor-pointer text-slate-400"><input type="radio" checked={discountTiming === 'before_tax'} onChange={() => setDiscountTiming('before_tax')} className="accent-emerald-500" /> Before Tax</label>
-                    <label className="flex items-center gap-1 cursor-pointer text-slate-400"><input type="radio" checked={discountTiming === 'after_tax'} onChange={() => setDiscountTiming('after_tax')} className="accent-emerald-500" /> After Tax</label>
-                  </div>
-                )}
-                {discountValue > 0 && (
-                  <p className="text-[9px] text-slate-500">
-                    {discountTiming === 'before_tax'
-                      ? "Reduces the taxable value — GST is calculated on the discounted amount."
-                      : "GST stays calculated on the full price — discount reduces only the amount payable."}
-                  </p>
                 )}
               </div>
-
-              {discountTiming === 'before_tax' && discountValue > 0 && (
-                <div className="flex justify-between text-slate-400">
-                  <span>Taxable Value (after discount):</span>
-                  <span className="font-mono text-slate-200">₹{(liveResults.subtotal - discountAmount).toLocaleString('en-IN')}</span>
-                </div>
-              )}
-              {effectiveCgst > 0 && (
-                <>
-                  <div className="flex justify-between text-slate-400">
-                    <span>CGST (Central GST):</span>
-                    <span className="font-mono text-slate-200">₹{effectiveCgst.toLocaleString('en-IN')}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-400">
-                    <span>SGST (State GST):</span>
-                    <span className="font-mono text-slate-200">₹{effectiveSgst.toLocaleString('en-IN')}</span>
-                  </div>
-                </>
-              )}
-              {effectiveIgst > 0 && (
-                <div className="flex justify-between text-slate-400">
-                  <span>IGST (Integrated GST):</span>
-                  <span className="font-mono text-slate-200">₹{effectiveIgst.toLocaleString('en-IN')}</span>
-                </div>
-              )}
-
-              {/* Shipping + Other Charges */}
-              <div className="flex gap-2">
-                <div className="flex-1 space-y-1">
-                  <label className="text-[10px] text-slate-400">Shipping (₹)</label>
-                  <input type="number" min={0} step={0.01} value={shippingCharge}
-                    onChange={(e) => setShippingCharge(parseFloat(e.target.value)||0)}
-                    className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-slate-700 text-[10px] font-mono outline-none text-right"
-                  />
-                </div>
-                <div className="flex-1 space-y-1">
-                  <label className="text-[10px] text-slate-400">Other Charges (₹)</label>
-                  <input type="number" min={0} step={0.01} value={otherCharges}
-                    onChange={(e) => setOtherCharges(parseFloat(e.target.value)||0)}
-                    className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-slate-700 text-[10px] font-mono outline-none text-right"
-                  />
-                </div>
-              </div>
-
-              {/* TDS / TCS — compact inline toggle, matching standard invoicing UX */}
-              <div className="flex items-center gap-2">
-                <label className="flex items-center gap-1 text-[11px] text-slate-300 cursor-pointer">
-                  <input type="radio" name="taxadj" checked={!applyTcs} onChange={() => setApplyTcs(false)} className="accent-amber-500" /> TDS
-                </label>
-                <label className="flex items-center gap-1 text-[11px] text-slate-300 cursor-pointer">
-                  <input type="radio" name="taxadj" checked={applyTcs} onChange={() => { setApplyTcs(true); setTdsSection(""); setTdsAmount(0); }} className="accent-blue-500" /> TCS
-                </label>
-                {!applyTcs ? (
-                  <select
-                    value={tdsSection}
-                    onChange={(e) => {
-                      const sec = e.target.value;
-                      setTdsSection(sec);
-                      const rateMap: Record<string,number> = {
-                        "194C_ind": 1, "194C_comp": 2, "194J_prof": 10, "194J_tech": 2,
-                        "194I_land": 10, "194I_plant": 2, "194A": 10, "194H": 2, "194IA": 1,
-                        "194IB": 2, "194IC": 10, "194M": 5, "194N": 2, "194O": 1, "194Q": 0.1, "206C": 1
-                      };
-                      const rate = rateMap[sec] || 0;
-                      setTdsRate(rate);
-                      setTdsAmount(Math.round(liveResults.subtotal * rate / 100 * 100) / 100);
-                    }}
-                    className="flex-1 bg-white/5 border border-slate-700 rounded px-2 py-1 text-slate-200 text-[10px] outline-none"
-                  >
-                    <option value="">Select a Tax</option>
-                    <optgroup label="Contract — Sl.6 (was 194C)">
-                      <option value="194C_ind">Contractor (Ind/HUF) @ 1%</option>
-                      <option value="194C_comp">Contractor (Company) @ 2%</option>
-                    </optgroup>
-                    <optgroup label="Professional/Technical — Sl.12 (was 194J)">
-                      <option value="194J_prof">Professional Services @ 10%</option>
-                      <option value="194J_tech">Technical Services @ 2%</option>
-                    </optgroup>
-                    <optgroup label="Rent — Sl.2 (was 194I/194IB)">
-                      <option value="194I_land">Rent — Land/Building @ 10%</option>
-                      <option value="194I_plant">Rent — Plant/Machinery @ 2%</option>
-                      <option value="194IB">Rent by Individual/HUF @ 2%</option>
-                      <option value="194IC">JDA Payment @ 10%</option>
-                    </optgroup>
-                    <optgroup label="Other — Sec 393">
-                      <option value="194A">Interest, Non-Bank @ 10%</option>
-                      <option value="194H">Commission/Brokerage @ 2%</option>
-                      <option value="194IA">Immovable Property @ 1%</option>
-                      <option value="194M">Payments by Ind/HUF @ 5%</option>
-                      <option value="194O">E-Commerce @ 1%</option>
-                      <option value="194Q">Purchase of Goods @ 0.1%</option>
-                      <option value="194N">Cash Withdrawal @ 2%</option>
-                    </optgroup>
-                  </select>
-                ) : (
-                  <span className="flex-1 text-[10px] text-blue-300">Collect TCS @ 0.1% (Sec 206C(1H))</span>
-                )}
-                <span className="font-mono text-[11px] text-slate-300 w-16 text-right">
-                  −₹{applyTcs ? (liveResults.total * 0.001).toFixed(2) : tdsAmount.toFixed(2)}
-                </span>
-              </div>
-              {!applyTcs && tdsSection && (
-                <div className="flex items-center gap-2 -mt-1">
-                  <span className="text-amber-400 text-[10px] ml-auto">Override TDS @ {tdsRate}% = ₹</span>
-                  <input
-                    type="number" min={0} step={0.01} value={tdsAmount}
-                    onChange={(e) => setTdsAmount(parseFloat(e.target.value) || 0)}
-                    className="w-24 bg-amber-50/10 border border-amber-700/40 rounded px-2 py-0.5 text-amber-300 text-[10px] font-mono outline-none text-right"
-                  />
-                </div>
-              )}
-
-              {/* Rounding Off */}
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="chk-rounding"
-                  checked={roundingOff}
-                  onChange={(e) => setRoundingOff(e.target.checked)}
-                  className="accent-emerald-500 cursor-pointer"
-                />
-                <label htmlFor="chk-rounding" className="text-slate-400 text-[10px] cursor-pointer select-none">
-                  Round off total to nearest ₹1
-                </label>
-                {roundingOff && (() => {
-                  const preRound = finalTotal - tdsAmount;
-                  const rounded = Math.round(preRound);
-                  const diff = rounded - preRound;
-                  return diff !== 0 ? (
-                    <span className="font-mono text-[10px] text-slate-500">({diff > 0 ? '+' : ''}{diff.toFixed(2)})</span>
-                  ) : null;
-                })()}
-              </div>
-
-              <div className="border-t border-slate-800 pt-2 flex justify-between font-bold text-slate-100 text-sm">
-                <span>Grand Total:</span>
-                <span className="font-mono text-emerald-400">
-                  ₹{(() => {
-                    const base = finalTotal - tdsAmount;
-                    return (roundingOff ? Math.round(base) : Math.round(base * 100) / 100).toLocaleString('en-IN');
-                  })()}
-                </span>
-              </div>
-              {tdsSection && (
-                <div className="text-[10px] text-amber-500/80 italic">* TDS of ₹{tdsAmount.toFixed(2)} deducted at source ({tdsSection.replace('_',' ').toUpperCase()})</div>
-              )}
             </div>
 
-            {/* Notes, T&C, Recurring */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-800 pt-4">
-              <div className="space-y-1.5">
-                <label className="text-xs text-slate-400 font-medium">Customer Notes</label>
-                <textarea rows={3} value={invoiceNotes} onChange={(e) => setInvoiceNotes(e.target.value)}
-                  placeholder="e.g. Thank you for your business!"
-                  className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-slate-300 text-xs focus:border-slate-700 outline-none resize-none"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs text-slate-400 font-medium">Terms & Conditions</label>
-                <textarea rows={3} value={termsAndConditions} onChange={(e) => setTermsAndConditions(e.target.value)}
-                  placeholder="e.g. Payment due within 30 days..."
-                  className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-slate-300 text-xs focus:border-slate-700 outline-none resize-none"
-                />
-              </div>
-            </div>
-            <div className="flex items-center gap-4 flex-wrap">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={isRecurring} onChange={(e) => setIsRecurring(e.target.checked)} className="accent-indigo-500" />
-                <span className="text-xs text-slate-400 font-medium">🔄 Make Recurring</span>
-              </label>
-              {isRecurring && (
-                <select value={recurringFrequency} onChange={(e) => setRecurringFrequency(e.target.value as any)}
-                  className="bg-slate-950 border border-slate-800 rounded px-2 py-1 text-slate-300 text-xs outline-none">
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                  <option value="quarterly">Quarterly</option>
-                  <option value="yearly">Yearly</option>
-                </select>
-              )}
-            </div>
-            <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
-              <button 
-                type="button"
-                onClick={() => setShowForm(false)}
-                className="border border-slate-800 hover:border-slate-750 font-medium text-slate-300 text-xs px-4 py-2 rounded-lg cursor-pointer"
-              >
-                Cancel
-              </button>
-              
+            {/* Sticky bottom action bar — Zoho style */}
+            <div className="border-t border-gray-200 bg-gray-50 px-6 py-3 flex items-center gap-3 rounded-b-xl">
               {!isProforma && (
                 <button 
                   type="button"
                   onClick={(e) => handleInvoiceSubmit(e, "Draft")}
-                  className="flex items-center gap-2 bg-[#8C867A]/20 hover:bg-[#8C867A]/30 border border-[#8C867A]/50 font-semibold text-[#E5E1D8] text-xs px-4 py-2 rounded-lg cursor-pointer transition"
+                  className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium px-4 py-2 rounded cursor-pointer transition"
                 >
-                  Save as Draft Invoice
+                  Save as Draft
                 </button>
               )}
-
               <button 
                 type="button"
                 disabled={isSaving}
                 onClick={(e) => handleInvoiceSubmit(e, isProforma ? "Draft" : "Approved")}
-                className="flex items-center gap-2 bg-emerald-600/90 hover:bg-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed font-medium text-white text-xs px-5 py-2 rounded-lg cursor-pointer select-none transition border border-emerald-500/25"
+                className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-medium px-5 py-2 rounded cursor-pointer select-none transition"
               >
-                <Save className="w-3.5 h-3.5" />
-                {isSaving ? "Saving..." : (isProforma ? "Draft Proforma" : "Settle as Approved")}
+                {isSaving ? "Saving..." : (isProforma ? "Save Proforma" : "Save and Send")}
+              </button>
+              <button 
+                type="button"
+                onClick={() => setShowForm(false)}
+                className="text-gray-500 hover:text-gray-700 text-sm font-medium px-4 py-2 rounded cursor-pointer"
+              >
+                Cancel
               </button>
             </div>
           </form>
