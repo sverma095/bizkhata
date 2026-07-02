@@ -33,9 +33,11 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
   const [editingOrg, setEditingOrg] = useState<Organization | null>(null);
   const [editSeats, setEditSeats] = useState<number>(5);
   const [editStatus, setEditStatus] = useState<'Active' | 'Suspended'>('Active');
+  const [editExpiry, setEditExpiry] = useState<string>('');
   
   const [pendingActionReg, setPendingActionReg] = useState<RegistrationRequest | null>(null);
   const [actionFeedback, setActionFeedback] = useState('');
+  const [approvalMonths, setApprovalMonths] = useState(12);
 
   // SaaS Owner: new tenant enrollment form (merged in from the old separate Owner console)
   const [showNewOrgForm, setShowNewOrgForm] = useState(false);
@@ -136,7 +138,8 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
         },
         body: JSON.stringify({
           status: editStatus,
-          allocatedSeats: editSeats
+          allocatedSeats: editSeats,
+          ...(editExpiry ? { subscriptionExpiresAt: new Date(editExpiry).toISOString() } : {})
         })
       });
 
@@ -166,7 +169,8 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
         },
         body: JSON.stringify({
           action,
-          feedback: actionFeedback
+          feedback: actionFeedback,
+          subscriptionMonths: approvalMonths
         })
       });
 
@@ -538,6 +542,7 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                       <th className="p-3">Licensing limits</th>
                       <th className="p-3">Profile Status</th>
                       <th className="p-3">Registered On</th>
+                      <th className="p-3">Subscription Expiry</th>
                       <th className="p-3 text-right">Operational Actions</th>
                     </tr>
                   </thead>
@@ -564,18 +569,42 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                               {org.status}
                             </span>
                           </td>
-                          <td className="p-3 text-[11px] text-slate-500">{new Date(org.createdAt).toLocaleDateString()}</td>
-                          <td className="p-3 text-right">
+                          <td className="p-3 text-[11px] text-slate-500">
+                            <div>{org.createdAt ? new Date(org.createdAt).toLocaleDateString('en-IN') : '—'}</div>
+                            {(org as any).approvedAt && (
+                              <div className="text-[10px] text-emerald-600">✓ Approved {new Date((org as any).approvedAt).toLocaleDateString('en-IN')}</div>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            {(org as any).subscriptionExpiresAt ? (() => {
+                              const expiry = new Date((org as any).subscriptionExpiresAt);
+                              const daysLeft = Math.ceil((expiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                              const isExpired = daysLeft <= 0;
+                              const isSoon = daysLeft > 0 && daysLeft <= 30;
+                              return (
+                                <div>
+                                  <div className={`text-[11px] font-mono font-bold ${isExpired ? 'text-rose-600' : isSoon ? 'text-amber-600' : 'text-emerald-700'}`}>
+                                    {expiry.toLocaleDateString('en-IN')}
+                                  </div>
+                                  <div className={`text-[10px] ${isExpired ? 'text-rose-400' : isSoon ? 'text-amber-400' : 'text-slate-400'}`}>
+                                    {isExpired ? 'EXPIRED' : `${daysLeft}d left`}
+                                  </div>
+                                </div>
+                              );
+                            })() : <span className="text-slate-300 text-[10px]">Not set</span>}
+                          </td>
+                          <td className="p-3 text-right flex gap-1.5 justify-end">
                             <button
                               id={`btn-edit-org-${org.id}`}
                               onClick={() => {
                                 setEditingOrg(org);
                                 setEditSeats(org.allocatedSeats);
                                 setEditStatus(org.status as any);
+                                setEditExpiry((org as any).subscriptionExpiresAt ? new Date((org as any).subscriptionExpiresAt).toISOString().split('T')[0] : '');
                               }}
-                              className="px-2.5 py-1 text-slate-700 hover:text-sky-600 bg-slate-100 hover:bg-sky-50 border border-slate-200 rounded font-sans font-bold transition"
+                              className="px-2.5 py-1 text-slate-700 hover:text-sky-600 bg-slate-100 hover:bg-sky-50 border border-slate-200 rounded font-sans font-bold transition text-[11px]"
                             >
-                              Configure limits
+                              Configure
                             </button>
                           </td>
                         </tr>
@@ -730,8 +759,40 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                   <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
                     Confirm Action for: <span className="text-slate-850 p-1 px-2 rounded bg-white font-mono">{pendingActionReg.companyName}</span>
                   </h4>
+
+                  {/* Registration date info */}
+                  <div className="bg-white border border-slate-200 rounded p-3 text-xs space-y-1">
+                    <div className="flex justify-between text-slate-500">
+                      <span>Registered on:</span>
+                      <span className="font-mono text-slate-700">{new Date(pendingActionReg.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-500">
+                      <span>Subscription Period:</span>
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={approvalMonths}
+                          onChange={(e) => setApprovalMonths(parseInt(e.target.value))}
+                          className="border border-slate-300 rounded px-2 py-0.5 text-xs text-slate-700 bg-white outline-none"
+                        >
+                          <option value={1}>1 Month</option>
+                          <option value={3}>3 Months</option>
+                          <option value={6}>6 Months</option>
+                          <option value={12}>12 Months (1 Year)</option>
+                          <option value={24}>24 Months (2 Years)</option>
+                          <option value={36}>36 Months (3 Years)</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="flex justify-between text-slate-500">
+                      <span>Subscription Expires:</span>
+                      <span className="font-mono font-semibold text-emerald-700">
+                        {new Date(Date.now() + approvalMonths * 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </span>
+                    </div>
+                  </div>
+
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Feedback response notes (Optional / Required to query or reject)</label>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Feedback / Notes (Optional — required for query or reject)</label>
                     <textarea
                       id="su-reg-feedback-textarea"
                       placeholder="Comment text details here..."
@@ -745,7 +806,7 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                     <button onClick={() => setPendingActionReg(null)} className="px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-200 rounded">Cancel</button>
                     <button onClick={() => handleRegAction('RequestInfo')} className="px-4 py-1.5 text-xs font-bold text-white bg-amber-500 hover:bg-amber-400 rounded">Submit query</button>
                     <button id="su-btn-confirm-reject" onClick={() => handleRegAction('Reject')} className="px-4 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 rounded">Confirm rejection</button>
-                    <button id="su-btn-confirm-approve" onClick={() => handleRegAction('Approve')} className="px-4 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded">Authorize approval</button>
+                    <button id="su-btn-confirm-approve" onClick={() => handleRegAction('Approve')} className="px-4 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded">Authorize approval ({approvalMonths}M)</button>
                   </div>
                 </div>
               )}
