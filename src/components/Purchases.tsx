@@ -16,7 +16,8 @@ import {
   Calendar,
   X,
   PlusCircle,
-  Lock
+  Lock,
+  Search
 } from "lucide-react";
 
 interface PurchasesProps {
@@ -447,298 +448,238 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
 
       {/* RECORD EXPENSE ENTRY FORM */}
       {showExpenseForm && (
-        <div id="expense-outflow-form" className="card-lift bg-white border border-slate-200 rounded-xl p-6">
-          <div className="flex justify-between items-center border-b border-slate-200 pb-3 mb-4">
-            <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-              <Receipt className="text-rose-450 w-4.5 h-4.5" />
-              Record New Expense
+        <div id="expense-outflow-form" className="bg-white border border-gray-200 rounded-xl shadow-sm">
+          {/* Header */}
+          <div className="flex justify-between items-center border-b border-gray-200 px-6 py-4">
+            <h4 className="text-base font-semibold text-gray-800 flex items-center gap-2">
+              <Receipt className="w-5 h-5 text-blue-600" />
+              Record Expense
             </h4>
             <div className="flex items-center gap-2">
               <button 
                 type="button"
                 onClick={() => onTriggerAI("categorize")}
-                className="bg-indigo-600 hover:bg-indigo-505 border border-indigo-500 text-white font-semibold text-[10px] px-3 py-1.5 rounded-lg flex items-center gap-1.5 cursor-pointer"
+                className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium px-3 py-1.5 rounded cursor-pointer"
               >
-                <Sparkles className="w-3.5 h-3.5 animate-pulse text-yellow-300" />
-                AI Auto-Categorize Category
+                <Sparkles className="w-3.5 h-3.5" />
+                AI Categorize
               </button>
-              <button onClick={() => setShowExpenseForm(false)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button>
+              <button onClick={() => setShowExpenseForm(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
             </div>
           </div>
 
-          {/* Tab switcher: Details | GST Treatment */}
-          <div className="flex gap-1 mb-4 border-b border-slate-200">
-            <button type="button" onClick={() => setExpTab("details")} className={`px-4 py-2 text-xs font-bold border-b-2 -mb-px transition ${expTab === "details" ? "border-blue-600 text-blue-700" : "border-transparent text-slate-400 hover:text-slate-600"}`}>Expense Details</button>
-            <button type="button" onClick={() => setExpTab("gst")} className={`px-4 py-2 text-xs font-bold border-b-2 -mb-px transition flex items-center gap-1.5 ${expTab === "gst" ? "border-blue-600 text-blue-700" : "border-transparent text-slate-400 hover:text-slate-600"}`}>
-              GST Treatment
-              {expGstTreatment && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />}
+          {/* Tabs: Record Expense | Record Mileage */}
+          <div className="flex border-b border-gray-200 px-6">
+            <button type="button" onClick={() => setExpTab("details")} className={`px-4 py-2.5 text-sm border-b-2 -mb-px transition ${expTab === "details" ? "border-blue-600 text-blue-700 font-medium" : "border-transparent text-gray-500 hover:text-gray-700"}`}>Record Expense</button>
+            <button type="button" onClick={() => setExpTab("gst")} className={`px-4 py-2.5 text-sm border-b-2 -mb-px transition flex items-center gap-1.5 ${expTab === "gst" ? "border-blue-600 text-blue-700 font-medium" : "border-transparent text-gray-500 hover:text-gray-700"}`}>
+              Record Mileage
+              {expGstTreatment && <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
             </button>
           </div>
 
-          <form onSubmit={handleExpenseSubmit} className="space-y-4 text-xs text-slate-300">
+          <form onSubmit={handleExpenseSubmit} className="text-sm">
 
             {expTab === "details" && (
-            <>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-1.5 font-sans">
-                <label className="text-slate-400">Merchant / Creditor Description</label>
-                <input 
-                  type="text" required value={expVendor} placeholder="e.g. Amazon Web Services Pvt Ltd, Indiranagar Rent"
-                  onChange={(e) => setExpVendor(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:border-blue-500 outline-none"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-slate-400">Accounts Ledger Allocation Category</label>
-                <select
-                  required
-                  value={expCategory}
-                  onChange={(e) => setExpCategory(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 font-semibold focus:border-blue-500 outline-none"
-                >
-                  <option value="salary_expense">Salary & Payroll Expense</option>
-                  <option value="contractor_expense">Contractor & Consulting Fee</option>
-                  <option value="rent">Rent & Office Leases</option>
-                  <option value="software_subscription">Software Subscription & Internet</option>
-                  <option value="professional_fees">Legal & Professional Auditing Expense</option>
-                  <option value="bank_charges">Bank Fees & Clearing Charges</option>
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-slate-400">Settle Spend Date</label>
-                <input 
-                  type="date" required value={expDate} onChange={(e) => setExpDate(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:border-blue-500 outline-none"
-                />
-              </div>
-            </div>
-
-            {/* Goods vs Services — drives whether SAC or HSN shows on the GST Treatment tab */}
-            <div className="flex items-center gap-5 font-sans">
-              <span className="text-slate-400">Expense Type<span className="text-red-500">*</span></span>
-              <label className="flex items-center gap-1.5 cursor-pointer text-slate-700"><input type="radio" checked={expType === "Goods"} onChange={() => setExpType("Goods")} className="accent-blue-600" /> Goods</label>
-              <label className="flex items-center gap-1.5 cursor-pointer text-slate-700"><input type="radio" checked={expType === "Services"} onChange={() => setExpType("Services")} className="accent-blue-600" /> Services</label>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-slate-400">Amount Is</label>
-                <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded px-3 py-2">
-                  <label className="flex items-center gap-1.5 cursor-pointer text-slate-700"><input type="radio" checked={expTaxInclusive} onChange={() => setExpTaxInclusive(true)} className="accent-blue-600" /> Inclusive</label>
-                  <label className="flex items-center gap-1.5 cursor-pointer text-slate-700"><input type="radio" checked={!expTaxInclusive} onChange={() => setExpTaxInclusive(false)} className="accent-blue-600" /> Exclusive</label>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-slate-400">{expTaxInclusive ? "Total Amount (incl. GST) (₹)" : "Expense Value Net of GST (₹)"}</label>
-                <input 
-                  type="number" required min={1} value={expSubtotal}
-                  onChange={(e) => setExpSubtotal(parseFloat(e.target.value) || 0)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 font-mono font-bold focus:border-blue-500 outline-none"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-slate-400">Tax Rate</label>
-                <select value={expTaxRate} onChange={(e) => setExpTaxRate(parseFloat(e.target.value))}
-                  className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 font-semibold focus:border-blue-500 outline-none">
-                  <option value={0}>No Tax</option>
-                  <option value={5}>GST 5%</option>
-                  <option value={12}>GST 12%</option>
-                  <option value={18}>GST 18%</option>
-                  <option value={28}>GST 28%</option>
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-slate-400">Input-Tax GST Reclaim (₹)</label>
-                <input 
-                  type="number" min={0} value={expGst} readOnly
-                  className="w-full bg-slate-100 border border-slate-200 rounded px-3 py-2 text-slate-600 font-mono outline-none cursor-not-allowed"
-                />
-              </div>
-
-              {expGst > 0 && (
-                <div className="space-y-1.5 md:col-span-4">
-                  <label className="flex items-center gap-2 cursor-pointer bg-amber-50 border border-amber-200 rounded-lg p-2.5">
-                    <input type="checkbox" checked={expIsRcm} onChange={e => setExpIsRcm(e.target.checked)} className="accent-amber-600" />
-                    <span className="text-xs text-amber-800">
-                      <span className="font-bold">Reverse Charge Mechanism (RCM)</span> — vendor did not charge this GST; you self-assess and pay it directly to the government.
-                    </span>
-                  </label>
-                </div>
-              )}
-
-              <div className="space-y-1.5">
-                <label className="text-slate-400">TDS Withheld (Crediting Tax Liability) (₹)</label>
-                <input 
-                  type="number" min={0} value={expTds}
-                  onChange={(e) => setExpTds(parseFloat(e.target.value) || 0)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 font-mono focus:border-blue-500 outline-none"
-                />
-              </div>
-              {expTds > 0 && (
-                <div className="space-y-1.5">
-                  <label className="text-slate-400">TDS Section <span className="text-red-500">*</span></label>
-                  <select value={expTdsSection} onChange={e => setExpTdsSection(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:border-blue-500 outline-none">
-                    <option value="194C">Sec 393(1) Table Sl.6(i) — Contractor Payments (was 194C)</option>
-                    <option value="194J">Sec 393(1) Table Sl.12 — Professional / Technical Fees (was 194J)</option>
-                    <option value="194I">Sec 393(1) Table Sl.8 — Rent (was 194I)</option>
-                    <option value="194H">Sec 393(1) Table Sl.10 — Commission / Brokerage (was 194H)</option>
-                    <option value="194A">Sec 393(1) Table Sl.4 — Interest, other than securities (was 194A)</option>
-                    <option value="194Q">Sec 393(1) Table — Purchase of Goods (was 194Q)</option>
-                  </select>
-                  <p className="text-[10px] text-amber-600">Required to generate Challan 281 / Form 16A for this vendor.</p>
-                </div>
-              )}
-
-              <div className="space-y-1.5 font-sans">
-                <label className="text-slate-400">Expense Payment Mode</label>
-                <select 
-                  value={expMode} onChange={(e) => setExpMode(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:border-blue-500 outline-none"
-                >
-                  <option value="Corporate Card">Corporate Credit Card</option>
-                  <option value="Bank Account">Direct NetBanking Debit</option>
-                  <option value="Petty Cash">In-Hand Petty Cash</option>
-                </select>
-              </div>
-
-              <div className="space-y-1.5 font-sans">
-                <label className="text-slate-400">Bill to Customer (optional)</label>
-                <select value={expCustomerId} onChange={(e) => setExpCustomerId(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:border-blue-500 outline-none">
-                  <option value="">Not billable</option>
-                  {(db.customers || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              </div>
-            </div>
-
-            {/* Custom file attachments - Drag & Drop or manual select layout */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div 
-                id="dropzone-expense-receipt"
-                className="border border-dashed border-slate-300 rounded-lg p-5 bg-slate-50 text-center space-y-2 cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all"
-                onClick={() => {
-                  const items = ["Aws_Spend_Invoice.pdf", "Internet_Bill_Airtel.jpeg", "Cafe_Meeting_Receipt.pdf"];
-                  setExpAttachmentName(items[Math.floor(Math.random() * items.length)]);
-                }}
-              >
-                <Upload className="mx-auto w-6 h-6 text-slate-500" />
-                <p className="text-[10px] text-slate-400 font-medium">Click to upload mock receipts and attachment files</p>
-                {expAttachmentName ? (
-                  <span className="text-[9px] bg-indigo-950 text-indigo-400 font-mono px-2 py-0.5 rounded border border-indigo-900 font-bold">
-                    Logged Attachment: {expAttachmentName}
-                  </span>
-                ) : (
-                  <span className="text-[9px] text-slate-600 italic">Supports PDF, Image, Word (Drag/Drop Mimic)</span>
-                )}
-              </div>
-
-              {/* Ledger Preview double entry */}
-              <div className="bg-slate-50 border border-slate-200 p-4 rounded-lg flex flex-col justify-between">
-                <div className="text-[10px] uppercase font-bold text-slate-500 tracking-widest flex items-center gap-1.5">
-                  <Layers className="w-3.5 h-3.5 text-rose-400" />
-                  Expenses Double Entry Effect:
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-[10.5px] font-mono mt-3 select-none leading-relaxed">
-                  <div className="text-slate-500 border-r border-slate-200 pr-2">
-                    <p className="text-emerald-400 font-semibold">• dr. Category Expense: ₹{expTaxInclusive ? Math.round((expSubtotal - expGst) * 100) / 100 : expSubtotal}</p>
-                    {expGst > 0 && <p className="text-teal-400 font-semibold">• dr. Input GST: ₹{expGst}</p>}
+            <div className="flex gap-0">
+              {/* Left: Form fields */}
+              <div className="flex-1 px-6 py-5 space-y-4">
+                <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-500 font-medium">Location</label>
+                    <select className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-800 text-sm focus:border-blue-500 outline-none">
+                      <option>Hyderabad head office</option>
+                    </select>
                   </div>
-                  <div className="text-slate-450 pl-2">
-                    {expTds > 0 && <p className="text-indigo-450 font-semibold">• cr. TDS Payable: ₹{expTds}</p>}
-                    <p className="text-rose-450 font-semibold">• cr. Corporate Bank Account: ₹{(expTaxInclusive ? expSubtotal : expSubtotal + expGst) - expTds}</p>
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-500 font-medium">Date <span className="text-red-500">*</span></label>
+                    <input type="date" required value={expDate} onChange={(e) => setExpDate(e.target.value)}
+                      className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-800 text-sm focus:border-blue-500 outline-none"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-500 font-medium">Expense Account <span className="text-red-500">*</span></label>
+                    <select required value={expCategory} onChange={(e) => setExpCategory(e.target.value)}
+                      className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-800 text-sm focus:border-blue-500 outline-none">
+                      <option value="">Select an account</option>
+                      <option value="salary_expense">Salary & Payroll</option>
+                      <option value="contractor_expense">Contractor & Consulting</option>
+                      <option value="rent">Rent & Office Leases</option>
+                      <option value="software_subscription">Software & Internet</option>
+                      <option value="professional_fees">Professional & Legal Fees</option>
+                      <option value="bank_charges">Bank Fees</option>
+                    </select>
+                    <button type="button" className="text-xs text-blue-600 hover:underline">Itemize</button>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-500 font-medium">Amount <span className="text-red-500">*</span></label>
+                    <div className="flex items-center gap-1">
+                      <span className="bg-gray-100 border border-gray-300 rounded-l px-2 py-2 text-gray-600 text-sm">INR</span>
+                      <input type="number" required min={0} value={expSubtotal}
+                        onChange={(e) => setExpSubtotal(parseFloat(e.target.value) || 0)}
+                        className="flex-1 bg-white border border-gray-300 rounded-r px-3 py-2 text-gray-800 text-sm focus:border-blue-500 outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-500 font-medium">Paid Through <span className="text-red-500">*</span></label>
+                    <select value={expMode} onChange={(e) => setExpMode(e.target.value)}
+                      className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-800 text-sm focus:border-blue-500 outline-none">
+                      <option value="Bank Account">DBS Bank India Limited</option>
+                      <option value="Corporate Card">Corporate Credit Card</option>
+                      <option value="Petty Cash">Petty Cash</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-500 font-medium">Expense Type</label>
+                    <div className="flex items-center gap-4 py-2">
+                      <label className="flex items-center gap-1.5 cursor-pointer text-gray-700 text-sm"><input type="radio" checked={expType === "Goods"} onChange={() => setExpType("Goods")} className="accent-blue-600" /> Goods</label>
+                      <label className="flex items-center gap-1.5 cursor-pointer text-gray-700 text-sm"><input type="radio" checked={expType === "Services"} onChange={() => setExpType("Services")} className="accent-blue-600" /> Services</label>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-500 font-medium">SAC</label>
+                    <input type="text" placeholder=""
+                      className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-800 text-sm focus:border-blue-500 outline-none"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-500 font-medium">Vendor</label>
+                    <div className="flex gap-1">
+                      <input type="text" value={expVendor} onChange={(e) => setExpVendor(e.target.value)} placeholder=""
+                        className="flex-1 bg-white border border-gray-300 rounded px-3 py-2 text-gray-800 text-sm focus:border-blue-500 outline-none"
+                      />
+                      <button type="button" className="border border-gray-300 bg-white px-2 py-1 rounded text-gray-500 hover:bg-gray-50">
+                        <Search className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-500 font-medium">GST Treatment <span className="text-red-500">*</span></label>
+                    <select value={expGstTreatment} onChange={(e) => setExpGstTreatment(e.target.value)}
+                      className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-800 text-sm focus:border-blue-500 outline-none">
+                      <option value="">Select</option>
+                      <option value="regular">Registered — Regular</option>
+                      <option value="composition">Registered — Composition</option>
+                      <option value="unregistered">Unregistered</option>
+                      <option value="consumer">Consumer</option>
+                      <option value="overseas">Overseas</option>
+                      <option value="sez">SEZ</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-500 font-medium">Source of Supply <span className="text-red-500">*</span></label>
+                    <select value={expSourceSupply} onChange={(e) => setExpSourceSupply(e.target.value)}
+                      className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-800 text-sm focus:border-blue-500 outline-none">
+                      <option value="">State/Province</option>
+                      {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-500 font-medium">Destination of Supply <span className="text-red-500">*</span></label>
+                    <select value={expDestSupply} onChange={(e) => setExpDestSupply(e.target.value)}
+                      className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-800 text-sm focus:border-blue-500 outline-none">
+                      <option value="">State/Province</option>
+                      {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="flex items-center gap-2 cursor-pointer text-gray-600 text-sm">
+                      <input type="checkbox" checked={expIsRcm} onChange={e => setExpIsRcm(e.target.checked)} className="accent-blue-600" />
+                      Reverse Charge
+                    </label>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-500 font-medium">Tax</label>
+                    <select value={expTaxRate} onChange={(e) => setExpTaxRate(parseFloat(e.target.value))}
+                      className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-800 text-sm focus:border-blue-500 outline-none">
+                      <option value={0}>Select a Tax</option>
+                      <option value={5}>GST 5%</option>
+                      <option value={12}>GST 12%</option>
+                      <option value={18}>GST 18%</option>
+                      <option value={28}>GST 28%</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-500 font-medium">Amount Is</label>
+                    <div className="flex items-center gap-4 py-2">
+                      <label className="flex items-center gap-1.5 cursor-pointer text-gray-700 text-sm"><input type="radio" checked={expTaxInclusive} onChange={() => setExpTaxInclusive(true)} className="accent-blue-600" /> Tax Inclusive</label>
+                      <label className="flex items-center gap-1.5 cursor-pointer text-gray-700 text-sm"><input type="radio" checked={!expTaxInclusive} onChange={() => setExpTaxInclusive(false)} className="accent-blue-600" /> Tax Exclusive</label>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-500 font-medium">Invoice# <span className="text-red-500">*</span></label>
+                    <input type="text" placeholder=""
+                      className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-800 text-sm focus:border-blue-500 outline-none"
+                    />
+                  </div>
+                  <div className="space-y-1 col-span-2">
+                    <label className="text-xs text-gray-500 font-medium">Notes</label>
+                    <textarea rows={3} placeholder="Max. 500 characters"
+                      className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-700 text-sm focus:border-blue-400 outline-none resize-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="border-t border-gray-200 pt-4">
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-500 font-medium">Customer Name</label>
+                    <div className="flex gap-1">
+                      <select value={expCustomerId} onChange={(e) => setExpCustomerId(e.target.value)}
+                        className="flex-1 bg-white border border-gray-300 rounded px-3 py-2 text-gray-800 text-sm focus:border-blue-500 outline-none">
+                        <option value="">Select or add a customer</option>
+                        {(db.customers || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                      <button type="button" className="border border-gray-300 bg-white px-2 py-1 rounded text-gray-500 hover:bg-gray-50">
+                        <Search className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
+
+              {/* Right: Receipt upload panel */}
+              <div className="w-52 shrink-0 border-l border-gray-200 p-4 flex flex-col items-center justify-start gap-3 bg-gray-50">
+                <div
+                  id="dropzone-expense-receipt"
+                  className="w-full border border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all"
+                  onClick={() => {
+                    const items = ["Receipt_Invoice.pdf", "Bill_Airtel.jpeg", "Meeting_Receipt.pdf"];
+                    setExpAttachmentName(items[Math.floor(Math.random() * items.length)]);
+                  }}
+                >
+                  <Upload className="mx-auto w-8 h-8 text-gray-400 mb-2" />
+                  <p className="text-xs text-gray-500">Drag or Drop your Receipts</p>
+                  <p className="text-[10px] text-gray-400 mt-1">Maximum file size allowed is 10MB</p>
+                  {expAttachmentName && (
+                    <p className="text-[10px] text-blue-600 mt-2 font-medium">{expAttachmentName}</p>
+                  )}
+                </div>
+                <button type="button" className="flex items-center gap-1.5 border border-gray-300 bg-white text-gray-600 text-xs px-3 py-1.5 rounded hover:bg-gray-50 w-full justify-center">
+                  <Upload className="w-3.5 h-3.5" /> Upload your Files
+                </button>
+              </div>
             </div>
-            </>
             )}
 
             {expTab === "gst" && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5 font-sans">
-                  <label className="text-slate-400">{expType === "Services" ? "SAC (Services Accounting Code)" : "HSN Code"}</label>
-                  <input
-                    type="text"
-                    value={expType === "Services" ? expSac : expHsn}
-                    onChange={(e) => expType === "Services" ? setExpSac(e.target.value) : setExpHsn(e.target.value)}
-                    placeholder={expType === "Services" ? "e.g. 998314" : "e.g. 8443"}
-                    className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 font-mono focus:border-blue-500 outline-none"
-                  />
-                </div>
-                <div className="space-y-1.5 font-sans">
-                  <label className="text-slate-400">GST Treatment <span className="text-red-500">*</span></label>
-                  <select value={expGstTreatment} onChange={(e) => setExpGstTreatment(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 font-semibold focus:border-blue-500 outline-none">
-                    <option value="">Select treatment…</option>
-                    <option value="regular">Registered Business — Regular</option>
-                    <option value="composition">Registered Business — Composition</option>
-                    <option value="unregistered">Unregistered Business</option>
-                    <option value="consumer">Consumer</option>
-                    <option value="overseas">Overseas</option>
-                    <option value="sez">Special Economic Zone</option>
-                    <option value="deemed_export">Deemed Export</option>
-                    <option value="non_gst">Non-GST Supply</option>
-                    <option value="out_of_scope">Out Of Scope</option>
-                    <option value="tax_deductor">Tax Deductor</option>
-                    <option value="sez_developer">SEZ Developer</option>
-                    <option value="isd">Input Service Distributor</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5 font-sans">
-                  <label className="text-slate-400">Source of Supply <span className="text-red-500">*</span></label>
-                  <select value={expSourceSupply} onChange={(e) => setExpSourceSupply(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:border-blue-500 outline-none">
-                    <option value="">Select State/Province…</option>
-                    {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-1.5 font-sans">
-                  <label className="text-slate-400">Destination of Supply <span className="text-red-500">*</span></label>
-                  <select value={expDestSupply} onChange={(e) => setExpDestSupply(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:border-blue-500 outline-none">
-                    <option value="">Select State/Province…</option>
-                    {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                  {expSourceSupply && expDestSupply && (
-                    <p className="text-[10px] text-slate-400">{expSourceSupply === expDestSupply ? "Intra-state — CGST + SGST applies" : "Inter-state — IGST applies"}</p>
-                  )}
-                </div>
-              </div>
-
-              <label className="flex items-center gap-2 cursor-pointer bg-amber-50 border border-amber-200 rounded-lg p-2.5">
-                <input type="checkbox" checked={expIsRcm} onChange={e => setExpIsRcm(e.target.checked)} className="accent-amber-600" />
-                <span className="text-xs text-amber-800">
-                  <span className="font-bold">This transaction is applicable for Reverse Charge</span> — you self-assess and pay GST directly to the government instead of the vendor.
-                </span>
-              </label>
+            <div className="px-6 py-5 space-y-4">
+              <p className="text-sm text-gray-500">Mileage tracking is not enabled. Please contact support to enable it.</p>
             </div>
             )}
 
-            <div className="flex justify-end gap-3 pt-3 border-t border-slate-200">
-              <button type="button" onClick={() => setShowExpenseForm(false)} className="border border-slate-300 px-4 py-2 rounded text-slate-600">Cancel</button>
-              <button 
-                type="button" 
-                onClick={(e) => handleExpenseSubmit(e, "Draft")}
-                className="bg-slate-100 hover:bg-slate-200 border border-slate-300 font-semibold text-slate-700 px-4 py-2 rounded text-xs transition cursor-pointer"
-              >
+            {/* Bottom action bar */}
+            <div className="border-t border-gray-200 bg-gray-50 px-6 py-3 flex items-center gap-3 rounded-b-xl">
+              <button type="button" onClick={(e) => handleExpenseSubmit(e, "Draft")}
+                className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium px-4 py-2 rounded cursor-pointer transition">
                 Save as Draft
               </button>
-              <button 
-                type="button" 
-                onClick={(e) => handleExpenseSubmit(e, "Pending Approval")}
-                className="bg-emerald-600 hover:bg-emerald-500 px-5 py-2 rounded text-white font-bold select-none cursor-pointer"
-              >
-                Submit for Approval
+              <button type="button" onClick={(e) => handleExpenseSubmit(e, "Pending Approval")}
+                className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-5 py-2 rounded cursor-pointer select-none transition">
+                Save and New
+              </button>
+              <button type="button" onClick={() => setShowExpenseForm(false)}
+                className="text-gray-500 hover:text-gray-700 text-sm font-medium px-4 py-2 rounded cursor-pointer">
+                Cancel
               </button>
             </div>
           </form>
@@ -827,191 +768,261 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
 
       {/* RECORD SUPPLIER VENDOR BILL FORM */}
       {showBillForm && (
-        <div id="supplier-bill-form" className="card-lift bg-white border border-slate-200 rounded-xl p-6">
-          <div className="flex justify-between items-center border-b border-slate-200 pb-2.5 mb-4">
-            <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-              <FileText className="w-4 h-4 text-indigo-455" />
-              Record Vendor Invoice
+        <div id="supplier-bill-form" className="bg-white border border-gray-200 rounded-xl shadow-sm">
+          <div className="flex justify-between items-center border-b border-gray-200 px-6 py-4">
+            <h4 className="text-base font-semibold text-gray-800 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-blue-600" />
+              New Bill
             </h4>
-            <button onClick={() => setShowBillForm(false)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button>
+            <button onClick={() => setShowBillForm(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
           </div>
 
-          <form onSubmit={handleBillSubmit} className="space-y-4 text-xs text-slate-300">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-1.5 font-sans">
-                <label className="text-slate-400">Supplier Vendor Account</label>
+          <form onSubmit={handleBillSubmit} className="text-sm">
+            <div className="px-6 py-5 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+              <div className="space-y-1">
+                <label className="text-xs text-gray-500 font-medium">Vendor Name <span className="text-red-500">*</span></label>
+                <div className="flex gap-1">
                 <select
                   required
                   value={billVendorId}
                   onChange={(e) => setBillVendorId(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:border-blue-500 outline-none"
+                  className="flex-1 bg-white border border-gray-300 rounded px-3 py-2 text-gray-800 text-sm focus:border-blue-500 outline-none"
                 >
-                  <option value="">-- Choose Vendor Supplier --</option>
+                  <option value="">Select a Vendor</option>
                   {db.vendors.map(v => (
                     <option key={v.id} value={v.id}>{v.name} {v.gstin ? `· ${v.gstin}` : "(Unregistered)"}</option>
                   ))}
                 </select>
-                {/* Vendor details preview */}
+                <button type="button" className="border border-gray-300 bg-white px-2 py-2 rounded text-gray-500 hover:bg-gray-50">
+                  <Search className="w-4 h-4" />
+                </button>
+                </div>
                 {billVendorId && (() => {
                   const vend = db.vendors.find((v: any) => v.id === billVendorId);
                   if (!vend) return null;
-                  const effectiveAddress = billAddressOverride !== null ? billAddressOverride : vend.billingAddress;
                   return (
-                    <div className="mt-1.5 bg-blue-50 border border-blue-100 rounded-lg p-2.5 text-[10px] space-y-0.5">
-                      {vend.legalName && vend.legalName !== vend.name && <div className="text-slate-500">Legal: <span className="text-slate-700">{vend.legalName}</span></div>}
-                      {vend.gstin && <div className="text-slate-400">GSTIN: <span className="font-mono text-emerald-400">{vend.gstin}</span></div>}
-                      {vend.pan && <div className="text-slate-500">PAN: <span className="font-mono text-slate-700">{vend.pan}</span></div>}
-                      <div className="text-slate-400 flex items-start gap-1.5">
-                        <span className="shrink-0">Address:</span>
-                        {billAddressOverride !== null ? (
-                          <textarea
-                            value={billAddressOverride}
-                            onChange={(e) => setBillAddressOverride(e.target.value)}
-                            rows={2}
-                            className="flex-1 bg-white border border-blue-200 rounded px-1.5 py-0.5 text-slate-700 text-[10px] outline-none focus:border-blue-400"
-                          />
-                        ) : (
-                          <>
-                            <span className="text-slate-300">{effectiveAddress || "—"}</span>
-                            <button type="button" onClick={() => setBillAddressOverride(vend.billingAddress || "")} className="text-blue-500 hover:underline shrink-0 ml-auto">Edit for this bill</button>
-                          </>
-                        )}
-                      </div>
-                      {vend.email && <div className="text-slate-400">Email: <span className="text-slate-300">{vend.email}</span></div>}
-                      {!vend.gstin && <div className="text-amber-400 font-semibold">⚠ Unregistered Vendor</div>}
+                    <div className="mt-1 bg-blue-50 border border-blue-100 rounded p-2 text-xs space-y-0.5">
+                      {vend.gstin && <div className="text-gray-500">GSTIN: <span className="font-mono text-green-700">{vend.gstin}</span></div>}
+                      {!vend.gstin && <div className="text-amber-600 font-medium">⚠ Unregistered Vendor</div>}
                     </div>
                   );
                 })()}
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-slate-400">Vendor Invoice Number</label>
-                <input 
-                  type="text" required value={billNumber} placeholder="e.g. BILL-ACME-8902"
-                  onChange={(e) => setBillNumber(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:border-blue-500 outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1.5">
-                  <label className="text-slate-400">Bill Date</label>
-                  <input 
-                    type="date" required value={billDate} onChange={(e) => setBillDate(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded px-3.5 py-2 text-slate-800 focus:border-blue-500 outline-none text-[11px]"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-slate-450">Due Limit Date</label>
-                  <input 
-                    type="date" required value={billDueDate} onChange={(e) => setBillDueDate(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded px-3.5 py-2 text-slate-800 focus:border-blue-500 outline-none text-[11px]"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-1.5 font-sans">
-                <label className="text-slate-400 font-bold">Bill Subtotal (Taxable Value) (₹)</label>
-                <input 
-                  type="number" required min={1} value={billSubtotal}
-                  onChange={(e) => setBillSubtotal(parseFloat(e.target.value) || 0)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 font-mono font-bold focus:border-blue-500 outline-none"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-slate-400">GST Input tax claim rate category (%)</label>
-                <select 
-                  value={billGstRate} onChange={(e) => setBillGstRate(parseInt(e.target.value) || 18)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:border-blue-500 outline-none"
-                >
-                  <option value="5">Standard 5% Rate</option>
-                  <option value="12">Standard 12% Rate</option>
-                  <option value="18">Standard 18% Rate (Professional/It)</option>
-                  <option value="28">Luxury/Tobacco 28% Rate</option>
+              <div className="space-y-1">
+                <label className="text-xs text-gray-500 font-medium">Location</label>
+                <select className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-800 text-sm focus:border-blue-500 outline-none">
+                  <option>Hyderabad head office</option>
                 </select>
               </div>
 
-              <div className="space-y-1.5 col-span-2">
-                <label className="flex items-center gap-2 cursor-pointer bg-amber-50 border border-amber-200 rounded-lg p-3">
-                  <input type="checkbox" checked={billIsRcm} onChange={e => setBillIsRcm(e.target.checked)} className="accent-amber-600" />
-                  <span className="text-xs text-amber-800">
-                    <span className="font-bold">Reverse Charge Mechanism (RCM)</span> — vendor does not charge GST; you self-assess and pay GST directly to the government (e.g. unregistered vendor, GTA, legal services, import of services).
-                  </span>
+              <div className="space-y-1">
+                <label className="text-xs text-gray-500 font-medium">Bill# <span className="text-red-500">*</span></label>
+                <input type="text" required value={billNumber} placeholder=""
+                  onChange={(e) => setBillNumber(e.target.value)}
+                  className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-800 text-sm focus:border-blue-500 outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs text-gray-500 font-medium">Order Number</label>
+                <input type="text" placeholder=""
+                  className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-800 text-sm focus:border-blue-500 outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs text-gray-500 font-medium">Account</label>
+                <textarea rows={2} placeholder="You can enter a maximum of 36000 characters"
+                  className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-700 text-sm focus:border-blue-400 outline-none resize-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs text-gray-500 font-medium">Bill Date <span className="text-red-500">*</span></label>
+                <input type="date" required value={billDate} onChange={(e) => setBillDate(e.target.value)}
+                  className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-800 text-sm focus:border-blue-500 outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs text-gray-500 font-medium">Due Date</label>
+                <div className="flex gap-2 items-center">
+                  <input type="date" value={billDueDate} onChange={(e) => setBillDueDate(e.target.value)}
+                    className="flex-1 bg-white border border-gray-300 rounded px-3 py-2 text-gray-800 text-sm focus:border-blue-500 outline-none"
+                  />
+                  <div className="space-y-0.5">
+                    <label className="text-xs text-gray-500">Payment Terms</label>
+                    <select className="bg-white border border-gray-300 rounded px-2 py-2 text-gray-700 text-sm outline-none">
+                      <option>Due on Receipt</option>
+                      <option>Net 30</option>
+                      <option>Net 45</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="flex items-center gap-2 cursor-pointer text-gray-600 text-sm">
+                  <input type="checkbox" checked={billIsRcm} onChange={e => setBillIsRcm(e.target.checked)} className="accent-blue-600" />
+                  This transaction is applicable for reverse charge
                 </label>
               </div>
-
-              <div className="space-y-1.5 col-span-2">
-                <label className="text-xs font-bold text-[#5A5A40]">Discount</label>
-                <div className="flex items-center gap-2">
-                  <select value={billDiscountType} onChange={e => setBillDiscountType(e.target.value as any)}
-                    className="px-2 py-2 border border-[#E5E1D8] rounded text-sm">
-                    <option value="percent">%</option>
-                    <option value="amount">₹</option>
-                  </select>
-                  <input
-                    type="number" min={0} value={billDiscountValue}
-                    onChange={(e) => setBillDiscountValue(parseFloat(e.target.value) || 0)}
-                    className="flex-1 px-3 py-2 border border-[#E5E1D8] rounded text-sm"
-                    placeholder="0"
-                  />
-                </div>
-                {billDiscountValue > 0 && (
-                  <div className="flex items-center gap-3 text-[10px] pt-0.5">
-                    <label className="flex items-center gap-1 cursor-pointer text-[#5A5A40]"><input type="radio" checked={billDiscountTiming === "before_tax"} onChange={() => setBillDiscountTiming("before_tax")} className="accent-[#5A5A40]" /> Before Tax</label>
-                    <label className="flex items-center gap-1 cursor-pointer text-[#5A5A40]"><input type="radio" checked={billDiscountTiming === "after_tax"} onChange={() => setBillDiscountTiming("after_tax")} className="accent-[#5A5A40]" /> After Tax</label>
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-1.5 col-span-2">
-                <label className="text-xs font-bold text-[#5A5A40]">TDS Deducted at Source (₹)</label>
-                <input
-                  type="number" min={0} value={billTds}
-                  onChange={(e) => setBillTds(parseFloat(e.target.value) || 0)}
-                  className="w-full px-3 py-2 border border-[#E5E1D8] rounded text-sm"
-                />
-                {billTds > 0 && (
-                  <select value={billTdsSection} onChange={e => setBillTdsSection(e.target.value)}
-                    className="w-full px-3 py-2 border border-[#E5E1D8] rounded text-xs mt-1">
-                    <option value="194C">194C — Contractor Payments @ 1-2%</option>
-                    <option value="194J">194J — Professional/Technical Fees @ 10%</option>
-                    <option value="194I">194I — Rent @ 2-10%</option>
-                    <option value="194Q">194Q — Purchase of Goods @ 0.1%</option>
-                  </select>
-                )}
-              </div>
-
-              {/* Calculations review */}
-              {(() => {
-                const sub = Number(billSubtotal);
-                const discountAmt = billDiscountType === "percent" ? Math.round(sub * billDiscountValue / 100 * 100) / 100 : Number(billDiscountValue);
-                const netSub = billDiscountTiming === "before_tax" ? Math.max(0, sub - discountAmt) : sub;
-                const gstAmt = (netSub * billGstRate) / 100;
-                const subAfterDiscount = billDiscountTiming === "before_tax" ? netSub : sub - discountAmt;
-                const payable = (billIsRcm ? subAfterDiscount : subAfterDiscount + gstAmt) - billTds;
-                return (
-                  <div className="bg-slate-100 p-3 rounded border border-slate-200 flex justify-between items-center text-xs font-mono select-none">
-                    <div className="text-slate-500">
-                      {discountAmt > 0 && <p className="text-emerald-600">less discount ({billDiscountTiming === "before_tax" ? "before tax" : "after tax"}): -₹{discountAmt.toLocaleString('en-IN')}</p>}
-                      <p>{billIsRcm ? "Self-Assessed GST (RCM)" : "Incurred GST"}: ₹{gstAmt.toLocaleString('en-IN')}</p>
-                      {billIsRcm && <p className="text-[10px] text-amber-600 font-sans">Not paid to vendor — pay this directly via GST portal.</p>}
-                      {billTds > 0 && <p className="text-indigo-500">less TDS withheld: ₹{billTds} (cr. TDS Payable)</p>}
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[10px] text-slate-500 font-normal font-sans text-slate-400">{billIsRcm ? "Payable to vendor (excl. GST):" : "Total payable sum:"}</p>
-                      <p className="text-indigo-400 font-bold">₹{payable.toLocaleString('en-IN')}</p>
-                    </div>
-                  </div>
-                );
-              })()}
+            </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-3 border-t border-[#E5E1D8] font-medium font-bold">
-              <button type="button" onClick={() => setShowBillForm(false)} className="border border-[#E5E1D8] px-4 py-2 rounded text-[#8C867A] hover:bg-[#F5F2ED] transition cursor-pointer">Cancel</button>
-              <button type="submit" className="bg-[#5A5A40] hover:bg-[#4E4E37] px-5 py-2 rounded text-white font-bold select-none cursor-pointer border border-[#5A5A40]">Settle Payable Invoice</button>
+            {/* Item Table */}
+            <div className="border-t border-gray-200">
+              <div className="px-6 py-3 flex items-center justify-between bg-gray-50 border-b border-gray-200">
+                <span className="text-sm font-semibold text-gray-700">Item Table</span>
+                <button type="button" className="text-xs text-blue-600 hover:underline">Bulk Actions</button>
+              </div>
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-gray-200 text-gray-500 uppercase text-[11px] font-semibold bg-gray-50">
+                    <th className="text-left px-4 py-2.5 w-[30%]">Item Details</th>
+                    <th className="text-left px-3 py-2.5 w-[15%]">Account</th>
+                    <th className="text-right px-3 py-2.5 w-[10%]">Quantity</th>
+                    <th className="text-right px-3 py-2.5 w-[12%]">Rate</th>
+                    <th className="text-center px-3 py-2.5 w-[12%]">Tax</th>
+                    <th className="text-center px-3 py-2.5 w-[12%]">Customer Details</th>
+                    <th className="text-right px-3 py-2.5 w-[10%]">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-gray-100">
+                    <td className="px-4 py-3">
+                      <input type="text" placeholder="Type or click to select an item."
+                        className="w-full bg-white border border-gray-300 rounded px-2 py-1.5 text-gray-700 text-xs focus:border-blue-400 outline-none"
+                      />
+                    </td>
+                    <td className="px-3 py-3">
+                      <select className="w-full bg-white border border-gray-300 rounded px-2 py-1.5 text-gray-700 text-xs outline-none">
+                        <option value="">Select an account</option>
+                      </select>
+                    </td>
+                    <td className="px-3 py-3">
+                      <input type="number" defaultValue="1.00" className="w-full bg-white border border-gray-300 rounded px-2 py-1.5 text-gray-800 text-xs text-right outline-none" />
+                    </td>
+                    <td className="px-3 py-3">
+                      <input type="number" defaultValue="0.00" className="w-full bg-white border border-gray-300 rounded px-2 py-1.5 text-gray-800 text-xs text-right outline-none" />
+                    </td>
+                    <td className="px-3 py-3">
+                      <select className="w-full bg-white border border-gray-300 rounded px-2 py-1.5 text-gray-700 text-xs outline-none">
+                        <option>Select a Tax</option>
+                        <option>GST 5%</option>
+                        <option>GST 12%</option>
+                        <option>GST 18%</option>
+                        <option>GST 28%</option>
+                      </select>
+                    </td>
+                    <td className="px-3 py-3">
+                      <select className="w-full bg-white border border-gray-300 rounded px-2 py-1.5 text-gray-700 text-xs outline-none">
+                        <option>Select Customer</option>
+                        {(db.customers || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                    </td>
+                    <td className="px-3 py-3 text-right font-mono text-gray-800 text-xs">0.00</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div className="px-4 py-3 flex gap-3 border-t border-gray-100">
+                <button type="button" className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1">
+                  <Plus className="w-3.5 h-3.5" /> Add New Row
+                </button>
+              </div>
+
+              {/* Totals */}
+              <div className="flex justify-end px-4 pb-4">
+                {(() => {
+                  const sub = Number(billSubtotal);
+                  const discountAmt = billDiscountType === "percent" ? Math.round(sub * billDiscountValue / 100 * 100) / 100 : Number(billDiscountValue);
+                  const netSub = billDiscountTiming === "before_tax" ? Math.max(0, sub - discountAmt) : sub;
+                  const gstAmt = (netSub * billGstRate) / 100;
+                  const subAfterDiscount = billDiscountTiming === "before_tax" ? netSub : sub - discountAmt;
+                  const total = (billIsRcm ? subAfterDiscount : subAfterDiscount + gstAmt) - billTds;
+                  return (
+                    <div className="w-64 text-xs space-y-2 border border-gray-200 rounded-lg p-4 bg-gray-50">
+                      <div className="flex justify-between text-gray-600">
+                        <span>Sub Total</span>
+                        <span className="font-mono text-gray-800">0.00</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-500 shrink-0">Discount</span>
+                        <input type="number" min={0} value={billDiscountValue}
+                          onChange={(e) => setBillDiscountValue(parseFloat(e.target.value) || 0)}
+                          className="flex-1 bg-white border border-gray-300 rounded px-2 py-1 text-gray-800 text-xs outline-none text-right" placeholder="0"
+                        />
+                        <select value={billDiscountType} onChange={e => setBillDiscountType(e.target.value as any)}
+                          className="bg-white border border-gray-300 rounded px-1 py-1 text-gray-700 text-xs outline-none">
+                          <option value="percent">%</option>
+                          <option value="amount">₹</option>
+                        </select>
+                        <span className="w-10 text-right font-mono text-gray-800">{discountAmt > 0 ? `−${discountAmt}` : '0.00'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="flex items-center gap-1 text-gray-600 cursor-pointer"><input type="radio" name="btds" defaultChecked className="accent-blue-600" /> TDS</label>
+                        <label className="flex items-center gap-1 text-gray-600 cursor-pointer"><input type="radio" name="btds" className="accent-blue-600" /> TCS</label>
+                        <select value={billTdsSection} onChange={e => setBillTdsSection(e.target.value)}
+                          className="flex-1 bg-white border border-gray-300 rounded px-2 py-1 text-gray-700 text-xs outline-none">
+                          <option value="">Select a Tax</option>
+                          <option value="194C">194C — Contractor @ 1-2%</option>
+                          <option value="194J">194J — Professional @ 10%</option>
+                          <option value="194I">194I — Rent @ 2-10%</option>
+                          <option value="194Q">194Q — Goods @ 0.1%</option>
+                        </select>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-500 flex-1">Adjustment</span>
+                        <input type="number" min={0} value={billTds} onChange={(e) => setBillTds(parseFloat(e.target.value) || 0)}
+                          className="w-24 bg-white border border-gray-300 rounded px-2 py-1 text-gray-800 text-xs outline-none text-right"
+                        />
+                        <span className="w-10 text-right font-mono text-gray-800">0.00</span>
+                      </div>
+                      <div className="border-t border-gray-300 pt-2 flex justify-between font-bold text-gray-900 text-sm">
+                        <span>Total</span>
+                        <span className="font-mono text-blue-700">₹{total > 0 ? total.toLocaleString('en-IN', {minimumFractionDigits:2}) : '0.00'}</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Notes + Attach */}
+            <div className="border-t border-gray-200 px-6 py-5">
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-1.5">
+                  <label className="text-xs text-gray-600 font-medium">Notes</label>
+                  <textarea rows={3} placeholder=""
+                    className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-700 text-sm focus:border-blue-400 outline-none resize-none"
+                  />
+                  <p className="text-[10px] text-gray-400">It will not be shown in PDF.</p>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-gray-600 font-medium">Attach File(s) to Bill</label>
+                  <div className="flex items-center gap-2">
+                    <button type="button" className="flex items-center gap-1.5 border border-gray-300 bg-white text-gray-600 text-xs px-3 py-1.5 rounded hover:bg-gray-50">
+                      <Upload className="w-3.5 h-3.5" /> Upload File
+                    </button>
+                    <span className="text-[10px] text-gray-400">Max 5 files, 10MB each</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Action bar */}
+            <div className="border-t border-gray-200 bg-gray-50 px-6 py-3 flex items-center gap-3 rounded-b-xl">
+              <button type="button" className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium px-4 py-2 rounded cursor-pointer transition">
+                Save as Draft
+              </button>
+              <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-5 py-2 rounded cursor-pointer select-none transition">
+                Save and Submit
+              </button>
+              <button type="button" onClick={() => setShowBillForm(false)} className="text-gray-500 hover:text-gray-700 text-sm font-medium px-4 py-2 rounded cursor-pointer">
+                Cancel
+              </button>
             </div>
           </form>
         </div>
