@@ -36,11 +36,9 @@ var import_express = __toESM(require("express"));
 var import_path = __toESM(require("path"));
 var import_fs = __toESM(require("fs"));
 var import_crypto = __toESM(require("crypto"));
-var import_url = require("url");
 var import_genai = require("@google/genai");
 var import_dotenv = __toESM(require("dotenv"));
 var import_supabase_js = require("@supabase/supabase-js");
-var import_meta = {};
 import_dotenv.default.config();
 var generateId = (prefix) => `${prefix}_${Math.random().toString(36).substr(2, 9)}`;
 var ALL_PERMISSIONS_LIST = [
@@ -519,14 +517,7 @@ var cachedDbByOrg = /* @__PURE__ */ new Map();
   vermaState.company.state = "Uttar Pradesh";
   cachedDbByOrg.set("org_verma_consultancy", vermaState);
 }
-var __filename = (() => {
-  try {
-    return (0, import_url.fileURLToPath)(import_meta.url);
-  } catch {
-    return "";
-  }
-})();
-var __dirname = __filename ? import_path.default.dirname(__filename) : process.cwd();
+var __server_dir = process.cwd();
 var app = (0, import_express.default)();
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
