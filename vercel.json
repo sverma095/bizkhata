@@ -2,16 +2,10 @@
   "version": 2,
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "functions": {
-    "api/index.mjs": {
-      "maxDuration": 30,
-      "includeFiles": "dist/**"
-    }
-  },
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "/api/index.mjs"
+      "destination": "/api/index.ts"
     },
     {
       "source": "/((?!api/).*)",
