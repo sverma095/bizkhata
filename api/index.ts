@@ -902,19 +902,51 @@ app.get("/api/notifications", authGuard, superAdminGuard, (req: any, res: any) =
 app.post("/api/notifications/clear", authGuard, superAdminGuard, (req: any, res: any) => { USER_DB.notifications = []; res.json({ success: true }); });
 
 // Registration request
-app.post("/api/auth/register-request", (req: any, res: any) => {
-  const { companyName, gstNumber, adminName, email, mobileNumber, password, numberOfRequiredSeats } = req.body;
-  if (!companyName || !gstNumber || !adminName || !email || !mobileNumber || !password || !numberOfRequiredSeats) {
-    res.status(400).json({ error: "All registration fields are required." }); return;
+// Send registration email OTP
+app.post("/api/auth/send-reg-otp", async (req: any, res: any) => {
+  const { email } = req.body;
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: "Valid email required." });
   }
+  if (USER_DB.users.some((u: any) => u.email === email) ||
+      USER_DB.registrationRequests.some((r: any) => r.email === email && r.status !== "Rejected")) {
+    return res.status(400).json({ error: "An account with this email already exists or is pending." });
+  }
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  if (!(global as any).__regOtps) (global as any).__regOtps = {};
+  (global as any).__regOtps[email] = { otp, expiry: Date.now() + 10 * 60 * 1000 };
+  const emailResult = await sendEmail(email, "Verify your email — BizKhata",
+    `<p style="font-family:sans-serif">Your email verification code for BizKhata registration is:</p>
+     <h2 style="font-family:monospace;letter-spacing:6px;color:#1e40af">${otp}</h2>
+     <p style="font-family:sans-serif;color:#666">This code expires in 10 minutes.</p>`
+  );
+  // Store in notifications for SuperAdmin visibility (dev fallback)
+  USER_DB.notifications.unshift({ id: generateId("notif"), to: email, subject: "BizKhata Email Verification OTP", body: `Registration OTP for ${email}: ${otp} (valid 10 min)`, type: "Email", timestamp: new Date().toISOString() });
+  res.json({ success: true, emailSent: emailResult.sent, reason: emailResult.reason });
+});
+
+app.post("/api/auth/register-request", (req: any, res: any) => {
+  const { companyName, gstNumber, adminName, email, mobileNumber, password, numberOfRequiredSeats, emailOtp } = req.body;
+  if (!companyName || !adminName || !email || !mobileNumber || !password || !numberOfRequiredSeats) {
+    res.status(400).json({ error: "Company name, admin name, email, mobile, password and seats are required." }); return;
+  }
+  // Verify email OTP
+  const otpStore = (global as any).__regOtps || {};
+  const record = otpStore[email];
+  if (!record) { res.status(400).json({ error: "Please verify your email first — click 'Send OTP'." }); return; }
+  if (Date.now() > record.expiry) { delete otpStore[email]; res.status(400).json({ error: "OTP expired. Please request a new one." }); return; }
+  if (record.otp !== String(emailOtp || "").trim()) { res.status(400).json({ error: "Invalid OTP. Please check the code sent to your email." }); return; }
+  delete otpStore[email];
   const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-  if (!passwordRegex.test(password)) { res.status(400).json({ error: "Password must be 8+ chars with upper, lower, number, special char." }); return; }
+  if (!passwordRegex.test(password)) { res.status(400).json({ error: "Password must be 8+ chars with upper, lower, number and special character." }); return; }
   if (USER_DB.users.some((u: any) => u.email === email) || USER_DB.registrationRequests.some((r: any) => r.email === email && r.status !== "Rejected")) {
     res.status(400).json({ error: "An account with this email already exists." }); return;
   }
-  const newReg = { id: generateId("reg"), companyName, gstNumber, adminName, email, mobileNumber, password, numberOfRequiredSeats: Number(numberOfRequiredSeats), status: "Pending", createdAt: new Date().toISOString() };
+  const newReg = { id: generateId("reg"), companyName, gstNumber: gstNumber || "", adminName, email, mobileNumber, password, numberOfRequiredSeats: Number(numberOfRequiredSeats), status: "Pending", emailVerified: true, createdAt: new Date().toISOString() };
   USER_DB.registrationRequests.unshift(newReg);
-  USER_DB.notifications.unshift({ id: generateId("notif"), to: USER_DB.users.find((u: any) => u.role === "Super Admin")?.email || "owner@bizkhata.app", subject: "New Registration Request", body: `Company '${companyName}' registered by '${adminName}'.`, type: "Email", timestamp: new Date().toISOString() });
+  const saEmail = USER_DB.users.find((u: any) => u.role === "Super Admin")?.email || "owner@bizkhata.app";
+  USER_DB.notifications.unshift({ id: generateId("notif"), to: saEmail, subject: "New Registration Request", body: `Company '${companyName}' (${email}) registered by '${adminName}'. GSTIN: ${gstNumber || "Not provided"}.`, type: "Email", timestamp: new Date().toISOString() });
+  saveUserDB().catch(() => {});
   res.status(201).json({ ...newReg, password: undefined });
 });
 
