@@ -6,6 +6,7 @@ import { fileURLToPath } from "url";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
+import nodemailer from "nodemailer";
 
 dotenv.config();
 
@@ -73,25 +74,104 @@ async function loadUserDB(): Promise<void> {
         const rows = await res.json();
         if (Array.isArray(rows) && rows.length > 0 && rows[0].state) {
           Object.assign(USER_DB, rows[0].state);
-          userDbLoaded = true;
-          return;
         }
       }
     }
   } catch (err) {
     console.error("loadUserDB: Supabase read failed, falling back to local file:", err);
   }
-  // Local-dev fallback (also used if Supabase is unreachable)
+  // Local-dev fallback
   try {
     const userDbFile = process.env.VERCEL === "1" ? "/tmp/bizkhata_superadmin.json" : path.join(process.cwd(), "bizkhata_superadmin.json");
-    if (fs.existsSync(userDbFile)) {
+    if (USER_DB.users.length === 0 && fs.existsSync(userDbFile)) {
       const raw = fs.readFileSync(userDbFile, "utf8");
       Object.assign(USER_DB, JSON.parse(raw));
     }
   } catch (err) {
     console.error("loadUserDB: local file read failed:", err);
   }
+
+  // --- ENFORCE CANONICAL ACCOUNTS ---
+  // Always ensure Super Admin exists with correct credentials
+  const saIdx = USER_DB.users.findIndex((u: any) => u.role === "Super Admin" || u.email === SUPERADMIN_EMAIL);
+  if (saIdx >= 0) {
+    USER_DB.users[saIdx].email = SUPERADMIN_EMAIL;
+    USER_DB.users[saIdx].password = hashPassword(SUPERADMIN_PASSWORD);
+    USER_DB.users[saIdx].status = "Active";
+    USER_DB.users[saIdx].role = "Super Admin";
+  } else {
+    USER_DB.users.push({
+      id: "user_superadmin",
+      organizationId: null,
+      fullName: SUPERADMIN_NAME,
+      email: SUPERADMIN_EMAIL,
+      mobileNumber: "",
+      role: "Super Admin",
+      status: "Active",
+      password: hashPassword(SUPERADMIN_PASSWORD),
+      permissions: ALL_PERMISSIONS_LIST.map((p: any) => p.id),
+      twoFactorEnabled: false,
+      twoFactorVerified: false,
+      createdAt: "2026-01-01T00:00:00Z"
+    });
+  }
+
+  // Always ensure Verma Consultancy org + svtiger owner account exist and are correct
+  const ownerOrgId = "org_verma_consultancy";
+  if (!USER_DB.organizations.find((o: any) => o.id === ownerOrgId)) {
+    USER_DB.organizations.push({
+      id: ownerOrgId,
+      name: "Verma Consultancy Services",
+      gstNumber: "09AABFV1234A1Z5",
+      status: "Active",
+      allocatedSeats: 10,
+      usedSeats: 1,
+      createdAt: "2026-01-01T00:00:00Z",
+      approvedAt: "2026-01-01T00:00:00Z",
+      subscriptionExpiresAt: "2027-01-01T00:00:00Z",
+      subscriptionMonths: 12
+    });
+  }
+
+  const ownerEmail = "svtiger543939@gmail.com";
+  const ownerIdx = USER_DB.users.findIndex((u: any) => u.email === ownerEmail);
+  if (ownerIdx >= 0) {
+    // Fix any broken fields
+    USER_DB.users[ownerIdx].organizationId = ownerOrgId;
+    USER_DB.users[ownerIdx].password = hashPassword("Admin@123");
+    USER_DB.users[ownerIdx].status = "Active";
+    USER_DB.users[ownerIdx].role = "Admin";
+  } else {
+    USER_DB.users.push({
+      id: "user_verma_owner",
+      organizationId: ownerOrgId,
+      fullName: "Sunil Verma",
+      email: ownerEmail,
+      mobileNumber: "+919876543210",
+      department: "Management",
+      designation: "Owner",
+      role: "Admin",
+      status: "Active",
+      password: hashPassword("Admin@123"),
+      permissions: ALL_PERMISSIONS_LIST.map((p: any) => p.id),
+      twoFactorEnabled: false,
+      twoFactorVerified: false,
+      createdAt: "2026-01-01T00:00:00Z"
+    });
+  }
+
+  // Remove any duplicate users (keep first occurrence per email)
+  const seen = new Set<string>();
+  USER_DB.users = USER_DB.users.filter((u: any) => {
+    if (seen.has(u.email)) return false;
+    seen.add(u.email);
+    return true;
+  });
+
   userDbLoaded = true;
+
+  // Persist the corrected state back to Supabase so future cold starts are clean
+  saveUserDB().catch(() => {});
 }
 
 async function saveUserDB(): Promise<void> {
@@ -218,25 +298,62 @@ function diffFields(existing: any, incoming: any, fields: string[]): string {
 }
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const EMAIL_FROM = process.env.EMAIL_FROM || "BizKhata <onboarding@resend.dev>";
+const EMAIL_FROM = process.env.EMAIL_FROM || process.env.SMTP_USER || "noreply@bizkhata.app";
+
+// SMTP transporter — built once, reused. Priority: SMTP env vars > Resend
+const smtpTransporter = (() => {
+  const host = process.env.SMTP_HOST;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  if (!host || !user || !pass) return null;
+  return nodemailer.createTransport({
+    host,
+    port: parseInt(process.env.SMTP_PORT || "587"),
+    secure: (process.env.SMTP_PORT || "587") === "465",
+    auth: { user, pass },
+    tls: { rejectUnauthorized: false }
+  });
+})();
+
 async function sendEmail(to: string, subject: string, html: string): Promise<{ sent: boolean; reason?: string }> {
-  if (!RESEND_API_KEY) return { sent: false, reason: "RESEND_API_KEY not set — OTP only visible in-app Notifications." };
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
-    const r = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: EMAIL_FROM, to, subject, html }),
-      signal: controller.signal
-    });
-    clearTimeout(timer);
-    if (!r.ok) return { sent: false, reason: `Resend API error: ${r.status}` };
-    return { sent: true };
-  } catch (err: any) {
-    return { sent: false, reason: err?.message || "Email send failed" };
+  // 1. Try SMTP first (user-configured)
+  if (smtpTransporter) {
+    try {
+      await smtpTransporter.sendMail({
+        from: `BizKhata <${EMAIL_FROM}>`,
+        to,
+        subject,
+        html
+      });
+      return { sent: true };
+    } catch (err: any) {
+      console.error("SMTP sendEmail failed:", err.message);
+      // fall through to Resend
+    }
   }
+
+  // 2. Fallback: Resend API
+  if (RESEND_API_KEY) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 8000);
+      const r = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ from: EMAIL_FROM, to, subject, html }),
+        signal: controller.signal
+      });
+      clearTimeout(timer);
+      if (!r.ok) return { sent: false, reason: `Resend error ${r.status}` };
+      return { sent: true };
+    } catch (err: any) {
+      return { sent: false, reason: err?.message };
+    }
+  }
+
+  return { sent: false, reason: "No email provider configured. Set SMTP_HOST/SMTP_USER/SMTP_PASS in Vercel env vars." };
 }
+
 function verifyPassword(plain: string, stored: string | undefined): boolean {
   if (!stored) return false;
   if (isLegacyPlaintext(stored)) return stored === plain;
@@ -247,12 +364,12 @@ function verifyPassword(plain: string, stored: string | undefined): boolean {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
-// Seed default users on cold start
+// Seed default users on cold start — only runs if Supabase is unreachable AND no local file.
+// loadUserDB() always enforces correct owner/superadmin accounts after loading.
 const seedUserDB = () => {
-  if (USER_DB.users.length > 0) return; // Already seeded
+  if (USER_DB.users.length > 0) return;
 
   const ownerOrgId = "org_verma_consultancy";
-  const demoOrgId = "org_bizkhata_default";
   const approvedAt = "2026-01-01T00:00:00Z";
   const subscriptionExpiresAt = "2027-01-01T00:00:00Z";
 
@@ -263,20 +380,10 @@ const seedUserDB = () => {
     status: "Active",
     allocatedSeats: 10,
     usedSeats: 1,
-    createdAt: "2026-01-01T00:00:00Z",
+    createdAt: approvedAt,
     approvedAt,
     subscriptionExpiresAt,
     subscriptionMonths: 12
-  });
-
-  USER_DB.organizations.push({
-    id: demoOrgId,
-    name: "My Organization",
-    gstNumber: "",
-    status: "Active",
-    allocatedSeats: 25,
-    usedSeats: 2,
-    createdAt: "2026-01-01T00:00:00Z"
   });
 
   USER_DB.users.push(
@@ -285,14 +392,14 @@ const seedUserDB = () => {
       organizationId: null,
       fullName: SUPERADMIN_NAME,
       email: SUPERADMIN_EMAIL,
-      mobileNumber: process.env.SUPERADMIN_MOBILE || "",
+      mobileNumber: "",
       role: "Super Admin",
       status: "Active",
       password: hashPassword(SUPERADMIN_PASSWORD),
       permissions: ALL_PERMISSIONS_LIST.map(p => p.id),
       twoFactorEnabled: false,
       twoFactorVerified: false,
-      createdAt: "2026-01-01T00:00:00Z"
+      createdAt: approvedAt
     },
     {
       id: "user_verma_owner",
@@ -308,23 +415,7 @@ const seedUserDB = () => {
       permissions: ALL_PERMISSIONS_LIST.map(p => p.id),
       twoFactorEnabled: false,
       twoFactorVerified: false,
-      createdAt: "2026-01-01T00:00:00Z"
-    },
-    {
-      id: "user_admin_default",
-      organizationId: demoOrgId,
-      fullName: "Admin User",
-      email: "admin@bizkhata.com",
-      mobileNumber: "+919000000000",
-      department: "Management",
-      designation: "Administrator",
-      role: "Admin",
-      status: "Active",
-      password: hashPassword("Admin@123"),
-      permissions: ALL_PERMISSIONS_LIST.map(p => p.id),
-      twoFactorEnabled: false,
-      twoFactorVerified: false,
-      createdAt: "2026-01-01T00:00:00Z"
+      createdAt: approvedAt
     }
   );
 };
@@ -1065,6 +1156,24 @@ app.post("/api/superadmin/organizations/:id/extend-subscription", authGuard, sup
   addAuditLog(null, req.user.fullName, req.user.role, "Extend Subscription", `Extended '${org.name}' by ${months} months until ${org.subscriptionExpiresAt}`);
   res.json(org);
 });
+
+// Hard-reset the USER_DB in Supabase — removes stale logins, re-seeds canonical accounts
+app.post("/api/superadmin/reset-userdb", authGuard, superAdminGuard, async (req: any, res: any) => {
+  // Wipe everything except current super admin and Verma owner
+  USER_DB.organizations.length = 0;
+  USER_DB.users.length = 0;
+  USER_DB.seatRequests.length = 0;
+  USER_DB.registrationRequests.length = 0;
+  USER_DB.notifications.length = 0;
+  USER_DB.customRoles.length = 0;
+  // Re-run seed
+  seedUserDB();
+  // Force save clean state to Supabase
+  await saveUserDB();
+  addAuditLog(null, req.user.fullName, req.user.role, "Reset USER_DB", "Wiped stale user DB and re-seeded canonical accounts.");
+  res.json({ success: true, users: USER_DB.users.map(safeUser), orgs: USER_DB.organizations });
+});
+
 
 // Users
 app.get("/api/users", authGuard, (req: any, res: any) => {
