@@ -1031,7 +1031,7 @@ app.post("/api/auth/toggle-2fa", authGuard, (req: any, res: any) => {
 });
 
 // Forgot password
-app.post("/api/auth/forgot-password", (req: any, res: any) => {
+app.post("/api/auth/forgot-password", async (req: any, res: any) => {
   const { email } = req.body;
   const user = USER_DB.users.find((u: any) => u.email === email);
   if (user) {
@@ -1039,10 +1039,19 @@ app.post("/api/auth/forgot-password", (req: any, res: any) => {
     user.resetCode = resetCode;
     user.resetCodeExpiry = Date.now() + 10 * 60 * 1000;
     user.resetCodeAttempts = 0;
-    USER_DB.notifications.unshift({ id: generateId("notif"), to: email, subject: "BizKhata Password Reset", body: `Reset OTP: ${resetCode} (valid 10 minutes). Link: https://bizkhata-six.vercel.app/reset-password?code=${resetCode}&email=${email}`, type: "Email", code: resetCode, timestamp: new Date().toISOString() });
+    USER_DB.notifications.unshift({ id: generateId("notif"), to: email, subject: "BizKhata Password Reset", body: `Reset OTP: ${resetCode} (valid 10 minutes).`, type: "Email", code: resetCode, timestamp: new Date().toISOString() });
     addAuditLog(user.organizationId, user.fullName, user.role, "Password Reset Requested", "Reset OTP generated.");
+    // Actually send the email
+    sendEmail(email, "BizKhata Password Reset Code",
+      `<div style="font-family:sans-serif;max-width:480px;margin:auto">
+        <h2 style="color:#1e40af">BizKhata Password Reset</h2>
+        <p>Your password reset code is:</p>
+        <div style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#1e40af;background:#f0f4ff;padding:16px;border-radius:8px;text-align:center">${resetCode}</div>
+        <p style="color:#666;margin-top:16px">This code expires in <strong>10 minutes</strong>. If you did not request this, ignore this email.</p>
+      </div>`
+    ).catch(() => {}); // non-blocking — OTP is always in Notifications as fallback
   }
-  res.json({ success: true, message: "If email exists, a reset link has been sent." });
+  res.json({ success: true, message: "If that email exists, a reset code has been sent. Check your inbox or the notification simulator." });
 });
 
 // Reset password
