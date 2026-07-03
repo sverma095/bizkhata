@@ -139,6 +139,18 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
   };
 
   const [showForm, setShowForm] = useState(false);
+  // Estimate form state
+  const [showEstimateForm, setShowEstimateForm] = useState(false);
+  const [estCustomerId, setEstCustomerId] = useState("");
+  const [estNumber, setEstNumber] = useState("");
+  const [estReference, setEstReference] = useState("");
+  const [estDate, setEstDate] = useState(new Date().toISOString().split('T')[0]);
+  const [estExpiryDate, setEstExpiryDate] = useState("");
+  const [estSubject, setEstSubject] = useState("");
+  const [estNotes, setEstNotes] = useState("Looking forward to your business.");
+  const [estTerms, setEstTerms] = useState("");
+  const [estItems, setEstItems] = useState([{ itemId: "", name: "", qty: 1, rate: 0, gstRate: 18, hsnSac: "" }]);
+  const [estRoundOff, setEstRoundOff] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [sortField, setSortField] = useState<string>('date');
   const [sortDir, setSortDir] = useState<'asc'|'desc'>('desc');
@@ -636,6 +648,240 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
           </button>
         )}
       </div>
+
+      {/* ESTIMATE FORM — Zoho Books style */}
+      {showEstimateForm && (
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
+          <div className="flex justify-between items-center border-b border-gray-200 px-6 py-4">
+            <h3 className="text-base font-semibold text-gray-800 flex items-center gap-2">
+              <FileSpreadsheet className="w-5 h-5 text-amber-500" />
+              New Estimate
+            </h3>
+            <button onClick={() => setShowEstimateForm(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+          </div>
+
+          <form onSubmit={async (e) => {
+            e.preventDefault();
+            // Save as proforma invoice (estimate) to db
+            const sub = estItems.reduce((s, i) => s + i.qty * i.rate, 0);
+            const totalGst = estItems.reduce((s, i) => s + i.qty * i.rate * i.gstRate / 100, 0);
+            const total = estRoundOff ? Math.round(sub + totalGst) : Math.round((sub + totalGst) * 100) / 100;
+            const est = {
+              id: `est_${Date.now()}`,
+              type: "estimate",
+              estimateNumber: estNumber,
+              reference: estReference,
+              customerId: estCustomerId,
+              date: estDate,
+              expiryDate: estExpiryDate,
+              subject: estSubject,
+              items: estItems,
+              subtotal: sub,
+              totalGst,
+              total,
+              notes: estNotes,
+              terms: estTerms,
+              status: "Draft",
+              createdAt: new Date().toISOString()
+            };
+            await onSaveInvoice({ ...est, isEstimate: true });
+            setShowEstimateForm(false);
+          }} className="text-sm">
+            <div className="px-6 py-5 space-y-4">
+              <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-500 font-medium">Customer Name <span className="text-red-500">*</span></label>
+                  <select required value={estCustomerId} onChange={e => setEstCustomerId(e.target.value)}
+                    className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-800 text-sm focus:border-blue-500 outline-none">
+                    <option value="">Select or add a customer</option>
+                    {db.customers.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                  {estCustomerId && (() => {
+                    const cust = db.customers.find((c: any) => c.id === estCustomerId);
+                    return cust ? <p className="text-[10px] text-gray-400 mt-0.5">Source of Supply: {cust.state || "—"}</p> : null;
+                  })()}
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-500 font-medium">Estimated# <span className="text-red-500">*</span></label>
+                  <input type="text" required value={estNumber} onChange={e => setEstNumber(e.target.value)}
+                    className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-800 text-sm focus:border-blue-500 outline-none font-mono" />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-500 font-medium">Reference#</label>
+                  <input type="text" value={estReference} onChange={e => setEstReference(e.target.value)}
+                    className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-800 text-sm focus:border-blue-500 outline-none" />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-500 font-medium">Estimate Date <span className="text-red-500">*</span></label>
+                  <input type="date" required value={estDate} onChange={e => setEstDate(e.target.value)}
+                    className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-800 text-sm focus:border-blue-500 outline-none" />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-500 font-medium">Expiry Date</label>
+                  <input type="date" value={estExpiryDate} onChange={e => setEstExpiryDate(e.target.value)}
+                    className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-800 text-sm focus:border-blue-500 outline-none" />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs text-gray-500 font-medium">Subject</label>
+                <input type="text" value={estSubject} onChange={e => setEstSubject(e.target.value)}
+                  placeholder="Let your customer know what this Estimate is for"
+                  className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-700 text-sm focus:border-blue-400 outline-none" />
+              </div>
+            </div>
+
+            {/* Item Table */}
+            <div className="border-t border-gray-200">
+              <div className="px-6 py-3 flex items-center justify-between bg-gray-50 border-b border-gray-200">
+                <span className="text-sm font-semibold text-gray-700">Item Table</span>
+              </div>
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-gray-50 text-gray-500 uppercase text-[11px] font-semibold">
+                    <th className="text-left px-4 py-2.5 w-[40%]">Item Details</th>
+                    <th className="text-right px-3 py-2.5 w-[10%]">Quantity</th>
+                    <th className="text-right px-3 py-2.5 w-[12%]">Rate</th>
+                    <th className="text-center px-3 py-2.5 w-[14%]">Tax</th>
+                    <th className="text-right px-3 py-2.5 w-[12%]">Amount</th>
+                    <th className="w-8"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {estItems.map((item, idx) => (
+                    <tr key={idx} className="group">
+                      <td className="px-4 py-2.5">
+                        <select value={item.itemId} onChange={e => {
+                          const it = db.items.find((i: any) => i.id === e.target.value);
+                          const updated = [...estItems];
+                          updated[idx] = { ...updated[idx], itemId: e.target.value, name: it?.name || "", rate: it?.salesRate || 0, hsnSac: it?.hsnSac || "" };
+                          setEstItems(updated);
+                        }} className="w-full bg-white border border-gray-300 rounded px-2 py-1.5 text-gray-800 text-xs focus:border-blue-500 outline-none">
+                          <option value="">Type or click to select an item.</option>
+                          {db.items.map((it: any) => <option key={it.id} value={it.id}>{it.name}</option>)}
+                        </select>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <input type="number" min={1} value={item.qty} onChange={e => { const u = [...estItems]; u[idx].qty = parseInt(e.target.value)||1; setEstItems(u); }}
+                          className="w-full bg-white border border-gray-300 rounded px-2 py-1.5 text-gray-800 text-xs text-right outline-none" />
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <input type="number" min={0} value={item.rate} onChange={e => { const u = [...estItems]; u[idx].rate = parseFloat(e.target.value)||0; setEstItems(u); }}
+                          className="w-full bg-white border border-gray-300 rounded px-2 py-1.5 text-gray-800 text-xs text-right outline-none" />
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <select value={item.gstRate} onChange={e => { const u = [...estItems]; u[idx].gstRate = parseFloat(e.target.value); setEstItems(u); }}
+                          className="w-full bg-white border border-gray-300 rounded px-2 py-1.5 text-gray-700 text-xs outline-none">
+                          <option value={0}>Select a Tax</option>
+                          <option value={5}>GST 5%</option>
+                          <option value={12}>GST 12%</option>
+                          <option value={18}>GST 18%</option>
+                          <option value={28}>GST 28%</option>
+                        </select>
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-mono text-gray-800 text-xs">
+                        {(item.qty * item.rate).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="pr-2">
+                        <button type="button" onClick={() => setEstItems(estItems.filter((_, i) => i !== idx))}
+                          disabled={estItems.length === 1}
+                          className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 p-1">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="px-4 py-3 border-t border-gray-100 flex justify-between items-start">
+                <button type="button" onClick={() => setEstItems([...estItems, { itemId: "", name: "", qty: 1, rate: 0, gstRate: 18, hsnSac: "" }])}
+                  className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1 cursor-pointer">
+                  <Plus className="w-3.5 h-3.5" /> Add New Row
+                </button>
+
+                {/* Totals */}
+                <div className="w-64 text-xs space-y-2 border border-gray-200 rounded-lg p-4 bg-gray-50">
+                  {(() => {
+                    const sub = estItems.reduce((s, i) => s + i.qty * i.rate, 0);
+                    const gst = estItems.reduce((s, i) => s + i.qty * i.rate * i.gstRate / 100, 0);
+                    const disc = 0;
+                    const preRound = sub + gst - disc;
+                    const diff = Math.round(preRound) - preRound;
+                    const total = estRoundOff ? Math.round(preRound) : preRound;
+                    return <>
+                      <div className="flex justify-between text-gray-600"><span>Sub Total</span><span className="font-mono">{sub.toLocaleString('en-IN', {minimumFractionDigits:2})}</span></div>
+                      <div className="flex justify-between text-gray-500"><span>Discount</span><span className="font-mono">0.00</span></div>
+                      <div className="flex items-center gap-2">
+                        <label className="flex items-center gap-1 text-gray-600 cursor-pointer"><input type="radio" name="etds" defaultChecked className="accent-blue-600" /> TDS</label>
+                        <label className="flex items-center gap-1 text-gray-600 cursor-pointer"><input type="radio" name="etds" className="accent-blue-600" /> TCS</label>
+                        <select className="flex-1 bg-white border border-gray-300 rounded px-2 py-1 text-gray-700 text-[10px] outline-none"><option>Select a Tax</option></select>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <label className="flex items-center gap-1.5 text-gray-500 cursor-pointer text-xs">
+                          <input type="checkbox" checked={estRoundOff} onChange={e => setEstRoundOff(e.target.checked)} className="accent-blue-600" />
+                          Round off
+                        </label>
+                        {estRoundOff && diff !== 0 && <span className="font-mono text-xs text-gray-400">{diff > 0 ? '+' : ''}{diff.toFixed(2)}</span>}
+                      </div>
+                      <div className="border-t border-gray-300 pt-2 flex justify-between font-bold text-gray-900 text-sm">
+                        <span>Total (₹)</span>
+                        <span className="font-mono text-blue-700">₹{total.toLocaleString('en-IN', {minimumFractionDigits:2})}</span>
+                      </div>
+                    </>;
+                  })()}
+                </div>
+              </div>
+            </div>
+
+            {/* Customer Notes + T&C + Attach */}
+            <div className="border-t border-gray-200 px-6 py-5 grid grid-cols-2 gap-6">
+              <div className="space-y-1.5">
+                <label className="text-xs text-gray-600 font-medium">Customer Notes</label>
+                <textarea rows={3} value={estNotes} onChange={e => setEstNotes(e.target.value)}
+                  className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-700 text-sm focus:border-blue-400 outline-none resize-none" />
+              </div>
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs text-gray-600 font-medium">Terms & Conditions</label>
+                  <textarea rows={3} value={estTerms} onChange={e => setEstTerms(e.target.value)}
+                    placeholder="Enter the terms and conditions..."
+                    className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-700 text-sm focus:border-blue-400 outline-none resize-none" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-gray-600 font-medium">Attach File(s) to Estimate</label>
+                  <div className="flex items-center gap-2">
+                    <button type="button" className="flex items-center gap-1.5 border border-gray-300 bg-white text-gray-600 text-xs px-3 py-1.5 rounded hover:bg-gray-50">
+                      <Upload className="w-3.5 h-3.5" /> Upload File
+                    </button>
+                    <span className="text-[10px] text-gray-400">Max 5 files, 10MB each</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Action bar */}
+            <div className="border-t border-gray-200 bg-gray-50 px-6 py-3 flex items-center gap-3 rounded-b-xl">
+              <button type="button" onClick={async (e) => {
+                const sub = estItems.reduce((s, i) => s + i.qty * i.rate, 0);
+                await onSaveInvoice({ type: "estimate", estimateNumber: estNumber, reference: estReference, customerId: estCustomerId, date: estDate, expiryDate: estExpiryDate, subject: estSubject, items: estItems, subtotal: sub, total: sub, notes: estNotes, terms: estTerms, status: "Draft", isEstimate: true, createdAt: new Date().toISOString() });
+                setShowEstimateForm(false);
+              }} className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium px-4 py-2 rounded cursor-pointer transition">
+                Save as Draft
+              </button>
+              <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-5 py-2 rounded cursor-pointer select-none transition">
+                Save and Send
+              </button>
+              <button type="button" onClick={() => setShowEstimateForm(false)} className="text-gray-500 hover:text-gray-700 text-sm font-medium px-4 py-2 rounded cursor-pointer">
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* NEW INVOICE FORM */}
       {showForm && (
@@ -1601,7 +1847,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                         <FileText className="w-3.5 h-3.5 text-blue-500" /> New Tax Invoice
                       </button>
                       <button 
-                        onClick={() => { resetForm(); setCustomerId(selectedCustomer.id); setIsProforma(true); setShowForm(true); }}
+                        onClick={() => { setEstCustomerId(selectedCustomer.id); setEstNumber(`EST/${new Date().getFullYear()}-${String(new Date().getFullYear()+1).slice(2)}/${String(Math.floor(Math.random()*900)+100)}`); setShowEstimateForm(true); setShowForm(false); }}
                         className="w-full text-left font-sans text-[11px] hover:bg-slate-50 p-2.5 transition flex items-center gap-1.5"
                       >
                         <FileSpreadsheet className="w-3.5 h-3.5 text-amber-500" /> New Estimate
@@ -1847,7 +2093,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                           New Invoice
                         </button>
                         <button 
-                          onClick={() => { resetForm(); setCustomerId(selectedCustomer.id); setIsProforma(true); setShowForm(true); }}
+                          onClick={() => { setEstCustomerId(selectedCustomer.id); setEstNumber(`EST/${new Date().getFullYear()}-${String(new Date().getFullYear()+1).slice(2)}/${String(Math.floor(Math.random()*900)+100)}`); setShowEstimateForm(true); setShowForm(false); }}
                           className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 text-[11px] font-bold px-4 py-2 rounded shadow-2xs cursor-pointer transition-all"
                         >
                           New Estimate
