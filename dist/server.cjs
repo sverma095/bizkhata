@@ -288,30 +288,94 @@ function diffFields(existing, incoming, fields) {
 }
 var RESEND_API_KEY = process.env.RESEND_API_KEY;
 var EMAIL_FROM = process.env.EMAIL_FROM || process.env.SMTP_USER || "noreply@bizkhata.app";
+async function smtpSend(to, subject, html) {
+  const host = process.env.SMTP_HOST;
+  const port = parseInt(process.env.SMTP_PORT || "587");
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  const from = EMAIL_FROM;
+  const { createConnection } = await import("net");
+  const { connect: tlsConnect } = await import("tls");
+  const { Buffer: Buffer2 } = await import("buffer");
+  return new Promise((resolve, reject) => {
+    const b64 = (s) => Buffer2.from(s).toString("base64");
+    const boundary = `bk_${Date.now()}`;
+    const rawMsg = [
+      `From: BizKhata <${from}>`,
+      `To: ${to}`,
+      `Subject: ${subject}`,
+      `MIME-Version: 1.0`,
+      `Content-Type: multipart/alternative; boundary="${boundary}"`,
+      ``,
+      `--${boundary}`,
+      `Content-Type: text/html; charset=UTF-8`,
+      ``,
+      html,
+      `--${boundary}--`
+    ].join("\r\n");
+    let socket;
+    let step = 0;
+    const cmds = [
+      `EHLO bizkhata.app\r
+`,
+      `AUTH LOGIN\r
+`,
+      `${b64(user)}\r
+`,
+      `${b64(pass)}\r
+`,
+      `MAIL FROM:<${from}>\r
+`,
+      `RCPT TO:<${to}>\r
+`,
+      `DATA\r
+`,
+      `${rawMsg}\r
+.\r
+`,
+      `QUIT\r
+`
+    ];
+    const send = (s) => socket.write(s);
+    const handleData = (data) => {
+      const resp = data.toString();
+      const code = parseInt(resp.slice(0, 3));
+      if (code >= 400) {
+        reject(new Error(`SMTP error at step ${step}: ${resp.trim()}`));
+        socket.destroy();
+        return;
+      }
+      if (step === 0 && (code === 220 || resp.includes("220"))) {
+        send(cmds[step++]);
+        return;
+      }
+      if (step < cmds.length) {
+        send(cmds[step++]);
+      } else {
+        resolve();
+        socket.destroy();
+      }
+    };
+    if (port === 465) {
+      socket = tlsConnect({ host, port, rejectUnauthorized: false }, () => socket.on("data", handleData));
+    } else {
+      socket = createConnection({ host, port }, () => socket.on("data", handleData));
+    }
+    socket.on("error", reject);
+    socket.setTimeout(15e3, () => {
+      reject(new Error("SMTP timeout"));
+      socket.destroy();
+    });
+  });
+}
 async function sendEmail(to, subject, html) {
-  const smtpHost = process.env.SMTP_HOST;
-  const smtpUser = process.env.SMTP_USER;
-  const smtpPass = process.env.SMTP_PASS;
-  if (smtpHost && smtpUser && smtpPass) {
+  if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
     try {
-      const nodemailer = await import("nodemailer");
-      const transporter = nodemailer.default.createTransport({
-        host: smtpHost,
-        port: parseInt(process.env.SMTP_PORT || "587"),
-        secure: process.env.SMTP_PORT === "465",
-        auth: { user: smtpUser, pass: smtpPass },
-        tls: { rejectUnauthorized: false }
-      });
-      await transporter.sendMail({
-        from: `BizKhata <${EMAIL_FROM}>`,
-        to,
-        subject,
-        html
-      });
+      await smtpSend(to, subject, html);
       console.log(`SMTP email sent to ${to}`);
       return { sent: true };
     } catch (err) {
-      console.error("SMTP sendEmail failed:", err.message);
+      console.error("SMTP failed:", err.message);
     }
   }
   if (RESEND_API_KEY) {
