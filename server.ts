@@ -299,33 +299,79 @@ function diffFields(existing: any, incoming: any, fields: string[]): string {
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const EMAIL_FROM = process.env.EMAIL_FROM || process.env.SMTP_USER || "noreply@bizkhata.app";
 
-async function sendEmail(to: string, subject: string, html: string): Promise<{ sent: boolean; reason?: string }> {
-  // 1. Try SMTP via nodemailer (dynamic import — safe in both CJS and ESM)
-  const smtpHost = process.env.SMTP_HOST;
-  const smtpUser = process.env.SMTP_USER;
-  const smtpPass = process.env.SMTP_PASS;
+// Pure Node.js SMTP client — no nodemailer, no external deps, works on Vercel ESM
+async function smtpSend(to: string, subject: string, html: string): Promise<void> {
+  const host = process.env.SMTP_HOST!;
+  const port = parseInt(process.env.SMTP_PORT || "587");
+  const user = process.env.SMTP_USER!;
+  const pass = process.env.SMTP_PASS!;
+  const from = EMAIL_FROM;
 
-  if (smtpHost && smtpUser && smtpPass) {
+  const { createConnection } = await import("net");
+  const { connect: tlsConnect } = await import("tls");
+  const { Buffer } = await import("buffer");
+
+  return new Promise((resolve, reject) => {
+    const b64 = (s: string) => Buffer.from(s).toString("base64");
+    const boundary = `bk_${Date.now()}`;
+    const rawMsg = [
+      `From: BizKhata <${from}>`,
+      `To: ${to}`,
+      `Subject: ${subject}`,
+      `MIME-Version: 1.0`,
+      `Content-Type: multipart/alternative; boundary="${boundary}"`,
+      ``,
+      `--${boundary}`,
+      `Content-Type: text/html; charset=UTF-8`,
+      ``,
+      html,
+      `--${boundary}--`,
+    ].join("\r\n");
+
+    let socket: any;
+    let step = 0;
+    const cmds = [
+      `EHLO bizkhata.app\r\n`,
+      `AUTH LOGIN\r\n`,
+      `${b64(user)}\r\n`,
+      `${b64(pass)}\r\n`,
+      `MAIL FROM:<${from}>\r\n`,
+      `RCPT TO:<${to}>\r\n`,
+      `DATA\r\n`,
+      `${rawMsg}\r\n.\r\n`,
+      `QUIT\r\n`,
+    ];
+
+    const send = (s: string) => socket.write(s);
+
+    const handleData = (data: Buffer) => {
+      const resp = data.toString();
+      const code = parseInt(resp.slice(0, 3));
+      if (code >= 400) { reject(new Error(`SMTP error at step ${step}: ${resp.trim()}`)); socket.destroy(); return; }
+      if (step === 0 && (code === 220 || resp.includes("220"))) { send(cmds[step++]); return; }
+      if (step < cmds.length) { send(cmds[step++]); }
+      else { resolve(); socket.destroy(); }
+    };
+
+    if (port === 465) {
+      socket = tlsConnect({ host, port, rejectUnauthorized: false }, () => socket.on("data", handleData));
+    } else {
+      socket = createConnection({ host, port }, () => socket.on("data", handleData));
+    }
+    socket.on("error", reject);
+    socket.setTimeout(15000, () => { reject(new Error("SMTP timeout")); socket.destroy(); });
+  });
+}
+
+async function sendEmail(to: string, subject: string, html: string): Promise<{ sent: boolean; reason?: string }> {
+  // 1. Try SMTP (pure Node net/tls — no nodemailer)
+  if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
     try {
-      const nodemailer = await import("nodemailer");
-      const transporter = nodemailer.default.createTransport({
-        host: smtpHost,
-        port: parseInt(process.env.SMTP_PORT || "587"),
-        secure: process.env.SMTP_PORT === "465",
-        auth: { user: smtpUser, pass: smtpPass },
-        tls: { rejectUnauthorized: false }
-      });
-      await transporter.sendMail({
-        from: `BizKhata <${EMAIL_FROM}>`,
-        to,
-        subject,
-        html
-      });
+      await smtpSend(to, subject, html);
       console.log(`SMTP email sent to ${to}`);
       return { sent: true };
     } catch (err: any) {
-      console.error("SMTP sendEmail failed:", err.message);
-      // fall through to Resend
+      console.error("SMTP failed:", err.message);
     }
   }
 
