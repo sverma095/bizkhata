@@ -73,25 +73,104 @@ async function loadUserDB(): Promise<void> {
         const rows = await res.json();
         if (Array.isArray(rows) && rows.length > 0 && rows[0].state) {
           Object.assign(USER_DB, rows[0].state);
-          userDbLoaded = true;
-          return;
         }
       }
     }
   } catch (err) {
     console.error("loadUserDB: Supabase read failed, falling back to local file:", err);
   }
-  // Local-dev fallback (also used if Supabase is unreachable)
+  // Local-dev fallback
   try {
     const userDbFile = process.env.VERCEL === "1" ? "/tmp/bizkhata_superadmin.json" : path.join(process.cwd(), "bizkhata_superadmin.json");
-    if (fs.existsSync(userDbFile)) {
+    if (USER_DB.users.length === 0 && fs.existsSync(userDbFile)) {
       const raw = fs.readFileSync(userDbFile, "utf8");
       Object.assign(USER_DB, JSON.parse(raw));
     }
   } catch (err) {
     console.error("loadUserDB: local file read failed:", err);
   }
+
+  // --- ENFORCE CANONICAL ACCOUNTS ---
+  // Always ensure Super Admin exists with correct credentials
+  const saIdx = USER_DB.users.findIndex((u: any) => u.role === "Super Admin" || u.email === SUPERADMIN_EMAIL);
+  if (saIdx >= 0) {
+    USER_DB.users[saIdx].email = SUPERADMIN_EMAIL;
+    USER_DB.users[saIdx].password = hashPassword(SUPERADMIN_PASSWORD);
+    USER_DB.users[saIdx].status = "Active";
+    USER_DB.users[saIdx].role = "Super Admin";
+  } else {
+    USER_DB.users.push({
+      id: "user_superadmin",
+      organizationId: null,
+      fullName: SUPERADMIN_NAME,
+      email: SUPERADMIN_EMAIL,
+      mobileNumber: "",
+      role: "Super Admin",
+      status: "Active",
+      password: hashPassword(SUPERADMIN_PASSWORD),
+      permissions: ALL_PERMISSIONS_LIST.map((p: any) => p.id),
+      twoFactorEnabled: false,
+      twoFactorVerified: false,
+      createdAt: "2026-01-01T00:00:00Z"
+    });
+  }
+
+  // Always ensure Verma Consultancy org + svtiger owner account exist and are correct
+  const ownerOrgId = "org_verma_consultancy";
+  if (!USER_DB.organizations.find((o: any) => o.id === ownerOrgId)) {
+    USER_DB.organizations.push({
+      id: ownerOrgId,
+      name: "Verma Consultancy Services",
+      gstNumber: "09AABFV1234A1Z5",
+      status: "Active",
+      allocatedSeats: 10,
+      usedSeats: 1,
+      createdAt: "2026-01-01T00:00:00Z",
+      approvedAt: "2026-01-01T00:00:00Z",
+      subscriptionExpiresAt: "2027-01-01T00:00:00Z",
+      subscriptionMonths: 12
+    });
+  }
+
+  const ownerEmail = "svtiger543939@gmail.com";
+  const ownerIdx = USER_DB.users.findIndex((u: any) => u.email === ownerEmail);
+  if (ownerIdx >= 0) {
+    // Fix any broken fields
+    USER_DB.users[ownerIdx].organizationId = ownerOrgId;
+    USER_DB.users[ownerIdx].password = hashPassword("Admin@123");
+    USER_DB.users[ownerIdx].status = "Active";
+    USER_DB.users[ownerIdx].role = "Admin";
+  } else {
+    USER_DB.users.push({
+      id: "user_verma_owner",
+      organizationId: ownerOrgId,
+      fullName: "Sunil Verma",
+      email: ownerEmail,
+      mobileNumber: "+919876543210",
+      department: "Management",
+      designation: "Owner",
+      role: "Admin",
+      status: "Active",
+      password: hashPassword("Admin@123"),
+      permissions: ALL_PERMISSIONS_LIST.map((p: any) => p.id),
+      twoFactorEnabled: false,
+      twoFactorVerified: false,
+      createdAt: "2026-01-01T00:00:00Z"
+    });
+  }
+
+  // Remove any duplicate users (keep first occurrence per email)
+  const seen = new Set<string>();
+  USER_DB.users = USER_DB.users.filter((u: any) => {
+    if (seen.has(u.email)) return false;
+    seen.add(u.email);
+    return true;
+  });
+
   userDbLoaded = true;
+
+  // Persist the corrected state back to Supabase so future cold starts are clean
+  saveUserDB().catch(() => {});
 }
 
 async function saveUserDB(): Promise<void> {
@@ -173,7 +252,6 @@ function verifySessionToken(token: string): string | null {
   const [payload, sig] = token.split(".");
   if (!payload || !sig) return null;
   const expectedSig = crypto.createHmac("sha256", SESSION_SECRET).update(payload).digest("base64url");
-  // Constant-time comparison to avoid timing attacks on signature check
   const a = Buffer.from(sig), b = Buffer.from(expectedSig);
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
   try {
@@ -183,11 +261,6 @@ function verifySessionToken(token: string): string | null {
   } catch { return null; }
 }
 
-// Password hashing (scrypt, no external dependency). Existing accounts created before this
-// fix have plaintext passwords in storage — verifyPassword falls back to an exact-string
-// check for those (isLegacyPlaintext), and the login route rehashes on successful legacy
-// login so every account migrates to a real hash the next time its owner logs in, with no
-// forced reset and no downtime.
 function hashPassword(plain: string): string {
   const salt = crypto.randomBytes(16).toString("hex");
   const hash = crypto.scryptSync(plain, salt, 64).toString("hex");
@@ -198,19 +271,14 @@ function isLegacyPlaintext(stored: string | undefined): boolean {
 }
 function safeUser(u: any) { if (!u) return u; const { password, ...rest } = u; return rest; }
 
-// Financial-substance fields that must NOT change once a document leaves Draft status.
-// Anything else (status itself, payment tracking, e-invoice metadata, notes, RCM-paid flag)
-// stays editable — those are operational/workflow fields, not the transaction's substance.
-// Correcting an approved document's amounts must go through a Credit/Debit Note instead,
-// so there's always a visible, separate record of the correction rather than a silent edit.
 const FINANCIAL_LOCK_FIELDS: Record<string, string[]> = {
   invoice: ["subtotal", "totalGst", "totalCgst", "totalSgst", "totalIgst", "total", "items", "customerId", "date", "tdsAmount", "tdsRate", "tdsSection", "discountValue", "shippingCharge", "otherCharges"],
   bill: ["subtotal", "totalGst", "totalCgst", "totalSgst", "totalIgst", "total", "items", "vendorId", "date", "tdsAmount", "tdsSection", "isReverseCharge"],
   expense: ["subtotal", "gstAmount", "tdsAmount", "tdsSection", "total", "vendorName", "category", "isReverseCharge"]
 };
 function checkFinancialLock(docType: keyof typeof FINANCIAL_LOCK_FIELDS, existing: any, incoming: any, draftStatuses: string[]): { locked: boolean; field?: string } {
-  if (!existing) return { locked: false }; // new document, nothing to lock yet
-  if (draftStatuses.includes(existing.status)) return { locked: false }; // still editable pre-approval
+  if (!existing) return { locked: false };
+  if (draftStatuses.includes(existing.status)) return { locked: false };
   for (const field of FINANCIAL_LOCK_FIELDS[docType]) {
     if (field in incoming && JSON.stringify(incoming[field]) !== JSON.stringify(existing[field])) {
       return { locked: true, field };
@@ -228,29 +296,61 @@ function diffFields(existing: any, incoming: any, fields: string[]): string {
   return changes.length ? changes.join("; ") : "no field changes";
 }
 
-// Real email delivery via Resend (set RESEND_API_KEY env var in Vercel). Falls back to
-// logging only — OTP/notification still lands in USER_DB.notifications either way, so
-// the in-app Notifications panel always shows it even with no email provider configured.
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const EMAIL_FROM = process.env.EMAIL_FROM || "BizKhata <onboarding@resend.dev>";
+const EMAIL_FROM = process.env.EMAIL_FROM || process.env.SMTP_USER || "noreply@bizkhata.app";
+
 async function sendEmail(to: string, subject: string, html: string): Promise<{ sent: boolean; reason?: string }> {
-  if (!RESEND_API_KEY) return { sent: false, reason: "RESEND_API_KEY not set — OTP only visible in-app Notifications." };
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
-    const r = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: EMAIL_FROM, to, subject, html }),
-      signal: controller.signal
-    });
-    clearTimeout(timer);
-    if (!r.ok) return { sent: false, reason: `Resend API error: ${r.status}` };
-    return { sent: true };
-  } catch (err: any) {
-    return { sent: false, reason: err?.message || "Email send failed" };
+  // 1. Try SMTP via nodemailer (dynamic import — safe in both CJS and ESM)
+  const smtpHost = process.env.SMTP_HOST;
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASS;
+
+  if (smtpHost && smtpUser && smtpPass) {
+    try {
+      const nodemailer = await import("nodemailer");
+      const transporter = nodemailer.default.createTransport({
+        host: smtpHost,
+        port: parseInt(process.env.SMTP_PORT || "587"),
+        secure: process.env.SMTP_PORT === "465",
+        auth: { user: smtpUser, pass: smtpPass },
+        tls: { rejectUnauthorized: false }
+      });
+      await transporter.sendMail({
+        from: `BizKhata <${EMAIL_FROM}>`,
+        to,
+        subject,
+        html
+      });
+      console.log(`SMTP email sent to ${to}`);
+      return { sent: true };
+    } catch (err: any) {
+      console.error("SMTP sendEmail failed:", err.message);
+      // fall through to Resend
+    }
   }
+
+  // 2. Fallback: Resend API
+  if (RESEND_API_KEY) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 8000);
+      const r = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ from: EMAIL_FROM, to, subject, html }),
+        signal: controller.signal
+      });
+      clearTimeout(timer);
+      if (!r.ok) return { sent: false, reason: `Resend error ${r.status}` };
+      return { sent: true };
+    } catch (err: any) {
+      return { sent: false, reason: err?.message };
+    }
+  }
+
+  return { sent: false, reason: "No email provider configured. Set SMTP_HOST/SMTP_USER/SMTP_PASS in Vercel env vars." };
 }
+
 function verifyPassword(plain: string, stored: string | undefined): boolean {
   if (!stored) return false;
   if (isLegacyPlaintext(stored)) return stored === plain;
@@ -261,19 +361,26 @@ function verifyPassword(plain: string, stored: string | undefined): boolean {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
-// Seed default users on cold start
+// Seed default users on cold start — only runs if Supabase is unreachable AND no local file.
+// loadUserDB() always enforces correct owner/superadmin accounts after loading.
 const seedUserDB = () => {
-  if (USER_DB.users.length > 0) return; // Already seeded
+  if (USER_DB.users.length > 0) return;
 
-  const orgId = "org_bizkhata_default";
+  const ownerOrgId = "org_verma_consultancy";
+  const approvedAt = "2026-01-01T00:00:00Z";
+  const subscriptionExpiresAt = "2027-01-01T00:00:00Z";
+
   USER_DB.organizations.push({
-    id: orgId,
-    name: "My Organization",
-    gstNumber: "",
+    id: ownerOrgId,
+    name: "Verma Consultancy Services",
+    gstNumber: "09AABFV1234A1Z5",
     status: "Active",
-    allocatedSeats: 25,
-    usedSeats: 2,
-    createdAt: "2026-01-01T00:00:00Z"
+    allocatedSeats: 10,
+    usedSeats: 1,
+    createdAt: approvedAt,
+    approvedAt,
+    subscriptionExpiresAt,
+    subscriptionMonths: 12
   });
 
   USER_DB.users.push(
@@ -282,30 +389,30 @@ const seedUserDB = () => {
       organizationId: null,
       fullName: SUPERADMIN_NAME,
       email: SUPERADMIN_EMAIL,
-      mobileNumber: process.env.SUPERADMIN_MOBILE || "",
+      mobileNumber: "",
       role: "Super Admin",
       status: "Active",
       password: hashPassword(SUPERADMIN_PASSWORD),
       permissions: ALL_PERMISSIONS_LIST.map(p => p.id),
       twoFactorEnabled: false,
       twoFactorVerified: false,
-      createdAt: "2026-01-01T00:00:00Z"
+      createdAt: approvedAt
     },
     {
-      id: "user_admin_default",
-      organizationId: orgId,
-      fullName: "Admin User",
-      email: "admin@bizkhata.com",
-      mobileNumber: "+919000000000",
+      id: "user_verma_owner",
+      organizationId: ownerOrgId,
+      fullName: "Sunil Verma",
+      email: "svtiger543939@gmail.com",
+      mobileNumber: "+919876543210",
       department: "Management",
-      designation: "Administrator",
+      designation: "Owner",
       role: "Admin",
       status: "Active",
-      password: "Admin@123",
+      password: hashPassword("Admin@123"),
       permissions: ALL_PERMISSIONS_LIST.map(p => p.id),
       twoFactorEnabled: false,
       twoFactorVerified: false,
-      createdAt: "2026-01-01T00:00:00Z"
+      createdAt: approvedAt
     }
   );
 };
@@ -334,11 +441,6 @@ const superAdminGuard = (req: any, res: any, next: any) => {
   next();
 };
 
-// Granular permission enforcement. Until now, the per-user permission checkboxes shown in
-// Team Management were cosmetic — no route actually checked them server-side, so any logged-in
-// user could call any route regardless of assigned permissions. Super Admin and Owner/Admin
-// roles bypass this (they hold ALL_PERMISSIONS_LIST by default at creation), so this only
-// actually restricts limited-permission roles like Employee/Viewer, which is the point.
 const requirePermission = (permissionId: string) => (req: any, res: any, next: any) => {
   const user = req.user;
   if (user.role === "Super Admin") return next();
@@ -375,6 +477,17 @@ if (SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL !== "MY_SUPABASE_URL") {
 // accounting ledger is fully isolated — this was previously a single shared `cachedDb`,
 // which meant every signed-up organization read and wrote the exact same books.
 const cachedDbByOrg: Map<string, any> = new Map();
+
+// Pre-populate in-memory cache with clean state for Verma Consultancy org
+// so first login always shows zero balances, never stale Supabase demo data
+{
+  const vermaState = getInitialState();
+  vermaState.company.name = "Verma Consultancy Services";
+  vermaState.company.legalName = "Verma Consultancy Services";
+  vermaState.company.gstin = "09AABFV1234A1Z5";
+  vermaState.company.state = "Uttar Pradesh";
+  cachedDbByOrg.set("org_verma_consultancy", vermaState);
+}
 
 // __dirname fallback for CJS/ESM compatibility
 const __filename = (() => { try { return fileURLToPath(import.meta.url); } catch { return ''; } })();
@@ -528,7 +641,7 @@ if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== "MY_GEMINI_API_
 // Default Chart of Accounts as specified in page 5 of PDF
 const DEFAULT_ACCOUNTS: Account[] = [
   // Assets
-  { code: "bank_account", name: "Bank Account", type: "Asset", balance: 500000 },
+  { code: "bank_account", name: "Bank Account", type: "Asset", balance: 0 },
   { code: "cash", name: "Cash", type: "Asset", balance: 0 },
   { code: "accounts_receivable", name: "Accounts Receivable", type: "Asset", balance: 0 },
   { code: "tds_receivable", name: "TDS Receivable", type: "Asset", balance: 0 },
@@ -549,7 +662,7 @@ const DEFAULT_ACCOUNTS: Account[] = [
   { code: "professional_fees", name: "Professional Fees", type: "Expense", balance: 0 },
   { code: "bank_charges", name: "Bank Charges", type: "Expense", balance: 0 },
   // Equity
-  { code: "capital", name: "Capital", type: "Equity", balance: 500000 },
+  { code: "capital", name: "Capital", type: "Equity", balance: 0 },
   { code: "retained_earnings", name: "Retained Earnings", type: "Equity", balance: 0 }
 ];
 
@@ -557,7 +670,7 @@ const DEFAULT_ACCOUNTS: Account[] = [
 const uuid = () => Math.random().toString(36).substring(2, 11);
 
 // Clean initial state for go-live — no demo data
-const getInitialState = (): DatabaseState => {
+function getInitialState(): DatabaseState {
   return {
     company: {
       name: "Your Company Name",
@@ -786,19 +899,51 @@ app.get("/api/notifications", authGuard, superAdminGuard, (req: any, res: any) =
 app.post("/api/notifications/clear", authGuard, superAdminGuard, (req: any, res: any) => { USER_DB.notifications = []; res.json({ success: true }); });
 
 // Registration request
-app.post("/api/auth/register-request", (req: any, res: any) => {
-  const { companyName, gstNumber, adminName, email, mobileNumber, password, numberOfRequiredSeats } = req.body;
-  if (!companyName || !gstNumber || !adminName || !email || !mobileNumber || !password || !numberOfRequiredSeats) {
-    res.status(400).json({ error: "All registration fields are required." }); return;
+// Send registration email OTP
+app.post("/api/auth/send-reg-otp", async (req: any, res: any) => {
+  const { email } = req.body;
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: "Valid email required." });
   }
+  if (USER_DB.users.some((u: any) => u.email === email) ||
+      USER_DB.registrationRequests.some((r: any) => r.email === email && r.status !== "Rejected")) {
+    return res.status(400).json({ error: "An account with this email already exists or is pending." });
+  }
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  if (!(global as any).__regOtps) (global as any).__regOtps = {};
+  (global as any).__regOtps[email] = { otp, expiry: Date.now() + 10 * 60 * 1000 };
+  const emailResult = await sendEmail(email, "Verify your email — BizKhata",
+    `<p style="font-family:sans-serif">Your email verification code for BizKhata registration is:</p>
+     <h2 style="font-family:monospace;letter-spacing:6px;color:#1e40af">${otp}</h2>
+     <p style="font-family:sans-serif;color:#666">This code expires in 10 minutes.</p>`
+  );
+  // Store in notifications for SuperAdmin visibility (dev fallback)
+  USER_DB.notifications.unshift({ id: generateId("notif"), to: email, subject: "BizKhata Email Verification OTP", body: `Registration OTP for ${email}: ${otp} (valid 10 min)`, type: "Email", timestamp: new Date().toISOString() });
+  res.json({ success: true, emailSent: emailResult.sent, reason: emailResult.reason });
+});
+
+app.post("/api/auth/register-request", (req: any, res: any) => {
+  const { companyName, gstNumber, adminName, email, mobileNumber, password, numberOfRequiredSeats, emailOtp } = req.body;
+  if (!companyName || !adminName || !email || !mobileNumber || !password || !numberOfRequiredSeats) {
+    res.status(400).json({ error: "Company name, admin name, email, mobile, password and seats are required." }); return;
+  }
+  // Verify email OTP
+  const otpStore = (global as any).__regOtps || {};
+  const record = otpStore[email];
+  if (!record) { res.status(400).json({ error: "Please verify your email first — click 'Send OTP'." }); return; }
+  if (Date.now() > record.expiry) { delete otpStore[email]; res.status(400).json({ error: "OTP expired. Please request a new one." }); return; }
+  if (record.otp !== String(emailOtp || "").trim()) { res.status(400).json({ error: "Invalid OTP. Please check the code sent to your email." }); return; }
+  delete otpStore[email];
   const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-  if (!passwordRegex.test(password)) { res.status(400).json({ error: "Password must be 8+ chars with upper, lower, number, special char." }); return; }
+  if (!passwordRegex.test(password)) { res.status(400).json({ error: "Password must be 8+ chars with upper, lower, number and special character." }); return; }
   if (USER_DB.users.some((u: any) => u.email === email) || USER_DB.registrationRequests.some((r: any) => r.email === email && r.status !== "Rejected")) {
     res.status(400).json({ error: "An account with this email already exists." }); return;
   }
-  const newReg = { id: generateId("reg"), companyName, gstNumber, adminName, email, mobileNumber, password, numberOfRequiredSeats: Number(numberOfRequiredSeats), status: "Pending", createdAt: new Date().toISOString() };
+  const newReg = { id: generateId("reg"), companyName, gstNumber: gstNumber || "", adminName, email, mobileNumber, password, numberOfRequiredSeats: Number(numberOfRequiredSeats), status: "Pending", emailVerified: true, createdAt: new Date().toISOString() };
   USER_DB.registrationRequests.unshift(newReg);
-  USER_DB.notifications.unshift({ id: generateId("notif"), to: USER_DB.users.find((u: any) => u.role === "Super Admin")?.email || "owner@bizkhata.app", subject: "New Registration Request", body: `Company '${companyName}' registered by '${adminName}'.`, type: "Email", timestamp: new Date().toISOString() });
+  const saEmail = USER_DB.users.find((u: any) => u.role === "Super Admin")?.email || "owner@bizkhata.app";
+  USER_DB.notifications.unshift({ id: generateId("notif"), to: saEmail, subject: "New Registration Request", body: `Company '${companyName}' (${email}) registered by '${adminName}'. GSTIN: ${gstNumber || "Not provided"}.`, type: "Email", timestamp: new Date().toISOString() });
+  saveUserDB().catch(() => {});
   res.status(201).json({ ...newReg, password: undefined });
 });
 
@@ -826,11 +971,15 @@ app.post("/api/auth/login", async (req: any, res: any) => {
   if (user.organizationId) {
     org = USER_DB.organizations.find((o: any) => o.id === user.organizationId) || null;
     if (org && org.status === "Suspended") { res.status(403).json({ error: "Your organization is suspended. Contact BizKhata support." }); return; }
+  if (org && org.subscriptionExpiresAt && new Date(org.subscriptionExpiresAt) < new Date()) {
+    org.status = "Suspended";
+    res.status(403).json({ error: `Your subscription expired on ${new Date(org.subscriptionExpiresAt).toLocaleDateString('en-IN')}. Please renew with BizKhata support to continue.` }); return;
+  }
   }
   if (user.twoFactorEnabled) {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     user.activationCode = otp;
-    user.resetCodeExpiry = Date.now() + 10 * 60 * 1000; // 10 minutes
+    user.resetCodeExpiry = Date.now() + 10 * 60 * 1000;
     user.resetCodeAttempts = 0;
     user.twoFactorVerified = false;
     const emailResult = await sendEmail(user.email, "Your BizKhata login code", `<p>Your one-time login code is:</p><h2>${otp}</h2><p>This code expires in 10 minutes.</p>`);
@@ -882,18 +1031,27 @@ app.post("/api/auth/toggle-2fa", authGuard, (req: any, res: any) => {
 });
 
 // Forgot password
-app.post("/api/auth/forgot-password", (req: any, res: any) => {
+app.post("/api/auth/forgot-password", async (req: any, res: any) => {
   const { email } = req.body;
   const user = USER_DB.users.find((u: any) => u.email === email);
   if (user) {
     const resetCode = Math.floor(200000 + Math.random() * 800000).toString();
     user.resetCode = resetCode;
-    user.resetCodeExpiry = Date.now() + 10 * 60 * 1000; // 10 minutes
+    user.resetCodeExpiry = Date.now() + 10 * 60 * 1000;
     user.resetCodeAttempts = 0;
-    USER_DB.notifications.unshift({ id: generateId("notif"), to: email, subject: "BizKhata Password Reset", body: `Reset OTP: ${resetCode} (valid 10 minutes). Link: https://bizkhata-six.vercel.app/reset-password?code=${resetCode}&email=${email}`, type: "Email", code: resetCode, timestamp: new Date().toISOString() });
+    USER_DB.notifications.unshift({ id: generateId("notif"), to: email, subject: "BizKhata Password Reset", body: `Reset OTP: ${resetCode} (valid 10 minutes).`, type: "Email", code: resetCode, timestamp: new Date().toISOString() });
     addAuditLog(user.organizationId, user.fullName, user.role, "Password Reset Requested", "Reset OTP generated.");
+    // Actually send the email
+    sendEmail(email, "BizKhata Password Reset Code",
+      `<div style="font-family:sans-serif;max-width:480px;margin:auto">
+        <h2 style="color:#1e40af">BizKhata Password Reset</h2>
+        <p>Your password reset code is:</p>
+        <div style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#1e40af;background:#f0f4ff;padding:16px;border-radius:8px;text-align:center">${resetCode}</div>
+        <p style="color:#666;margin-top:16px">This code expires in <strong>10 minutes</strong>. If you did not request this, ignore this email.</p>
+      </div>`
+    ).catch(() => {}); // non-blocking — OTP is always in Notifications as fallback
   }
-  res.json({ success: true, message: "If email exists, a reset link has been sent." });
+  res.json({ success: true, message: "If that email exists, a reset code has been sent. Check your inbox or the notification simulator." });
 });
 
 // Reset password
@@ -932,14 +1090,26 @@ app.get("/api/superadmin/registrations", authGuard, superAdminGuard, (req: any, 
 app.post("/api/superadmin/registrations/:id/action", authGuard, superAdminGuard, (req: any, res: any) => {
   const reg = USER_DB.registrationRequests.find((r: any) => r.id === req.params.id);
   if (!reg) { res.status(404).json({ error: "Registration not found." }); return; }
-  const { action, feedback } = req.body;
+  const { action, feedback, subscriptionMonths } = req.body;
   if (action === "Approve") {
     reg.status = "Approved";
     const orgId = generateId("org");
-    USER_DB.organizations.push({ id: orgId, name: reg.companyName, gstNumber: reg.gstNumber, status: "Active", allocatedSeats: reg.numberOfRequiredSeats, usedSeats: 1, createdAt: new Date().toISOString() });
+    const approvedAt = new Date().toISOString();
+    const months = Math.max(1, Math.min(120, parseInt(subscriptionMonths) || 12));
+    const subscriptionExpiresAt = new Date(Date.now() + months * 30 * 24 * 60 * 60 * 1000).toISOString();
+    USER_DB.organizations.push({ id: orgId, name: reg.companyName, gstNumber: reg.gstNumber, status: "Active", allocatedSeats: reg.numberOfRequiredSeats, usedSeats: 1, createdAt: reg.createdAt, approvedAt, subscriptionExpiresAt, subscriptionMonths: months });
     USER_DB.users.push({ id: generateId("user"), organizationId: orgId, fullName: reg.adminName, email: reg.email, mobileNumber: reg.mobileNumber, role: "Admin", status: "Active", password: hashPassword(reg.password || "Admin@123"), permissions: ALL_PERMISSIONS_LIST.map(p => p.id), twoFactorEnabled: false, createdAt: new Date().toISOString() });
-    USER_DB.notifications.unshift({ id: generateId("notif"), to: reg.email, subject: "BizKhata Account Approved", body: `Your account for ${reg.companyName} is approved. Login with the email and password you set during sign-up.`, type: "Email", timestamp: new Date().toISOString() });
-    addAuditLog(null, req.user.fullName, req.user.role, "Approve Registration", `Approved '${reg.companyName}'.`);
+    // Seed a clean blank ledger for the new org in Supabase (no demo data, zero balances)
+    const cleanState = getInitialState();
+    cleanState.company.name = reg.companyName;
+    cachedDbByOrg.set(orgId, cleanState);
+    if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+      supabaseREST("POST", orgId, { state: cleanState }).catch(() => {
+        supabaseREST("PATCH" as any, orgId, { state: cleanState }).catch(() => {});
+      });
+    }
+    USER_DB.notifications.unshift({ id: generateId("notif"), to: reg.email, subject: "BizKhata Account Approved", body: `Your account for ${reg.companyName} is approved for ${months} month(s). Login with the email and password you set during sign-up. Subscription valid until: ${new Date(subscriptionExpiresAt).toLocaleDateString('en-IN')}.`, type: "Email", timestamp: new Date().toISOString() });
+    addAuditLog(null, req.user.fullName, req.user.role, "Approve Registration", `Approved '${reg.companyName}' for ${months} months until ${new Date(subscriptionExpiresAt).toLocaleDateString('en-IN')}.`);
   } else if (action === "Reject") {
     reg.status = "Rejected";
     addAuditLog(null, req.user.fullName, req.user.role, "Reject Registration", `Rejected '${reg.companyName}'. Reason: ${feedback}`);
@@ -1003,12 +1173,45 @@ app.get("/api/superadmin/organizations", authGuard, superAdminGuard, (req: any, 
 app.put("/api/superadmin/organizations/:id", authGuard, superAdminGuard, (req: any, res: any) => {
   const org = USER_DB.organizations.find((o: any) => o.id === req.params.id);
   if (!org) { res.status(404).json({ error: "Organization not found." }); return; }
-  const { status, allocatedSeats } = req.body;
+  const { status, allocatedSeats, subscriptionExpiresAt } = req.body;
   if (status) { org.status = status; if (status === "Suspended") USER_DB.users.forEach((u: any) => { if (u.organizationId === org.id) u.status = "Disabled"; }); }
   if (allocatedSeats !== undefined) { const s = Number(allocatedSeats); if (s < org.usedSeats) { res.status(400).json({ error: `Cannot go below ${org.usedSeats} used seats.` }); return; } org.allocatedSeats = s; }
-  addAuditLog(null, req.user.fullName, req.user.role, "Update Organization", `Updated '${org.name}': status=${status}, seats=${allocatedSeats}`);
+  if (subscriptionExpiresAt) { org.subscriptionExpiresAt = subscriptionExpiresAt; if (status !== "Suspended") org.status = "Active"; }
+  addAuditLog(null, req.user.fullName, req.user.role, "Update Organization", `Updated '${org.name}': status=${status}, seats=${allocatedSeats}, expiry=${subscriptionExpiresAt}`);
   res.json(org);
 });
+
+// Extend subscription
+app.post("/api/superadmin/organizations/:id/extend-subscription", authGuard, superAdminGuard, (req: any, res: any) => {
+  const org = USER_DB.organizations.find((o: any) => o.id === req.params.id);
+  if (!org) { res.status(404).json({ error: "Organization not found." }); return; }
+  const { months } = req.body;
+  const base = org.subscriptionExpiresAt && new Date(org.subscriptionExpiresAt) > new Date() ? new Date(org.subscriptionExpiresAt) : new Date();
+  base.setMonth(base.getMonth() + (Number(months) || 12));
+  org.subscriptionExpiresAt = base.toISOString();
+  org.status = "Active";
+  USER_DB.users.forEach((u: any) => { if (u.organizationId === org.id && u.status === "Disabled") u.status = "Active"; });
+  addAuditLog(null, req.user.fullName, req.user.role, "Extend Subscription", `Extended '${org.name}' by ${months} months until ${org.subscriptionExpiresAt}`);
+  res.json(org);
+});
+
+// Hard-reset the USER_DB in Supabase — removes stale logins, re-seeds canonical accounts
+app.post("/api/superadmin/reset-userdb", authGuard, superAdminGuard, async (req: any, res: any) => {
+  // Wipe everything except current super admin and Verma owner
+  USER_DB.organizations.length = 0;
+  USER_DB.users.length = 0;
+  USER_DB.seatRequests.length = 0;
+  USER_DB.registrationRequests.length = 0;
+  USER_DB.notifications.length = 0;
+  USER_DB.customRoles.length = 0;
+  // Re-run seed
+  seedUserDB();
+  // Force save clean state to Supabase
+  await saveUserDB();
+  addAuditLog(null, req.user.fullName, req.user.role, "Reset USER_DB", "Wiped stale user DB and re-seeded canonical accounts.");
+  res.json({ success: true, users: USER_DB.users.map(safeUser), orgs: USER_DB.organizations });
+});
+
 
 // Users
 app.get("/api/users", authGuard, (req: any, res: any) => {
@@ -1687,9 +1890,6 @@ app.post("/api/expenses", authGuard, requirePermission("manage_billing"), async 
         debit: exp.gstAmount,
         credit: 0
       });
-      // Reverse Charge: vendor didn't collect this GST — payer self-assesses and owes
-      // it directly to the government. Without this, the RCM liability never appeared
-      // as Payable anywhere (same bug as on vendor Bills).
       if (exp.isReverseCharge) {
         lines.push({
           id: uuid(),
@@ -1807,10 +2007,6 @@ app.post("/api/bills", authGuard, requirePermission("manage_billing"), async (re
         debit: bill.totalGst,
         credit: 0
       });
-      // Under Reverse Charge (RCM), the vendor does NOT charge/collect this GST — the
-      // buyer self-assesses and owes it directly to the government. Previously this case
-      // debited Input GST (claiming a credit) without ever recording the matching
-      // liability, so the self-assessed RCM GST never showed up anywhere as payable.
       if (bill.isReverseCharge) {
         lines.push({
           id: uuid(),
@@ -1822,7 +2018,6 @@ app.post("/api/bills", authGuard, requirePermission("manage_billing"), async (re
       }
     }
 
-    // TDS deducted at source when paying this vendor — owed to the government, not the vendor.
     if (bill.tdsAmount > 0) {
       lines.push({
         id: uuid(),
@@ -2225,7 +2420,7 @@ app.post("/api/ai/explain-report", authGuard, async (req: any, res: any) => {
   const { reportType, data } = req.body;
   if (!ai) {
     return res.json({
-      explanation: "### Bizkhata Al Financial Analyst Summary\nTo get personalized AI summaries and forecast charts, please activate the GEMINI_API_KEY in the Secrets panel.\n\nFrom the heuristic view:\n1. **Tax compliance** looks good, with CGST and SGST correctly structured between Interstate and Intrastate registers.\n2. **Bank Reserves** are stable, supported by a ₹5,00,000 opening capital injection."
+      explanation: "### BizKhata AI Financial Analyst\nTo get personalized AI summaries and forecast charts, please activate the GEMINI_API_KEY in the Secrets panel.\n\nFrom the heuristic view:\n1. **Tax compliance** looks good with CGST/SGST structured correctly for intra-state and IGST for inter-state supplies.\n2. **Bank Reserves** reflect your current opening balance as entered in Company Setup → Opening Balances."
     });
   }
 
