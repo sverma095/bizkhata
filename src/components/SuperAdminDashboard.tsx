@@ -384,6 +384,18 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
 
           <div className="flex items-center gap-3">
             <button
+              onClick={async () => {
+                if (!confirm("⚠ This will wipe all stale logins and re-seed only the canonical accounts (superadmin + svtiger). Continue?")) return;
+                const r = await fetch("/api/superadmin/reset-userdb", { method: "POST", headers: { Authorization: `Bearer ${localStorage.getItem("bk_token")}` } });
+                const d = await r.json();
+                if (d.success) { setMessage({ text: `✓ USER_DB reset. ${d.users.length} canonical users restored.`, isError: false }); loadAllData(); }
+                else setMessage({ text: d.error || "Reset failed", isError: true });
+              }}
+              className="text-xs font-bold px-4 py-2 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 transition cursor-pointer"
+            >
+              🔄 Reset Logins
+            </button>
+            <button
               id="su-btn-refresh"
               onClick={loadAllData}
               className="text-xs font-bold px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-350 text-slate-700 transition duration-150 flex items-center gap-2 cursor-pointer shadow-xs"
