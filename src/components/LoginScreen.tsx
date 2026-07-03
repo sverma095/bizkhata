@@ -33,6 +33,9 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
   const [regPassword, setRegPassword] = useState('');
   const [seats, setSeats] = useState(5);
   const [showRegPwd, setShowRegPwd] = useState(false);
+  // Email OTP for registration
+  const [regOtp, setRegOtp] = useState('');
+  const [regOtpSent, setRegOtpSent] = useState(false);
 
   // Forgot / Reset fields
   const [forgotEmail, setForgotEmail] = useState(initialEmail);
@@ -87,10 +90,23 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
     finally { setLoading(false); }
   };
 
+  const handleSendRegOtp = async () => {
+    if (!regEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail)) { setError('Enter a valid email address first.'); return; }
+    clearMessages(); setLoading(true);
+    try {
+      const res = await fetch('/api/auth/send-reg-otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: regEmail }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not send OTP.');
+      setRegOtpSent(true);
+      setSuccess(data.emailSent ? `Verification code sent to ${regEmail}` : `OTP generated (email not configured) — SuperAdmin can see it in Notifications.`);
+    } catch (err: any) { setError(err.message); }
+    finally { setLoading(false); }
+  };
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault(); clearMessages(); setLoading(true);
     try {
-      const res = await fetch('/api/auth/register-request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ companyName, gstNumber, adminName, email: regEmail, mobileNumber: mobile, password: regPassword, numberOfRequiredSeats: seats }) });
+      const res = await fetch('/api/auth/register-request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ companyName, gstNumber, adminName, email: regEmail, mobileNumber: mobile, password: regPassword, numberOfRequiredSeats: seats, emailOtp: regOtp }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Registration failed.');
       setSuccess('Registration submitted! You will receive credentials once approved by the administrator.');
@@ -238,22 +254,63 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
                 </div>
               </div>
               <form onSubmit={handleRegister} className="space-y-3">
-                {[
-                  { icon: Building2, label: 'Company Name', val: companyName, set: setCompanyName, ph: 'Acme Private Limited', type: 'text' },
-                  { icon: Hash, label: 'GSTIN', val: gstNumber, set: setGstNumber, ph: '29AAAAA0000A1Z1', type: 'text' },
-                  { icon: User, label: 'Admin Name', val: adminName, set: setAdminName, ph: 'Full name', type: 'text' },
-                  { icon: Mail, label: 'Email', val: regEmail, set: setRegEmail, ph: 'admin@company.com', type: 'email' },
-                  { icon: Phone, label: 'Mobile', val: mobile, set: setMobile, ph: '+91 98XXXXXXXX', type: 'tel' },
-                ].map(({ icon: Icon, label, val, set, ph, type }) => (
-                  <div key={label} className="relative">
-                    <Icon className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                    <input type={type} required value={val} onChange={e => set(e.target.value)} placeholder={ph}
-                      className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-slate-50" />
+                {/* Company Name */}
+                <div className="relative">
+                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                  <input type="text" required value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="Company / Business Name"
+                    className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-slate-50" />
+                </div>
+                {/* GSTIN — optional */}
+                <div className="relative">
+                  <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                  <input type="text" value={gstNumber} onChange={e => setGstNumber(e.target.value.toUpperCase())} placeholder="GSTIN (optional — can be added later)"
+                    className="w-full pl-8 pr-20 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-slate-50" />
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded font-medium">Optional</span>
+                </div>
+                {/* Admin Name */}
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                  <input type="text" required value={adminName} onChange={e => setAdminName(e.target.value)} placeholder="Your Full Name"
+                    className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-slate-50" />
+                </div>
+                {/* Email + Send OTP */}
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                      <input type="email" required value={regEmail}
+                        onChange={e => { setRegEmail(e.target.value); setRegOtpSent(false); setRegOtp(''); }}
+                        placeholder="Email address"
+                        className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-slate-50" />
+                    </div>
+                    <button type="button" onClick={handleSendRegOtp} disabled={loading || !regEmail}
+                      className="shrink-0 px-3 py-2 bg-slate-700 hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition cursor-pointer">
+                      {regOtpSent ? 'Resend' : 'Send OTP'}
+                    </button>
                   </div>
-                ))}
+                  {regOtpSent && (
+                    <div className="flex gap-2 items-center">
+                      <div className="relative flex-1">
+                        <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-emerald-500" />
+                        <input type="text" required value={regOtp}
+                          onChange={e => setRegOtp(e.target.value.replace(/\D/g,'').slice(0,6))}
+                          placeholder="Enter 6-digit code" maxLength={6}
+                          className="w-full pl-8 pr-3 py-2 border border-emerald-300 rounded-lg text-xs font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-emerald-50" />
+                      </div>
+                      {regOtp.length === 6 && <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />}
+                    </div>
+                  )}
+                </div>
+                {/* Mobile */}
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                  <input type="tel" required value={mobile} onChange={e => setMobile(e.target.value)} placeholder="Mobile number (+91 XXXXXXXXXX)"
+                    className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-slate-50" />
+                </div>
+                {/* Password */}
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                  <input type={showRegPwd ? 'text' : 'password'} required value={regPassword} onChange={e => setRegPassword(e.target.value)} placeholder="Password (8+ chars, upper, lower, number, special)"
+                  <input type={showRegPwd ? 'text' : 'password'} required value={regPassword} onChange={e => setRegPassword(e.target.value)} placeholder="Password (8+ chars, A-Z, a-z, 0-9, special)"
                     className="w-full pl-8 pr-9 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-slate-50" />
                   <button type="button" onClick={() => setShowRegPwd(!showRegPwd)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
                     {showRegPwd ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -264,9 +321,11 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
                   <input type="number" min={1} max={100} value={seats} onChange={e => setSeats(parseInt(e.target.value))}
                     className="w-24 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-center focus:outline-none focus:ring-2 focus:ring-emerald-400" />
                 </div>
-                <button type="submit" disabled={loading} className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 shadow-sm hover:shadow disabled:opacity-60 text-white font-bold text-sm rounded-xl transition">
+                <button type="submit" disabled={loading || !regOtpSent || regOtp.length !== 6}
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 shadow-sm hover:shadow disabled:opacity-60 text-white font-bold text-sm rounded-xl transition">
                   {loading ? 'Submitting...' : 'Submit Registration Request'}
                 </button>
+                <p className="text-[10px] text-center text-slate-400">Email verification required · GSTIN can be added later</p>
               </form>
             </div>
           )}
