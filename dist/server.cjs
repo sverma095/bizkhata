@@ -32,13 +32,13 @@ __export(server_exports, {
   default: () => server_default
 });
 module.exports = __toCommonJS(server_exports);
-var import_express = __toESM(require("express"));
-var import_path = __toESM(require("path"));
-var import_fs = __toESM(require("fs"));
-var import_crypto = __toESM(require("crypto"));
+var import_express = __toESM(require("express"), 1);
+var import_path = __toESM(require("path"), 1);
+var import_fs = __toESM(require("fs"), 1);
+var import_crypto = __toESM(require("crypto"), 1);
 var import_url = require("url");
 var import_genai = require("@google/genai");
-var import_dotenv = __toESM(require("dotenv"));
+var import_dotenv = __toESM(require("dotenv"), 1);
 var import_supabase_js = require("@supabase/supabase-js");
 var import_meta = {};
 import_dotenv.default.config();
