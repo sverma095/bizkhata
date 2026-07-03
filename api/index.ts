@@ -6,7 +6,6 @@ import { fileURLToPath } from "url";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
-import nodemailer from "nodemailer";
 
 dotenv.config();
 
@@ -300,31 +299,29 @@ function diffFields(existing: any, incoming: any, fields: string[]): string {
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const EMAIL_FROM = process.env.EMAIL_FROM || process.env.SMTP_USER || "noreply@bizkhata.app";
 
-// SMTP transporter — built once, reused. Priority: SMTP env vars > Resend
-const smtpTransporter = (() => {
-  const host = process.env.SMTP_HOST;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  if (!host || !user || !pass) return null;
-  return nodemailer.createTransport({
-    host,
-    port: parseInt(process.env.SMTP_PORT || "587"),
-    secure: (process.env.SMTP_PORT || "587") === "465",
-    auth: { user, pass },
-    tls: { rejectUnauthorized: false }
-  });
-})();
-
 async function sendEmail(to: string, subject: string, html: string): Promise<{ sent: boolean; reason?: string }> {
-  // 1. Try SMTP first (user-configured)
-  if (smtpTransporter) {
+  // 1. Try SMTP via nodemailer (dynamic import — safe in both CJS and ESM)
+  const smtpHost = process.env.SMTP_HOST;
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASS;
+
+  if (smtpHost && smtpUser && smtpPass) {
     try {
-      await smtpTransporter.sendMail({
+      const nodemailer = await import("nodemailer");
+      const transporter = nodemailer.default.createTransport({
+        host: smtpHost,
+        port: parseInt(process.env.SMTP_PORT || "587"),
+        secure: process.env.SMTP_PORT === "465",
+        auth: { user: smtpUser, pass: smtpPass },
+        tls: { rejectUnauthorized: false }
+      });
+      await transporter.sendMail({
         from: `BizKhata <${EMAIL_FROM}>`,
         to,
         subject,
         html
       });
+      console.log(`SMTP email sent to ${to}`);
       return { sent: true };
     } catch (err: any) {
       console.error("SMTP sendEmail failed:", err.message);
