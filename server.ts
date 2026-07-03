@@ -2,7 +2,6 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import crypto from "crypto";
-import { fileURLToPath } from "url";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
@@ -535,9 +534,8 @@ const cachedDbByOrg: Map<string, any> = new Map();
   cachedDbByOrg.set("org_verma_consultancy", vermaState);
 }
 
-// __dirname fallback for CJS/ESM compatibility
-const __filename = (() => { try { return fileURLToPath(import.meta.url); } catch { return ''; } })();
-const __dirname = __filename ? path.dirname(__filename) : process.cwd();
+// CJS-safe __dirname (native in CJS; for ESM local dev tsx handles it natively too)
+const __server_dir = process.cwd();
 
 const app = express();
 app.use((req: any, res: any, next: any) => {
