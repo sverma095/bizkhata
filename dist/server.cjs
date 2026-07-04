@@ -65,7 +65,8 @@ var USER_DB = {
   auditLogs: [],
   customRoles: [],
   registrationRequests: [],
-  notifications: []
+  notifications: [],
+  supportTickets: []
 };
 var userDbLoaded = false;
 async function loadUserDB() {
@@ -527,7 +528,7 @@ app.use((req, res, next) => {
   next();
 });
 app.use(import_express.default.json());
-var USER_DB_ROUTES = ["/api/auth/", "/api/superadmin/", "/api/users", "/api/seat-requests", "/api/audit-logs", "/api/custom-roles"];
+var USER_DB_ROUTES = ["/api/auth/", "/api/superadmin/", "/api/users", "/api/seat-requests", "/api/audit-logs", "/api/custom-roles", "/api/support"];
 var USER_DB_EXCLUDED_ROUTES = ["/api/users/add", "/api/users/remove"];
 app.use(async (req, res, next) => {
   if (USER_DB_EXCLUDED_ROUTES.some((p) => req.path === p)) return next();
@@ -2189,6 +2190,85 @@ app.post("/api/users/remove", authGuard, requirePermission("manage_users"), asyn
   saveUserDB().catch(() => {
   });
   res.json({ success: true, deleted: targetUser.email });
+});
+app.get("/api/support/tickets", authGuard, (req, res) => {
+  const user = req.user;
+  if (user.role === "Super Admin") {
+    return res.json(USER_DB.supportTickets || []);
+  }
+  const tickets = (USER_DB.supportTickets || []).filter((t) => t.organizationId === user.organizationId);
+  res.json(tickets);
+});
+app.post("/api/support/tickets", authGuard, (req, res) => {
+  const user = req.user;
+  const { subject, description, priority } = req.body;
+  if (!subject || !description) return res.status(400).json({ error: "Subject and description required." });
+  if (!USER_DB.supportTickets) USER_DB.supportTickets = [];
+  const org = USER_DB.organizations.find((o) => o.id === user.organizationId);
+  const ticket = {
+    id: generateId("ticket"),
+    organizationId: user.organizationId,
+    orgName: org?.name || "Unknown",
+    raisedBy: user.fullName,
+    raisedByEmail: user.email,
+    subject,
+    description,
+    priority: priority || "Medium",
+    status: "Open",
+    messages: [{ from: user.fullName, role: user.role, text: description, timestamp: (/* @__PURE__ */ new Date()).toISOString() }],
+    createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+    updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+  };
+  USER_DB.supportTickets.unshift(ticket);
+  saveUserDB().catch(() => {
+  });
+  res.status(201).json(ticket);
+});
+app.post("/api/support/tickets/:id/reply", authGuard, (req, res) => {
+  const user = req.user;
+  const ticket = (USER_DB.supportTickets || []).find((t) => t.id === req.params.id);
+  if (!ticket) return res.status(404).json({ error: "Ticket not found." });
+  if (user.role !== "Super Admin" && ticket.organizationId !== user.organizationId) {
+    return res.status(403).json({ error: "Access denied." });
+  }
+  const { text, status } = req.body;
+  if (!text) return res.status(400).json({ error: "Reply text required." });
+  ticket.messages.push({ from: user.fullName, role: user.role, text, timestamp: (/* @__PURE__ */ new Date()).toISOString() });
+  if (status) ticket.status = status;
+  ticket.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+  saveUserDB().catch(() => {
+  });
+  res.json(ticket);
+});
+app.get("/api/superadmin/orgs/:orgId/ledger", authGuard, superAdminGuard, async (req, res) => {
+  const { orgId } = req.params;
+  const org = USER_DB.organizations.find((o) => o.id === orgId);
+  if (!org) return res.status(404).json({ error: "Organisation not found." });
+  try {
+    const db = await readDB(orgId);
+    const summary = {
+      org,
+      users: USER_DB.users.filter((u) => u.organizationId === orgId).map(safeUser),
+      stats: {
+        invoices: (db.invoices || []).length,
+        expenses: (db.expenses || []).length,
+        bills: (db.bills || []).length,
+        customers: (db.customers || []).length,
+        vendors: (db.vendors || []).length,
+        journals: (db.journals || []).length,
+        totalRevenue: (db.invoices || []).filter((i) => i.status === "Approved").reduce((s, i) => s + (i.total || 0), 0),
+        totalExpenses: (db.expenses || []).reduce((s, e) => s + (e.total || e.amount || 0), 0)
+      },
+      recentInvoices: (db.invoices || []).slice(0, 5),
+      recentJournals: (db.journals || []).slice(0, 5),
+      accounts: (db.accounts || []).slice(0, 20),
+      company: db.company,
+      tickets: (USER_DB.supportTickets || []).filter((t) => t.organizationId === orgId)
+    };
+    res.json(summary);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 app.post("/api/superadmin/organizations", authGuard, superAdminGuard, (req, res) => {
   const { name, legalName, pan, gstNumber, purchasedSeats, packageType, pricingMonthly, registeredEmail } = req.body;
