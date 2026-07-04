@@ -24,7 +24,7 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
   const [users, setUsers] = useState<User[]>([]);
 
   // Filtering / UI state
-  const [activeTab, setActiveTab] = useState<'orgs' | 'tickets' | 'seats' | 'audits'>('orgs');
+  const [activeTab, setActiveTab] = useState<'orgs' | 'tickets' | 'seats' | 'audits' | 'users'>('orgs');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ text: string; isError: boolean } | null>(null);
@@ -38,6 +38,9 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
   const [pendingActionReg, setPendingActionReg] = useState<RegistrationRequest | null>(null);
   const [actionFeedback, setActionFeedback] = useState('');
   const [approvalMonths, setApprovalMonths] = useState(12);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editingUserRole, setEditingUserRole] = useState('');
+  const [userSearch, setUserSearch] = useState('');
 
   // SaaS Owner: new tenant enrollment form (merged in from the old separate Owner console)
   const [showNewOrgForm, setShowNewOrgForm] = useState(false);
@@ -325,6 +328,24 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
               </div>
               <span className="font-mono text-[10px] bg-slate-200 px-1.5 py-0.5 rounded-full text-slate-600">
                 {auditLogs.length}
+              </span>
+            </button>
+
+            <button
+              id="tab-su-users"
+              onClick={() => { setActiveTab('users'); setUserSearch(''); }}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-xs font-bold uppercase tracking-wider transition duration-150 cursor-pointer text-left ${
+                activeTab === 'users'
+                  ? 'bg-blue-50 text-blue-700 border-r-4 border-blue-600 font-extrabold'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Users className="w-4 h-4 text-blue-600" />
+                <span>All Users</span>
+              </div>
+              <span className="font-mono text-[10px] bg-slate-200 px-1.5 py-0.5 rounded-full text-slate-600">
+                {users.length}
               </span>
             </button>
           </nav>
@@ -963,6 +984,160 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                 </div>
               </div>
 
+            </div>
+          )}
+
+          {/* USERS TAB — Delete, Hold, Manager, Edit Role */}
+          {activeTab === 'users' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-800">All Users Across All Organizations</h3>
+                <input
+                  type="text"
+                  placeholder="Search by name, email or org..."
+                  value={userSearch}
+                  onChange={e => setUserSearch(e.target.value)}
+                  className="border border-slate-200 rounded-lg px-3 py-1.5 text-xs w-64 outline-none focus:border-blue-400"
+                />
+              </div>
+
+              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-[11px] text-slate-500 uppercase font-semibold">
+                    <tr>
+                      <th className="px-4 py-3 text-left">User</th>
+                      <th className="px-4 py-3 text-left">Organization</th>
+                      <th className="px-4 py-3 text-left">Role</th>
+                      <th className="px-4 py-3 text-left">Status</th>
+                      <th className="px-4 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {users
+                      .filter(u => !userSearch ||
+                        u.fullName?.toLowerCase().includes(userSearch.toLowerCase()) ||
+                        u.email?.toLowerCase().includes(userSearch.toLowerCase()) ||
+                        organizations.find(o => o.id === u.organizationId)?.name?.toLowerCase().includes(userSearch.toLowerCase())
+                      )
+                      .map(u => {
+                        const org = organizations.find(o => o.id === u.organizationId);
+                        const isEditing = editingUserId === u.id;
+                        return (
+                          <tr key={u.id} className="hover:bg-slate-50">
+                            <td className="px-4 py-3">
+                              <div className="font-semibold text-slate-800">{u.fullName}</div>
+                              <div className="text-slate-400 font-mono text-[10px]">{u.email}</div>
+                            </td>
+                            <td className="px-4 py-3 text-slate-600">{org?.name || (u.role === 'Super Admin' ? '— Platform Admin —' : '—')}</td>
+                            <td className="px-4 py-3">
+                              {isEditing ? (
+                                <select defaultValue={u.role}
+                                  onChange={e => setEditingUserRole(e.target.value)}
+                                  className="border border-slate-300 rounded px-2 py-1 text-xs bg-white outline-none">
+                                  <option value="Admin">Admin</option>
+                                  <option value="Accountant">Accountant</option>
+                                  <option value="Staff">Staff</option>
+                                  <option value="Viewer">Viewer</option>
+                                  <option value="Manager">Manager</option>
+                                </select>
+                              ) : (
+                                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${
+                                  u.role === 'Super Admin' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                                  u.role === 'Admin' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                  u.role === 'Manager' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                  'bg-slate-50 text-slate-600 border-slate-200'
+                                }`}>{u.role}</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`flex items-center gap-1 text-[11px] font-medium ${
+                                u.status === 'Active' ? 'text-emerald-600' :
+                                u.status === 'Disabled' ? 'text-rose-600' : 'text-amber-600'
+                              }`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${
+                                  u.status === 'Active' ? 'bg-emerald-500' :
+                                  u.status === 'Disabled' ? 'bg-rose-500' : 'bg-amber-400'
+                                }`} />
+                                {u.status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              {u.role !== 'Super Admin' && (
+                                <div className="flex items-center justify-end gap-1.5">
+                                  {isEditing ? (
+                                    <>
+                                      <button onClick={async () => {
+                                        const r = await fetch(`/api/users/${u.id}`, {
+                                          method: 'PUT',
+                                          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('bk_token')}` },
+                                          body: JSON.stringify({ role: editingUserRole })
+                                        });
+                                        if (r.ok) { setEditingUserId(null); loadAllData(); setMessage({ text: `✓ Role updated for ${u.fullName}`, isError: false }); }
+                                      }} className="bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold px-2.5 py-1 rounded cursor-pointer">Save</button>
+                                      <button onClick={() => setEditingUserId(null)} className="border border-slate-300 text-slate-600 text-[10px] px-2.5 py-1 rounded cursor-pointer">Cancel</button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      {/* Edit Role */}
+                                      <button onClick={() => { setEditingUserId(u.id); setEditingUserRole(u.role); }}
+                                        className="border border-slate-300 hover:bg-slate-50 text-slate-600 text-[10px] font-semibold px-2.5 py-1 rounded cursor-pointer">
+                                        Edit Role
+                                      </button>
+                                      {/* Hold / Unhold */}
+                                      <button onClick={async () => {
+                                        const newStatus = u.status === 'Active' ? 'Disabled' : 'Active';
+                                        const r = await fetch(`/api/users/${u.id}`, {
+                                          method: 'PUT',
+                                          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('bk_token')}` },
+                                          body: JSON.stringify({ status: newStatus })
+                                        });
+                                        if (r.ok) { loadAllData(); setMessage({ text: `✓ ${u.fullName} ${newStatus === 'Disabled' ? 'put on hold' : 'activated'}`, isError: false }); }
+                                      }} className={`text-[10px] font-semibold px-2.5 py-1 rounded cursor-pointer border ${
+                                        u.status === 'Active'
+                                          ? 'border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-700'
+                                          : 'border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
+                                      }`}>
+                                        {u.status === 'Active' ? 'Hold' : 'Unhold'}
+                                      </button>
+                                      {/* Make Manager */}
+                                      {u.role !== 'Manager' && u.role !== 'Admin' && (
+                                        <button onClick={async () => {
+                                          const r = await fetch(`/api/users/${u.id}`, {
+                                            method: 'PUT',
+                                            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('bk_token')}` },
+                                            body: JSON.stringify({ role: 'Manager' })
+                                          });
+                                          if (r.ok) { loadAllData(); setMessage({ text: `✓ ${u.fullName} promoted to Manager`, isError: false }); }
+                                        }} className="border border-purple-300 bg-purple-50 hover:bg-purple-100 text-purple-700 text-[10px] font-semibold px-2.5 py-1 rounded cursor-pointer">
+                                          Make Manager
+                                        </button>
+                                      )}
+                                      {/* Delete */}
+                                      <button onClick={async () => {
+                                        if (!confirm(`Delete ${u.fullName} (${u.email})? This cannot be undone.`)) return;
+                                        const r = await fetch('/api/users/remove', {
+                                          method: 'POST',
+                                          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('bk_token')}` },
+                                          body: JSON.stringify({ userId: u.id })
+                                        });
+                                        if (r.ok) { loadAllData(); setMessage({ text: `✓ User ${u.fullName} deleted`, isError: false }); }
+                                      }} className="border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-[10px] font-semibold px-2.5 py-1 rounded cursor-pointer">
+                                        Delete
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    {users.length === 0 && (
+                      <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">No users found.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 
