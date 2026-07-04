@@ -2171,34 +2171,24 @@ app.post("/api/journals", authGuard, requirePermission("create_journals"), async
   res.json({ success: true, db });
 });
 app.post("/api/users/remove", authGuard, requirePermission("manage_users"), async (req, res) => {
-  const orgId = req.user.organizationId;
-  if (!orgId) {
-    return res.status(400).json({ error: "Your account isn't linked to an organization." });
+  const activeUser = req.user;
+  const targetId = req.body.userId || req.body.id;
+  if (!targetId) return res.status(400).json({ error: "Missing required parameter: userId" });
+  const targetUserIdx = USER_DB.users.findIndex((u) => u.id === targetId);
+  if (targetUserIdx === -1) return res.status(404).json({ error: "User not found." });
+  const targetUser = USER_DB.users[targetUserIdx];
+  if (targetUser.role === "Super Admin") return res.status(400).json({ error: "Cannot delete Super Admin." });
+  if (targetUser.id === activeUser.id) return res.status(400).json({ error: "Cannot delete your own account." });
+  if (activeUser.role !== "Super Admin" && targetUser.organizationId !== activeUser.organizationId) {
+    return res.status(403).json({ error: "Tenant isolation violation." });
   }
-  const db = await readDB(orgId);
-  const { id, author } = req.body;
-  if (!id) {
-    return res.status(400).json({ error: "Missing required parameter: id" });
-  }
-  if (!db.users) db.users = [];
-  const targetIdx = db.users.findIndex((u) => u.id === id);
-  if (targetIdx === -1) {
-    return res.status(404).json({ error: "Specified user record was not found." });
-  }
-  const targetUser = db.users[targetIdx];
-  if (targetUser.role === "Super Admin" || targetUser.isOwner) {
-    return res.status(400).json({ error: "Access Denied: The system owner administrator account cannot be deleted." });
-  }
-  db.users.splice(targetIdx, 1);
-  db.auditLogs.unshift({
-    id: uuid(),
-    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-    user: author || "Admin",
-    action: "User Seat Deletion",
-    details: `Revoked corporate authorization and deleted user credentials for ${targetUser.name} (${targetUser.email}).`
+  USER_DB.users.splice(targetUserIdx, 1);
+  const org = USER_DB.organizations.find((o) => o.id === targetUser.organizationId);
+  if (org) org.usedSeats = USER_DB.users.filter((u) => u.organizationId === org.id && u.status !== "Disabled").length;
+  addAuditLog(targetUser.organizationId, activeUser.fullName, activeUser.role, "User Deleted", `Deleted user '${targetUser.email}' (${targetUser.role}).`);
+  saveUserDB().catch(() => {
   });
-  await writeDB(orgId, db);
-  res.json({ success: true, db });
+  res.json({ success: true, deleted: targetUser.email });
 });
 app.post("/api/superadmin/organizations", authGuard, superAdminGuard, (req, res) => {
   const { name, legalName, pan, gstNumber, purchasedSeats, packageType, pricingMonthly, registeredEmail } = req.body;
