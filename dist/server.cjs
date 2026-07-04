@@ -2451,6 +2451,27 @@ Bizkhata Pvt Ltd`
     res.status(500).json({ error: err.message });
   }
 });
+app.post("/api/ai/copilot", authGuard, async (req, res) => {
+  const { messages, context } = req.body;
+  if (!ai) {
+    return res.json({
+      reply: "AI Copilot requires GEMINI_API_KEY to be configured. As a fallback: your question has been noted. Please configure the Gemini API key in Vercel environment variables to enable live AI responses."
+    });
+  }
+  try {
+    const systemPrompt = `You are BizKhata's AI accounting copilot \u2014 an expert CA (Chartered Accountant) specializing in Indian GST, TDS, accounting standards (IndAS/GAAP), and business finance. Answer questions concisely and accurately. Context about this organization: ${JSON.stringify(context || {})}.`;
+    const userMessage = Array.isArray(messages) ? messages[messages.length - 1]?.content || "" : messages;
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: `${systemPrompt}
+
+User: ${userMessage}`
+    });
+    res.json({ reply: response.text });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 app.post("/api/sales-orders", authGuard, async (req, res) => {
   try {
     const orgId = req.user.organizationId;
