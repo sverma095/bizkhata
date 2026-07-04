@@ -2788,9 +2788,6 @@ app.post("/api/fixed-assets", authGuard, async (req: any, res: any) => {
 
 if (process.env.VERCEL !== "1") {
   (async () => {
-    // Per-organization caches now populate lazily on each org's first request —
-    // there's no longer a single shared ledger to pre-warm at startup.
-
     if (process.env.NODE_ENV !== "production") {
       const { createServer: createViteServer } = await import("vite");
       const vite = await createViteServer({
@@ -2805,12 +2802,21 @@ if (process.env.VERCEL !== "1") {
         res.sendFile(path.join(distPath, "index.html"));
       });
     }
-
     app.listen(PORT, "0.0.0.0", () => {
       console.log(`Bizkhata express ledger server listening on port ${PORT}...`);
     });
   })();
 }
 
+// Global error handler — always returns JSON (never HTML)
+app.use((err: any, req: any, res: any, next: any) => {
+  console.error("Unhandled error:", err?.message || err);
+  res.status(500).json({ error: "Internal server error", detail: err?.message });
+});
+
+// Health check
+app.get("/api/health", (_req: any, res: any) => {
+  res.json({ ok: true, ts: new Date().toISOString(), node: process.version });
+});
+
 export default app;
-// force redeploy Tue Jun  2 04:34:09 UTC 2026
