@@ -2775,5 +2775,12 @@ if (process.env.VERCEL !== "1") {
     });
   })();
 }
+app.use((err, req, res, next) => {
+  console.error("Unhandled error:", err?.message || err);
+  res.status(500).json({ error: "Internal server error", detail: err?.message });
+});
+app.get("/api/health", (_req, res) => {
+  res.json({ ok: true, ts: (/* @__PURE__ */ new Date()).toISOString(), node: process.version });
+});
 var server_default = app;
 //# sourceMappingURL=server.cjs.map
