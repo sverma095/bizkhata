@@ -2206,41 +2206,35 @@ app.post("/api/journals", authGuard, requirePermission("create_journals"), async
 
 // Secure API endpoint to delete sub-users from Corporate Team Directory
 app.post("/api/users/remove", authGuard, requirePermission("manage_users"), async (req: any, res: any) => {
-  const orgId = req.user.organizationId;
-  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
-  const db = await readDB(orgId);
-  const { id, author } = req.body;
+  const activeUser = req.user;
+  // Accept both 'userId' (SuperAdmin UI) and 'id' (legacy)
+  const targetId = req.body.userId || req.body.id;
+  if (!targetId) return res.status(400).json({ error: "Missing required parameter: userId" });
 
-  if (!id) {
-    return res.status(400).json({ error: "Missing required parameter: id" });
+  // Find user in USER_DB (authoritative store)
+  const targetUserIdx = USER_DB.users.findIndex((u: any) => u.id === targetId);
+  if (targetUserIdx === -1) return res.status(404).json({ error: "User not found." });
+  const targetUser = USER_DB.users[targetUserIdx];
+
+  // Prevent deleting Super Admin or self
+  if (targetUser.role === "Super Admin") return res.status(400).json({ error: "Cannot delete Super Admin." });
+  if (targetUser.id === activeUser.id) return res.status(400).json({ error: "Cannot delete your own account." });
+
+  // Tenant isolation — non-SuperAdmin can only delete from their own org
+  if (activeUser.role !== "Super Admin" && targetUser.organizationId !== activeUser.organizationId) {
+    return res.status(403).json({ error: "Tenant isolation violation." });
   }
 
-  if (!db.users) db.users = [];
+  // Remove from USER_DB
+  USER_DB.users.splice(targetUserIdx, 1);
 
-  const targetIdx = db.users.findIndex(u => u.id === id);
-  if (targetIdx === -1) {
-    return res.status(404).json({ error: "Specified user record was not found." });
-  }
+  // Update org seat count
+  const org = USER_DB.organizations.find((o: any) => o.id === targetUser.organizationId);
+  if (org) org.usedSeats = USER_DB.users.filter((u: any) => u.organizationId === org.id && u.status !== "Disabled").length;
 
-  const targetUser = db.users[targetIdx];
-
-  // Prevent self-deletion or default admin system accounts
-  if (targetUser.role === "Super Admin" || targetUser.isOwner) {
-    return res.status(400).json({ error: "Access Denied: The system owner administrator account cannot be deleted." });
-  }
-
-  db.users.splice(targetIdx, 1);
-
-  db.auditLogs.unshift({
-    id: uuid(),
-    timestamp: new Date().toISOString(),
-    user: author || "Admin",
-    action: "User Seat Deletion",
-    details: `Revoked corporate authorization and deleted user credentials for ${targetUser.name} (${targetUser.email}).`
-  });
-
-  await writeDB(orgId, db);
-  res.json({ success: true, db });
+  addAuditLog(targetUser.organizationId, activeUser.fullName, activeUser.role, "User Deleted", `Deleted user '${targetUser.email}' (${targetUser.role}).`);
+  saveUserDB().catch(() => {});
+  res.json({ success: true, deleted: targetUser.email });
 });
 
 // Owner SaaS Console APIs
