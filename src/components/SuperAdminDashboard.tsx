@@ -24,10 +24,18 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
   const [users, setUsers] = useState<User[]>([]);
 
   // Filtering / UI state
-  const [activeTab, setActiveTab] = useState<'orgs' | 'tickets' | 'seats' | 'audits' | 'users'>('orgs');
+  const [activeTab, setActiveTab] = useState<'orgs' | 'tickets' | 'seats' | 'audits' | 'users' | 'support'>('orgs');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ text: string; isError: boolean } | null>(null);
+
+  // Support tickets
+  const [supportTickets, setSupportTickets] = useState<any[]>([]);
+  const [selectedTicket, setSelectedTicket] = useState<any | null>(null);
+  const [replyText, setReplyText] = useState('');
+  const [viewingOrgId, setViewingOrgId] = useState<string | null>(null);
+  const [orgLedger, setOrgLedger] = useState<any | null>(null);
+  const [orgLedgerLoading, setOrgLedgerLoading] = useState(false);
 
   // Selected details / Modal edits
   const [editingOrg, setEditingOrg] = useState<Organization | null>(null);
@@ -58,12 +66,13 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
     try {
       const headers = { 'Authorization': `Bearer ${token}` };
       
-      const [oRes, rRes, sRes, lRes, uRes] = await Promise.all([
+      const [oRes, rRes, sRes, lRes, uRes, tRes] = await Promise.all([
         fetch('/api/superadmin/organizations', { headers }),
         fetch('/api/superadmin/registrations', { headers }),
         fetch('/api/seat-requests', { headers }),
         fetch('/api/audit-logs', { headers }),
-        fetch('/api/users', { headers })
+        fetch('/api/users', { headers }),
+        fetch('/api/support/tickets', { headers })
       ]);
 
       if (oRes.ok && rRes.ok && sRes.ok && lRes.ok && uRes.ok) {
@@ -76,6 +85,7 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
         setAuditLogs(logs);
         setUsers(uList);
       }
+      if (tRes.ok) setSupportTickets(await tRes.json());
     } catch (err) {
       console.error("Failed to load platform data profiles", err);
     } finally {
@@ -347,6 +357,26 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
               <span className="font-mono text-[10px] bg-slate-200 px-1.5 py-0.5 rounded-full text-slate-600">
                 {users.length}
               </span>
+            </button>
+
+            <button
+              id="tab-su-support"
+              onClick={() => { setActiveTab('support'); setViewingOrgId(null); setOrgLedger(null); setSelectedTicket(null); }}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-xs font-bold uppercase tracking-wider transition duration-150 cursor-pointer text-left ${
+                activeTab === 'support'
+                  ? 'bg-rose-50 text-rose-700 border-r-4 border-rose-500 font-extrabold'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <AlertCircle className="w-4 h-4 text-rose-500" />
+                <span>Support</span>
+              </div>
+              {supportTickets.filter((t: any) => t.status === 'Open').length > 0 && (
+                <span className="font-mono text-[10px] bg-rose-500 text-white px-1.5 py-0.5 rounded-full">
+                  {supportTickets.filter((t: any) => t.status === 'Open').length}
+                </span>
+              )}
             </button>
           </nav>
         </div>
@@ -627,6 +657,20 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                             })() : <span className="text-slate-300 text-[10px]">Not set</span>}
                           </td>
                           <td className="p-3 text-right flex gap-1.5 justify-end">
+                            <button
+                              onClick={async () => {
+                                setViewingOrgId(org.id);
+                                setOrgLedger(null);
+                                setOrgLedgerLoading(true);
+                                setActiveTab('support');
+                                const r = await fetch(`/api/superadmin/orgs/${org.id}/ledger`, { headers: { Authorization: `Bearer ${token}` } });
+                                if (r.ok) setOrgLedger(await r.json());
+                                setOrgLedgerLoading(false);
+                              }}
+                              className="px-2.5 py-1 text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded font-sans font-bold transition text-[11px]"
+                            >
+                              View Ledger
+                            </button>
                             <button
                               id={`btn-edit-org-${org.id}`}
                               onClick={() => {
@@ -1138,6 +1182,223 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                   </tbody>
                 </table>
               </div>
+            </div>
+          )}
+
+          {/* SUPPORT TAB — Tickets + Org Ledger Viewer */}
+          {activeTab === 'support' && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800">Support Center</h3>
+                  <p className="text-xs text-slate-400">View & respond to org complaints. Inspect any org's ledger data.</p>
+                </div>
+                {selectedTicket && (
+                  <button onClick={() => { setSelectedTicket(null); setOrgLedger(null); setViewingOrgId(null); }}
+                    className="text-xs text-slate-500 hover:text-slate-800 flex items-center gap-1 border border-slate-200 px-3 py-1.5 rounded">
+                    ← Back to list
+                  </button>
+                )}
+              </div>
+
+              {/* Org Ledger Viewer */}
+              {orgLedger && (
+                <div className="bg-white border border-blue-200 rounded-xl p-5 space-y-4">
+                  <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+                    <h4 className="font-semibold text-gray-800 text-sm">🔍 Ledger: {orgLedger.org?.name}</h4>
+                    <button onClick={() => { setOrgLedger(null); setViewingOrgId(null); }} className="text-gray-400 hover:text-gray-600 text-xs">✕ Close</button>
+                  </div>
+                  <div className="grid grid-cols-3 md:grid-cols-6 gap-3 text-xs">
+                    {[
+                      { label: 'Invoices', val: orgLedger.stats?.invoices },
+                      { label: 'Expenses', val: orgLedger.stats?.expenses },
+                      { label: 'Bills', val: orgLedger.stats?.bills },
+                      { label: 'Customers', val: orgLedger.stats?.customers },
+                      { label: 'Vendors', val: orgLedger.stats?.vendors },
+                      { label: 'Journals', val: orgLedger.stats?.journals },
+                    ].map(s => (
+                      <div key={s.label} className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
+                        <div className="text-xl font-bold text-blue-700">{s.val ?? 0}</div>
+                        <div className="text-gray-500">{s.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 text-xs">
+                    <div>
+                      <p className="text-gray-500 font-medium mb-1">Revenue (Approved Invoices)</p>
+                      <p className="text-lg font-bold text-green-700">₹{(orgLedger.stats?.totalRevenue || 0).toLocaleString('en-IN')}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500 font-medium mb-1">Total Expenses</p>
+                      <p className="text-lg font-bold text-rose-700">₹{(orgLedger.stats?.totalExpenses || 0).toLocaleString('en-IN')}</p>
+                    </div>
+                  </div>
+                  {/* Users in org */}
+                  <div>
+                    <p className="text-xs font-semibold text-gray-600 mb-2">Users ({orgLedger.users?.length})</p>
+                    <div className="space-y-1">
+                      {(orgLedger.users || []).map((u: any) => (
+                        <div key={u.id} className="flex items-center justify-between text-xs bg-gray-50 rounded px-3 py-1.5">
+                          <span className="font-medium text-gray-800">{u.fullName || u.name}</span>
+                          <span className="text-gray-500">{u.email}</span>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${u.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{u.status}</span>
+                          <span className="text-blue-600 font-medium">{u.role}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  {/* Recent Invoices */}
+                  {orgLedger.recentInvoices?.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-600 mb-2">Recent Invoices</p>
+                      <table className="w-full text-xs border border-gray-100 rounded-lg overflow-hidden">
+                        <thead className="bg-gray-50 text-gray-400 uppercase text-[10px]">
+                          <tr><th className="px-3 py-2 text-left">Invoice#</th><th className="px-3 py-2 text-left">Date</th><th className="px-3 py-2 text-right">Amount</th><th className="px-3 py-2">Status</th></tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {orgLedger.recentInvoices.map((inv: any) => (
+                            <tr key={inv.id}>
+                              <td className="px-3 py-2 font-mono">{inv.invoiceNumber}</td>
+                              <td className="px-3 py-2 text-gray-500">{inv.date}</td>
+                              <td className="px-3 py-2 text-right font-mono">₹{(inv.total || 0).toLocaleString('en-IN')}</td>
+                              <td className="px-3 py-2 text-center"><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${inv.status === 'Approved' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>{inv.status}</span></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  {/* Support actions */}
+                  <div className="flex gap-3 pt-2 border-t border-gray-100">
+                    <button onClick={async () => {
+                      const r = await fetch(`/api/superadmin/organizations/${viewingOrgId}`, {
+                        method: 'PUT', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: orgLedger.org?.status === 'Active' ? 'Suspended' : 'Active' })
+                      });
+                      if (r.ok) { const d = await r.json(); setOrgLedger((p: any) => ({ ...p, org: { ...p.org, status: d.org?.status || (orgLedger.org?.status === 'Active' ? 'Suspended' : 'Active') } })); loadAllData(); }
+                    }} className={`text-xs font-bold px-4 py-2 rounded border cursor-pointer ${orgLedger.org?.status === 'Active' ? 'border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100' : 'border-green-200 bg-green-50 text-green-700 hover:bg-green-100'}`}>
+                      {orgLedger.org?.status === 'Active' ? '🔒 Suspend Org' : '✅ Reactivate Org'}
+                    </button>
+                    <button onClick={() => setOrgLedger(null)} className="text-xs text-gray-500 border border-gray-200 px-4 py-2 rounded hover:bg-gray-50">Close</button>
+                  </div>
+                </div>
+              )}
+
+              {orgLedgerLoading && (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 text-center text-xs text-blue-600">Loading org ledger data...</div>
+              )}
+
+              {/* Ticket Detail View */}
+              {selectedTicket && !orgLedger && (
+                <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="font-semibold text-gray-800">{selectedTicket.subject}</h4>
+                      <p className="text-xs text-gray-500 mt-0.5">{selectedTicket.orgName} · {selectedTicket.raisedBy} · {new Date(selectedTicket.createdAt).toLocaleDateString('en-IN')}</p>
+                    </div>
+                    <span className={`text-[11px] font-bold px-2 py-1 rounded-full ${selectedTicket.status === 'Open' ? 'bg-rose-100 text-rose-700' : selectedTicket.status === 'In Progress' ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>{selectedTicket.status}</span>
+                  </div>
+                  {/* Also show org ledger for this ticket */}
+                  <button onClick={async () => {
+                    setOrgLedgerLoading(true);
+                    setViewingOrgId(selectedTicket.organizationId);
+                    const r = await fetch(`/api/superadmin/orgs/${selectedTicket.organizationId}/ledger`, { headers: { Authorization: `Bearer ${token}` } });
+                    if (r.ok) setOrgLedger(await r.json());
+                    setOrgLedgerLoading(false);
+                  }} className="text-xs text-blue-600 hover:underline font-medium">🔍 Inspect Org Ledger →</button>
+                  {/* Conversation */}
+                  <div className="space-y-2 max-h-64 overflow-y-auto border border-gray-100 rounded-lg p-3 bg-gray-50">
+                    {(selectedTicket.messages || []).map((m: any, i: number) => (
+                      <div key={i} className={`flex ${m.role === 'Super Admin' ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[75%] rounded-xl px-3 py-2 text-xs ${m.role === 'Super Admin' ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200 text-gray-800'}`}>
+                          <p className={`font-bold text-[10px] mb-0.5 ${m.role === 'Super Admin' ? 'text-blue-200' : 'text-gray-500'}`}>{m.from} · {new Date(m.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
+                          {m.text}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Reply */}
+                  <div className="space-y-2">
+                    <textarea rows={3} value={replyText} onChange={e => setReplyText(e.target.value)}
+                      placeholder="Type your response..."
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none resize-none"
+                    />
+                    <div className="flex gap-2">
+                      {['Open','In Progress','Resolved'].map(s => (
+                        <button key={s} onClick={async () => {
+                          if (!replyText.trim()) return;
+                          const r = await fetch(`/api/support/tickets/${selectedTicket.id}/reply`, {
+                            method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ text: replyText, status: s })
+                          });
+                          if (r.ok) { const d = await r.json(); setSelectedTicket(d); setReplyText(''); loadAllData(); }
+                        }} className={`text-xs font-bold px-4 py-2 rounded cursor-pointer border ${s === 'Resolved' ? 'bg-green-600 text-white border-green-600 hover:bg-green-700' : s === 'In Progress' ? 'bg-amber-500 text-white border-amber-500 hover:bg-amber-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}>
+                          Reply & {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Ticket List */}
+              {!selectedTicket && !orgLedger && (
+                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                  <div className="px-5 py-3 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+                    <span className="text-sm font-semibold text-gray-700">All Tickets ({supportTickets.length})</span>
+                    <div className="flex gap-2 text-xs text-gray-500">
+                      <span className="bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full font-bold">Open: {supportTickets.filter(t => t.status === 'Open').length}</span>
+                      <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold">In Progress: {supportTickets.filter(t => t.status === 'In Progress').length}</span>
+                      <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">Resolved: {supportTickets.filter(t => t.status === 'Resolved').length}</span>
+                    </div>
+                  </div>
+                  {supportTickets.length === 0 ? (
+                    <div className="px-5 py-10 text-center text-gray-400 text-sm">No support tickets yet. When org users raise issues, they'll appear here.</div>
+                  ) : (
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 text-[11px] text-gray-500 uppercase font-semibold border-b border-gray-200">
+                        <tr>
+                          <th className="px-4 py-3 text-left">Organisation</th>
+                          <th className="px-4 py-3 text-left">Subject</th>
+                          <th className="px-4 py-3 text-left">Raised By</th>
+                          <th className="px-4 py-3 text-left">Priority</th>
+                          <th className="px-4 py-3 text-left">Status</th>
+                          <th className="px-4 py-3 text-left">Date</th>
+                          <th className="px-4 py-3"></th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {supportTickets.map((t: any) => (
+                          <tr key={t.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 font-medium text-gray-800 text-xs">{t.orgName}</td>
+                            <td className="px-4 py-3 text-gray-700 text-xs">{t.subject}</td>
+                            <td className="px-4 py-3 text-gray-500 text-xs">{t.raisedBy}</td>
+                            <td className="px-4 py-3">
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${t.priority === 'High' ? 'bg-rose-100 text-rose-700' : t.priority === 'Medium' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'}`}>{t.priority}</span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${t.status === 'Open' ? 'bg-rose-100 text-rose-700' : t.status === 'In Progress' ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>{t.status}</span>
+                            </td>
+                            <td className="px-4 py-3 text-gray-400 text-xs">{new Date(t.createdAt).toLocaleDateString('en-IN')}</td>
+                            <td className="px-4 py-3 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <button onClick={() => setSelectedTicket(t)} className="text-xs text-blue-600 hover:underline font-medium">Reply</button>
+                                <button onClick={async () => {
+                                  setOrgLedgerLoading(true);
+                                  setViewingOrgId(t.organizationId);
+                                  const r = await fetch(`/api/superadmin/orgs/${t.organizationId}/ledger`, { headers: { Authorization: `Bearer ${token}` } });
+                                  if (r.ok) setOrgLedger(await r.json());
+                                  setOrgLedgerLoading(false);
+                                }} className="text-xs text-purple-600 hover:underline font-medium">View Ledger</button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
