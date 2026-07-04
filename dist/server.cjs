@@ -1135,19 +1135,22 @@ app.post("/api/superadmin/registrations/:id/action", authGuard, superAdminGuard,
   res.json({ success: true, reg });
 });
 var ALLOWED_MODULE_KEYS = /* @__PURE__ */ new Set([
+  "tds",
   "workflow",
   "email",
   "gstr2b",
+  "reminders",
   "approvals",
   "bankfeeds",
   "cportal",
   "vportal",
   "budget",
-  "docs",
   "projects",
   "timesheets",
   "multicurrency",
+  "audit",
   "grn",
+  "rcm",
   "depreciation",
   "recurring",
   "billexp",
@@ -1157,10 +1160,13 @@ var ALLOWED_MODULE_KEYS = /* @__PURE__ */ new Set([
   "batch",
   "composite",
   "cheque",
+  "hsn",
+  "attachments",
   "pricelists",
   "multigstin",
   "schedreports",
-  "costcentres"
+  "costcentres",
+  "docs"
 ]);
 app.get("/api/modules/:key", authGuard, async (req, res) => {
   const { key } = req.params;
