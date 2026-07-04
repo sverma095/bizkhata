@@ -1166,10 +1166,10 @@ app.post("/api/superadmin/registrations/:id/action", authGuard, superAdminGuard,
 // Each module's data lives under db.advancedModules[key] in the same per-org store as the
 // rest of the ledger — no separate schema per module, no direct-to-Supabase bypass.
 const ALLOWED_MODULE_KEYS = new Set([
-  "workflow", "email", "gstr2b", "approvals", "bankfeeds", "cportal", "vportal", "budget", "docs",
-  "projects", "timesheets", "multicurrency", "grn", "depreciation", "recurring", "billexp",
-  "advances", "partial", "milestone", "batch", "composite", "cheque", "pricelists",
-  "multigstin", "schedreports", "costcentres"
+  "tds", "workflow", "email", "gstr2b", "reminders", "approvals", "bankfeeds", "cportal", "vportal",
+  "budget", "projects", "timesheets", "multicurrency", "audit", "grn", "rcm", "depreciation",
+  "recurring", "billexp", "advances", "partial", "milestone", "batch", "composite", "cheque",
+  "hsn", "attachments", "pricelists", "multigstin", "schedreports", "costcentres", "docs"
 ]);
 app.get("/api/modules/:key", authGuard, async (req: any, res: any) => {
   const { key } = req.params;
