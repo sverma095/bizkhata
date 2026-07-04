@@ -37,6 +37,7 @@ const USER_DB: {
   customRoles: any[];
   registrationRequests: any[];
   notifications: any[];
+  supportTickets: any[];
 } = {
   organizations: [],
   users: [],
@@ -44,7 +45,8 @@ const USER_DB: {
   auditLogs: [],
   customRoles: [],
   registrationRequests: [],
-  notifications: []
+  notifications: [],
+  supportTickets: []
 };
 
 // USER_DB (multi-tenant SaaS state: orgs, registrations, seat requests, etc.) must be
@@ -551,7 +553,7 @@ app.use(express.json());
 // registration requests, seat requests, audit logs, custom roles) before any relevant
 // route runs, and saves it after any mutating request completes. This is what makes
 // pending registration approvals, seat requests, etc. survive across Vercel cold starts.
-const USER_DB_ROUTES = ["/api/auth/", "/api/superadmin/", "/api/users", "/api/seat-requests", "/api/audit-logs", "/api/custom-roles"];
+const USER_DB_ROUTES = ["/api/auth/", "/api/superadmin/", "/api/users", "/api/seat-requests", "/api/audit-logs", "/api/custom-roles", "/api/support"];
 // /api/users/add and /api/users/remove are a separate, already-persistent legacy system
 // that mutates db.users (per-organization ledger team members) via readDB()/writeDB(),
 // not USER_DB.users (the SaaS-wide super-admin/admin layer) — exclude them so they don't
@@ -2237,7 +2239,94 @@ app.post("/api/users/remove", authGuard, requirePermission("manage_users"), asyn
   res.json({ success: true, deleted: targetUser.email });
 });
 
-// Owner SaaS Console APIs
+// ── Support Tickets ───────────────────────────────────────────────────────
+// Any org user can raise a ticket; SuperAdmin can view, respond, resolve
+
+app.get("/api/support/tickets", authGuard, (req: any, res: any) => {
+  const user = req.user;
+  if (user.role === "Super Admin") {
+    return res.json(USER_DB.supportTickets || []);
+  }
+  // Org users see only their org's tickets
+  const tickets = (USER_DB.supportTickets || []).filter((t: any) => t.organizationId === user.organizationId);
+  res.json(tickets);
+});
+
+app.post("/api/support/tickets", authGuard, (req: any, res: any) => {
+  const user = req.user;
+  const { subject, description, priority } = req.body;
+  if (!subject || !description) return res.status(400).json({ error: "Subject and description required." });
+  if (!USER_DB.supportTickets) USER_DB.supportTickets = [];
+  const org = USER_DB.organizations.find((o: any) => o.id === user.organizationId);
+  const ticket = {
+    id: generateId("ticket"),
+    organizationId: user.organizationId,
+    orgName: org?.name || "Unknown",
+    raisedBy: user.fullName,
+    raisedByEmail: user.email,
+    subject,
+    description,
+    priority: priority || "Medium",
+    status: "Open",
+    messages: [{ from: user.fullName, role: user.role, text: description, timestamp: new Date().toISOString() }],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  USER_DB.supportTickets.unshift(ticket);
+  saveUserDB().catch(() => {});
+  res.status(201).json(ticket);
+});
+
+app.post("/api/support/tickets/:id/reply", authGuard, (req: any, res: any) => {
+  const user = req.user;
+  const ticket = (USER_DB.supportTickets || []).find((t: any) => t.id === req.params.id);
+  if (!ticket) return res.status(404).json({ error: "Ticket not found." });
+  // Only SuperAdmin or the ticket's org members can reply
+  if (user.role !== "Super Admin" && ticket.organizationId !== user.organizationId) {
+    return res.status(403).json({ error: "Access denied." });
+  }
+  const { text, status } = req.body;
+  if (!text) return res.status(400).json({ error: "Reply text required." });
+  ticket.messages.push({ from: user.fullName, role: user.role, text, timestamp: new Date().toISOString() });
+  if (status) ticket.status = status;
+  ticket.updatedAt = new Date().toISOString();
+  saveUserDB().catch(() => {});
+  res.json(ticket);
+});
+
+// SuperAdmin: inspect any org's ledger data (read-only)
+app.get("/api/superadmin/orgs/:orgId/ledger", authGuard, superAdminGuard, async (req: any, res: any) => {
+  const { orgId } = req.params;
+  const org = USER_DB.organizations.find((o: any) => o.id === orgId);
+  if (!org) return res.status(404).json({ error: "Organisation not found." });
+  try {
+    const db = await readDB(orgId);
+    const summary = {
+      org,
+      users: USER_DB.users.filter((u: any) => u.organizationId === orgId).map(safeUser),
+      stats: {
+        invoices: (db.invoices || []).length,
+        expenses: (db.expenses || []).length,
+        bills: (db.bills || []).length,
+        customers: (db.customers || []).length,
+        vendors: (db.vendors || []).length,
+        journals: (db.journals || []).length,
+        totalRevenue: (db.invoices || []).filter((i: any) => i.status === "Approved").reduce((s: number, i: any) => s + (i.total || 0), 0),
+        totalExpenses: (db.expenses || []).reduce((s: number, e: any) => s + (e.total || e.amount || 0), 0),
+      },
+      recentInvoices: (db.invoices || []).slice(0, 5),
+      recentJournals: (db.journals || []).slice(0, 5),
+      accounts: (db.accounts || []).slice(0, 20),
+      company: db.company,
+      tickets: (USER_DB.supportTickets || []).filter((t: any) => t.organizationId === orgId)
+    };
+    res.json(summary);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 // NOTE: previously this route (and /update, /delete below it) used only `authGuard` with
 // no role check, and wrote into the *calling user's own tenant DB* via readDB(req.user.organizationId)
 // instead of the real platform-wide USER_DB.organizations store used by /api/superadmin/*.
