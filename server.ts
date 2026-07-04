@@ -2522,8 +2522,26 @@ app.post("/api/ai/generate-reminder", authGuard, async (req: any, res: any) => {
   }
 });
 
-// Serve frontend assets and start listening wrapped in an async IIFE
-// On Vercel, skip Vite/static setup — Vercel serves the dist/ as static output separately
+app.post("/api/ai/copilot", authGuard, async (req: any, res: any) => {
+  const { messages, context } = req.body;
+  if (!ai) {
+    return res.json({
+      reply: "AI Copilot requires GEMINI_API_KEY to be configured. As a fallback: your question has been noted. Please configure the Gemini API key in Vercel environment variables to enable live AI responses."
+    });
+  }
+  try {
+    const systemPrompt = `You are BizKhata's AI accounting copilot — an expert CA (Chartered Accountant) specializing in Indian GST, TDS, accounting standards (IndAS/GAAP), and business finance. Answer questions concisely and accurately. Context about this organization: ${JSON.stringify(context || {})}.`;
+    const userMessage = Array.isArray(messages) ? messages[messages.length - 1]?.content || "" : messages;
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: `${systemPrompt}\n\nUser: ${userMessage}`
+    });
+    res.json({ reply: response.text });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Sales Orders API ────────────────────────────────────────────────────────
 app.post("/api/sales-orders", authGuard, async (req: any, res: any) => {
   try {
