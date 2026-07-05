@@ -436,6 +436,17 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
           <div className="flex items-center gap-3">
             <button
               onClick={async () => {
+                if (!confirm("Create/verify Supabase tables (bk_organizations, bk_users, etc.)? Safe to run multiple times.")) return;
+                const r = await fetch("/api/superadmin/init-db", { method: "POST", headers: { Authorization: `Bearer ${localStorage.getItem("bk_token")}` } });
+                const d = await r.json();
+                setMessage({ text: d.success ? `✓ ${d.message}` : (d.error || "Failed"), isError: !d.success });
+              }}
+              className="text-xs font-bold px-4 py-2 rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 transition cursor-pointer"
+            >
+              🗄️ Init DB Tables
+            </button>
+            <button
+              onClick={async () => {
                 if (!confirm("⚠ This will wipe all stale logins and re-seed only the canonical accounts (superadmin + svtiger). Continue?")) return;
                 const r = await fetch("/api/superadmin/reset-userdb", { method: "POST", headers: { Authorization: `Bearer ${localStorage.getItem("bk_token")}` } });
                 const d = await r.json();
