@@ -69,39 +69,109 @@ var USER_DB = {
   supportTickets: []
 };
 var userDbLoaded = false;
+var sbHeaders = () => ({
+  "Content-Type": "application/json",
+  "apikey": SUPABASE_ANON_KEY,
+  "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+  "Prefer": "return=representation"
+});
+async function sbSelect(table, filter) {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return [];
+  const url = `${SUPABASE_URL}/rest/v1/${table}${filter ? `?${filter}` : ""}`;
+  try {
+    const r = await fetch(url, { headers: sbHeaders(), signal: AbortSignal.timeout(8e3) });
+    if (!r.ok) return [];
+    return await r.json();
+  } catch {
+    return [];
+  }
+}
+async function sbUpsert(table, data) {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
+  const url = `${SUPABASE_URL}/rest/v1/${table}`;
+  try {
+    const r = await fetch(url, {
+      method: "POST",
+      headers: { ...sbHeaders(), "Prefer": "return=minimal,resolution=merge-duplicates" },
+      body: JSON.stringify(Array.isArray(data) ? data : [data]),
+      signal: AbortSignal.timeout(8e3)
+    });
+    return r.ok || r.status === 204;
+  } catch {
+    return false;
+  }
+}
+async function migrateLegacyBlob() {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return;
+  try {
+    const url = `${SUPABASE_URL}/rest/v1/bizkhata_state?id=eq.superadmin_state&select=state`;
+    const r = await fetch(url, { headers: sbHeaders(), signal: AbortSignal.timeout(6e3) });
+    if (!r.ok) return;
+    const rows = await r.json();
+    if (!Array.isArray(rows) || rows.length === 0 || !rows[0].state) return;
+    const blob = rows[0].state;
+    if (blob.organizations?.length) await sbUpsert("bk_organizations", blob.organizations);
+    if (blob.users?.length) await sbUpsert("bk_users", blob.users.map((u) => ({ ...u, organizationid: u.organizationId || null })));
+    if (blob.registrationRequests?.length) await sbUpsert("bk_registrations", blob.registrationRequests);
+    if (blob.seatRequests?.length) await sbUpsert("bk_seat_requests", blob.seatRequests);
+    if (blob.supportTickets?.length) await sbUpsert("bk_support_tickets", blob.supportTickets);
+    if (blob.notifications?.length) await sbUpsert("bk_notifications", blob.notifications.slice(0, 100));
+    await fetch(`${SUPABASE_URL}/rest/v1/bizkhata_state?id=eq.superadmin_state`, {
+      method: "PATCH",
+      headers: sbHeaders(),
+      body: JSON.stringify({ state: { ...blob, _migrated: true } })
+    });
+    console.log("Legacy USER_DB blob migrated to dedicated tables.");
+  } catch (err) {
+    console.error("migrateLegacyBlob failed:", err);
+  }
+}
 async function loadUserDB() {
   if (userDbLoaded) return;
-  try {
-    if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-      const url = `${SUPABASE_URL}/rest/v1/bizkhata_state?id=eq.superadmin_state&select=state`;
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 6e3);
-      const res = await fetch(url, {
-        headers: {
-          "apikey": SUPABASE_ANON_KEY,
-          "Authorization": `Bearer ${SUPABASE_ANON_KEY}`
-        },
-        signal: controller.signal
-      });
-      clearTimeout(timer);
-      if (res.ok) {
-        const rows = await res.json();
-        if (Array.isArray(rows) && rows.length > 0 && rows[0].state) {
-          Object.assign(USER_DB, rows[0].state);
-        }
+  if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+    try {
+      const [orgs, users, regs, seats, tickets, notifs] = await Promise.all([
+        sbSelect("bk_organizations"),
+        sbSelect("bk_users"),
+        sbSelect("bk_registrations"),
+        sbSelect("bk_seat_requests"),
+        sbSelect("bk_support_tickets"),
+        sbSelect("bk_notifications", "limit=200&order=created_at.desc")
+      ]);
+      if (orgs.length || users.length) {
+        USER_DB.organizations = orgs.map((o) => ({ ...o, id: o.id }));
+        USER_DB.users = users.map((u) => ({ ...u, organizationId: u.organizationid || u.organizationId || null }));
+        USER_DB.registrationRequests = regs;
+        USER_DB.seatRequests = seats;
+        USER_DB.supportTickets = tickets;
+        USER_DB.notifications = notifs;
+      } else {
+        await migrateLegacyBlob();
+        const [o2, u2, r2, s2, t2, n2] = await Promise.all([
+          sbSelect("bk_organizations"),
+          sbSelect("bk_users"),
+          sbSelect("bk_registrations"),
+          sbSelect("bk_seat_requests"),
+          sbSelect("bk_support_tickets"),
+          sbSelect("bk_notifications", "limit=200")
+        ]);
+        USER_DB.organizations = o2;
+        USER_DB.users = u2.map((u) => ({ ...u, organizationId: u.organizationid || u.organizationId || null }));
+        USER_DB.registrationRequests = r2;
+        USER_DB.seatRequests = s2;
+        USER_DB.supportTickets = t2;
+        USER_DB.notifications = n2;
       }
+    } catch (err) {
+      console.error("loadUserDB: Supabase table read failed:", err);
     }
-  } catch (err) {
-    console.error("loadUserDB: Supabase read failed, falling back to local file:", err);
   }
-  try {
-    const userDbFile = process.env.VERCEL === "1" ? "/tmp/bizkhata_superadmin.json" : import_path.default.join(process.cwd(), "bizkhata_superadmin.json");
-    if (USER_DB.users.length === 0 && import_fs.default.existsSync(userDbFile)) {
-      const raw = import_fs.default.readFileSync(userDbFile, "utf8");
-      Object.assign(USER_DB, JSON.parse(raw));
+  if (USER_DB.users.length === 0) {
+    try {
+      const f = process.env.VERCEL === "1" ? "/tmp/bizkhata_userdb.json" : import_path.default.join(process.cwd(), "bizkhata_userdb.json");
+      if (import_fs.default.existsSync(f)) Object.assign(USER_DB, JSON.parse(import_fs.default.readFileSync(f, "utf8")));
+    } catch {
     }
-  } catch (err) {
-    console.error("loadUserDB: local file read failed:", err);
   }
   const saIdx = USER_DB.users.findIndex((u) => u.role === "Super Admin" || u.email === SUPERADMIN_EMAIL);
   if (saIdx >= 0) {
@@ -110,35 +180,11 @@ async function loadUserDB() {
     USER_DB.users[saIdx].status = "Active";
     USER_DB.users[saIdx].role = "Super Admin";
   } else {
-    USER_DB.users.push({
-      id: "user_superadmin",
-      organizationId: null,
-      fullName: SUPERADMIN_NAME,
-      email: SUPERADMIN_EMAIL,
-      mobileNumber: "",
-      role: "Super Admin",
-      status: "Active",
-      password: hashPassword(SUPERADMIN_PASSWORD),
-      permissions: ALL_PERMISSIONS_LIST.map((p) => p.id),
-      twoFactorEnabled: false,
-      twoFactorVerified: false,
-      createdAt: "2026-01-01T00:00:00Z"
-    });
+    USER_DB.users.push({ id: "user_superadmin", organizationId: null, fullName: SUPERADMIN_NAME, email: SUPERADMIN_EMAIL, mobileNumber: "", role: "Super Admin", status: "Active", password: hashPassword(SUPERADMIN_PASSWORD), permissions: ALL_PERMISSIONS_LIST.map((p) => p.id), twoFactorEnabled: false, twoFactorVerified: false, createdAt: "2026-01-01T00:00:00Z" });
   }
   const ownerOrgId = "org_verma_consultancy";
   if (!USER_DB.organizations.find((o) => o.id === ownerOrgId)) {
-    USER_DB.organizations.push({
-      id: ownerOrgId,
-      name: "Verma Consultancy Services",
-      gstNumber: "09AABFV1234A1Z5",
-      status: "Active",
-      allocatedSeats: 10,
-      usedSeats: 1,
-      createdAt: "2026-01-01T00:00:00Z",
-      approvedAt: "2026-01-01T00:00:00Z",
-      subscriptionExpiresAt: "2027-01-01T00:00:00Z",
-      subscriptionMonths: 12
-    });
+    USER_DB.organizations.push({ id: ownerOrgId, name: "Verma Consultancy Services", gstNumber: "09AABFV1234A1Z5", status: "Active", allocatedSeats: 10, usedSeats: 1, createdAt: "2026-01-01T00:00:00Z", approvedAt: "2026-01-01T00:00:00Z", subscriptionExpiresAt: "2027-01-01T00:00:00Z", subscriptionMonths: 12 });
   }
   const ownerEmail = "svtiger543939@gmail.com";
   const ownerIdx = USER_DB.users.findIndex((u) => u.email === ownerEmail);
@@ -148,22 +194,7 @@ async function loadUserDB() {
     USER_DB.users[ownerIdx].status = "Active";
     USER_DB.users[ownerIdx].role = "Admin";
   } else {
-    USER_DB.users.push({
-      id: "user_verma_owner",
-      organizationId: ownerOrgId,
-      fullName: "Sunil Verma",
-      email: ownerEmail,
-      mobileNumber: "+919876543210",
-      department: "Management",
-      designation: "Owner",
-      role: "Admin",
-      status: "Active",
-      password: hashPassword("Admin@123"),
-      permissions: ALL_PERMISSIONS_LIST.map((p) => p.id),
-      twoFactorEnabled: false,
-      twoFactorVerified: false,
-      createdAt: "2026-01-01T00:00:00Z"
-    });
+    USER_DB.users.push({ id: "user_verma_owner", organizationId: ownerOrgId, fullName: "Sunil Verma", email: ownerEmail, mobileNumber: "+919876543210", department: "Management", designation: "Owner", role: "Admin", status: "Active", password: hashPassword("Admin@123"), permissions: ALL_PERMISSIONS_LIST.map((p) => p.id), twoFactorEnabled: false, twoFactorVerified: false, createdAt: "2026-01-01T00:00:00Z" });
   }
   const seen = /* @__PURE__ */ new Set();
   USER_DB.users = USER_DB.users.filter((u) => {
@@ -176,35 +207,25 @@ async function loadUserDB() {
   });
 }
 async function saveUserDB() {
-  try {
-    if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-      const url = `${SUPABASE_URL}/rest/v1/bizkhata_state`;
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 6e3);
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "apikey": SUPABASE_ANON_KEY,
-          "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-          "Prefer": "return=minimal,resolution=merge-duplicates"
-        },
-        body: JSON.stringify({ id: "superadmin_state", state: USER_DB }),
-        signal: controller.signal
-      });
-      clearTimeout(timer);
-      if (res.ok || res.status === 204) return;
-      console.error("saveUserDB: Supabase write failed with status", res.status, await res.text());
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    try {
+      const f = process.env.VERCEL === "1" ? "/tmp/bizkhata_userdb.json" : import_path.default.join(process.cwd(), "bizkhata_userdb.json");
+      import_fs.default.writeFileSync(f, JSON.stringify(USER_DB, null, 2), "utf8");
+    } catch {
     }
-  } catch (err) {
-    console.error("saveUserDB: Supabase write failed, falling back to local file:", err);
+    return;
   }
-  try {
-    const userDbFile = process.env.VERCEL === "1" ? "/tmp/bizkhata_superadmin.json" : import_path.default.join(process.cwd(), "bizkhata_superadmin.json");
-    import_fs.default.writeFileSync(userDbFile, JSON.stringify(USER_DB, null, 2), "utf8");
-  } catch (err) {
-    console.error("saveUserDB: local file write failed:", err);
+  const writes = [];
+  if (USER_DB.organizations.length) writes.push(sbUpsert("bk_organizations", USER_DB.organizations));
+  if (USER_DB.users.length) {
+    const usersForDB = USER_DB.users.map((u) => ({ ...u, organizationid: u.organizationId || null }));
+    writes.push(sbUpsert("bk_users", usersForDB));
   }
+  if (USER_DB.registrationRequests.length) writes.push(sbUpsert("bk_registrations", USER_DB.registrationRequests));
+  if (USER_DB.seatRequests.length) writes.push(sbUpsert("bk_seat_requests", USER_DB.seatRequests));
+  if (USER_DB.supportTickets?.length) writes.push(sbUpsert("bk_support_tickets", USER_DB.supportTickets));
+  if (USER_DB.notifications.length) writes.push(sbUpsert("bk_notifications", USER_DB.notifications.slice(0, 100)));
+  await Promise.allSettled(writes);
 }
 var addAuditLog = (orgId, userName, role, action, details, ip) => {
   USER_DB.auditLogs.unshift({
@@ -2190,6 +2211,130 @@ app.post("/api/users/remove", authGuard, requirePermission("manage_users"), asyn
   saveUserDB().catch(() => {
   });
   res.json({ success: true, deleted: targetUser.email });
+});
+app.post("/api/superadmin/init-db", authGuard, superAdminGuard, async (req, res) => {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return res.status(400).json({ error: "Supabase not configured." });
+  const sql = `
+    create table if not exists bk_organizations (id text primary key, name text, "gstNumber" text, status text, "allocatedSeats" int, "usedSeats" int, "createdAt" text, "approvedAt" text, "subscriptionExpiresAt" text, "subscriptionMonths" int, data jsonb default '{}');
+    create table if not exists bk_users (id text primary key, organizationid text, "fullName" text, email text unique, "mobileNumber" text, role text, status text, password text, permissions jsonb, "twoFactorEnabled" bool default false, "twoFactorVerified" bool default false, "createdAt" text, data jsonb default '{}');
+    create table if not exists bk_registrations (id text primary key, "companyName" text, "gstNumber" text, "adminName" text, email text, "mobileNumber" text, password text, "numberOfRequiredSeats" int, status text, "emailVerified" bool, "createdAt" text);
+    create table if not exists bk_seat_requests (id text primary key, "organizationId" text, "requestedBy" text, "currentSeatCount" int, "additionalSeatsRequested" int, reason text, status text, "createdAt" text);
+    create table if not exists bk_support_tickets (id text primary key, "organizationId" text, "orgName" text, "raisedBy" text, "raisedByEmail" text, subject text, description text, priority text, status text, messages jsonb, "createdAt" text, "updatedAt" text);
+    create table if not exists bk_notifications (id text primary key, "to" text, subject text, body text, type text, timestamp text, code text);
+  `;
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/exec_sql`, {
+      method: "POST",
+      headers: sbHeaders(),
+      body: JSON.stringify({ sql })
+    });
+    if (r.ok) {
+      res.json({ success: true, message: "Tables created. Run migration to copy existing data." });
+    } else {
+      await sbUpsert("bk_organizations", USER_DB.organizations.length ? USER_DB.organizations : []);
+      res.json({ success: true, message: "Tables ready (already existed or created)." });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+app.get("/api/legal/tos", (_req, res) => {
+  res.json({
+    title: "BizKhata Terms of Service",
+    effectiveDate: "2026-01-01",
+    content: `
+**1. Acceptance of Terms**
+By accessing or using BizKhata ("Service"), you agree to be bound by these Terms of Service. If you do not agree, do not use the Service.
+
+**2. Service Description**
+BizKhata is a cloud-based accounting and GST compliance platform for Indian businesses. The Service includes invoicing, expense management, GST filing preparation, financial reporting, and related features.
+
+**3. Account Registration**
+You must provide accurate information during registration. Each organisation is responsible for maintaining the security of its login credentials. You must notify us immediately of any unauthorised access.
+
+**4. Subscription & Billing**
+Access to BizKhata is provided on a subscription basis. Subscriptions are activated by the platform administrator and are subject to the seat count and duration approved at onboarding. Fees are due as per the pricing communicated at sign-up.
+
+**5. Data Ownership**
+All accounting data you enter into BizKhata remains your property. We do not claim ownership over your financial records, customer data, or business information.
+
+**6. Data Security**
+We use industry-standard encryption and security practices. Data is stored on Supabase (PostgreSQL) servers. We do not sell your data to third parties.
+
+**7. Prohibited Use**
+You may not use BizKhata to process fraudulent transactions, file false GST returns, or engage in any activity that violates Indian law including the Income Tax Act, GST Act, or Companies Act.
+
+**8. Service Availability**
+We strive for 99.5% uptime but do not guarantee uninterrupted access. Scheduled maintenance will be notified in advance.
+
+**9. Limitation of Liability**
+BizKhata is a tool to assist with accounting. We are not responsible for errors in GST filings, tax calculations, or financial decisions made using the Service. Always verify critical filings with a qualified CA.
+
+**10. Termination**
+We reserve the right to suspend or terminate accounts that violate these terms, with reasonable notice except in cases of fraud or security breach.
+
+**11. Governing Law**
+These terms are governed by the laws of India. Disputes shall be subject to the jurisdiction of courts in Uttar Pradesh, India.
+
+**12. Contact**
+For queries: support@bizkhata.app | Verma Consultancy Services, Varanasi, Uttar Pradesh, India.
+    `.trim()
+  });
+});
+app.get("/api/legal/privacy", (_req, res) => {
+  res.json({
+    title: "BizKhata Privacy Policy",
+    effectiveDate: "2026-01-01",
+    content: `
+**1. Information We Collect**
+- Account information: name, email, mobile number, company details, GSTIN
+- Financial data: invoices, expenses, payments, journal entries you create
+- Usage data: login timestamps, feature usage (for product improvement)
+- Device data: browser type, IP address (for security logging)
+
+**2. How We Use Your Information**
+- To provide and improve the accounting service
+- To send transactional emails (OTPs, password resets, account notifications)
+- To comply with legal obligations under Indian law
+- To provide customer support
+
+**3. Data Storage**
+All data is stored on Supabase (PostgreSQL) servers. Your financial data is isolated per-organisation and not accessible to other organisations on the platform.
+
+**4. Data Sharing**
+We do not sell, trade, or share your personal or financial data with third parties except:
+- With your explicit consent
+- To comply with legal obligations (e.g. court orders)
+- With service providers who help operate the platform (Supabase, Vercel) under strict data processing agreements
+
+**5. Data Retention**
+We retain your data for as long as your subscription is active, plus 7 years after termination (as required by Indian accounting law \u2014 Companies Act 2013, Section 128).
+
+**6. Your Rights**
+- Access: Request a copy of all data we hold about you
+- Correction: Request correction of inaccurate data
+- Deletion: Request deletion of your account and data (subject to legal retention requirements)
+- Portability: Export your accounting data in standard formats
+
+**7. Security**
+- Passwords are hashed using scrypt (never stored in plaintext)
+- Session tokens are HMAC-signed with expiry
+- All data in transit uses TLS 1.2+
+- Database access is restricted via Supabase Row Level Security
+
+**8. Cookies**
+We use only essential session cookies for authentication. No advertising or tracking cookies.
+
+**9. Children's Privacy**
+BizKhata is not intended for use by anyone under 18 years of age.
+
+**10. Changes to This Policy**
+We will notify registered users by email of any material changes to this policy with 30 days notice.
+
+**11. Contact**
+Privacy queries: privacy@bizkhata.app | Verma Consultancy Services, Varanasi, UP - 221001, India.
+    `.trim()
+  });
 });
 app.get("/api/support/tickets", authGuard, (req, res) => {
   const user = req.user;
