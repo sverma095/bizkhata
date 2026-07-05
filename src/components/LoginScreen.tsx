@@ -10,11 +10,12 @@ interface LoginScreenProps {
 }
 
 export default function LoginScreen({ onLoginSuccess, initialView = 'login', initialEmail = '', initialCode = '' }: LoginScreenProps) {
-  const [view, setView] = useState<'login' | 'signup' | 'forgot' | 'reset' | 'twofa'>(initialView === 'reset' ? 'reset' : 'login');
+  const [view, setView] = useState<'login' | 'signup' | 'forgot' | 'reset' | 'twofa' | 'tos' | 'privacy'>(initialView === 'reset' ? 'reset' : 'login');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
+  const [legalContent, setLegalContent] = useState<{ title: string; content: string } | null>(null);
 
   // Login fields
   const [email, setEmail] = useState(initialEmail);
@@ -49,6 +50,15 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
   }, [initialEmail, initialCode]);
 
   const clearMessages = () => { setError(null); setSuccess(null); };
+
+  // Load legal content when needed
+  useEffect(() => {
+    if (view === 'tos') {
+      fetch('/api/legal/tos').then(r => r.json()).then(d => setLegalContent(d)).catch(() => setLegalContent({ title: 'Terms of Service', content: 'Please contact support@bizkhata.app for our Terms of Service.' }));
+    } else if (view === 'privacy') {
+      fetch('/api/legal/privacy').then(r => r.json()).then(d => setLegalContent(d)).catch(() => setLegalContent({ title: 'Privacy Policy', content: 'Please contact privacy@bizkhata.app for our Privacy Policy.' }));
+    }
+  }, [view]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault(); clearMessages(); setLoading(true);
@@ -326,6 +336,12 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
                   {loading ? 'Submitting...' : 'Submit Registration Request'}
                 </button>
                 <p className="text-[10px] text-center text-slate-400">Email verification required · GSTIN can be added later</p>
+              <p className="text-[10px] text-center text-slate-400 mt-1">
+                By registering, you agree to our{' '}
+                <button type="button" onClick={() => setView('tos')} className="text-emerald-600 hover:underline">Terms of Service</button>
+                {' '}and{' '}
+                <button type="button" onClick={() => setView('privacy')} className="text-emerald-600 hover:underline">Privacy Policy</button>
+              </p>
               </form>
             </div>
           )}
@@ -420,7 +436,37 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
               </form>
             </div>
           )}
+
+          {/* LEGAL PAGES */}
+          {(view === 'tos' || view === 'privacy') && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <button onClick={() => { setView('signup'); setLegalContent(null); }} className="p-1.5 hover:bg-slate-100 rounded-lg">
+                  <ArrowLeft className="w-4 h-4 text-slate-500" />
+                </button>
+                <h2 className="text-lg font-black text-slate-900">{legalContent?.title || 'Loading...'}</h2>
+              </div>
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 max-h-96 overflow-y-auto text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">
+                {legalContent?.content || 'Loading...'}
+              </div>
+              <button onClick={() => { setView('signup'); setLegalContent(null); }}
+                className="w-full py-2 bg-slate-800 hover:bg-slate-900 text-white text-sm font-bold rounded-xl transition">
+                ← Back to Registration
+              </button>
+            </div>
+          )}
         </div>
+
+        {/* Footer with legal links */}
+        {(view === 'login' || view === 'signup') && (
+          <div className="mt-4 text-center text-[10px] text-slate-400 space-x-3">
+            <button onClick={() => setView('tos')} className="hover:text-emerald-600 hover:underline">Terms of Service</button>
+            <span>·</span>
+            <button onClick={() => setView('privacy')} className="hover:text-emerald-600 hover:underline">Privacy Policy</button>
+            <span>·</span>
+            <span>© 2026 BizKhata · Verma Consultancy Services</span>
+          </div>
+        )}
       </div>
     </div>
   );
