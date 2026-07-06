@@ -189,9 +189,13 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
         <div className="w-full max-w-md space-y-6">
 
           {/* Mobile logo */}
-          <div className="flex lg:hidden items-center gap-2 mb-2">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center font-black text-white">B</div>
-            <span className="font-black text-slate-900 text-lg">BizKhata</span>
+          <div className="flex lg:hidden items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center font-black text-white">B</div>
+              <span className="font-black text-slate-900 text-lg">BizKhata</span>
+            </div>
+            <a href="/" onClick={(e) => { e.preventDefault(); localStorage.removeItem('bk_show_login'); window.location.href='/'; }}
+              className="text-xs text-gray-400 hover:text-blue-600 transition">← Home</a>
           </div>
 
           {/* Messages */}
