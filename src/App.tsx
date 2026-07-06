@@ -1450,7 +1450,8 @@ export default function App() {
                     setActiveTab(view);
                   }
                 }}
-                onTriggerAI={handleUniversalAITrigger} 
+                onTriggerAI={handleUniversalAITrigger}
+                token={session?.token}
               />
             )}
 
