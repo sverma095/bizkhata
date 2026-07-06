@@ -325,7 +325,8 @@ function diffFields(existing: any, incoming: any, fields: string[]): string {
 }
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const EMAIL_FROM = process.env.EMAIL_FROM || process.env.SMTP_USER || "noreply@bizkhata.app";
+// EMAIL_FROM must be a verified domain in Resend. Use onboarding@resend.dev for testing.
+const EMAIL_FROM = process.env.EMAIL_FROM || "BizKhata <onboarding@resend.dev>";
 
 // Pure Node.js SMTP client — no nodemailer, no external deps, works on Vercel ESM
 async function sendEmail(to: string, subject: string, html: string): Promise<{ sent: boolean; reason?: string }> {
@@ -505,7 +506,24 @@ const verifyTokenAndGetUser = (req: any): any | null => {
   const token = authHeader.replace("Bearer ", "");
   const email = verifySessionToken(token);
   if (!email) return null;
-  return USER_DB.users.find((u: any) => u.email === email) || null;
+  const user = USER_DB.users.find((u: any) => u.email === email);
+  if (!user) return null;
+  // Auto-heal: Admin/Staff without organizationId — re-link to correct org
+  if (!user.organizationId && user.role !== "Super Admin") {
+    // Known canonical mapping
+    if (email === "svtiger543939@gmail.com") {
+      user.organizationId = "org_verma_consultancy";
+    } else {
+      // For other users, find the org where they were originally registered
+      const reg = USER_DB.registrationRequests.find((r: any) => r.email === email && r.status === "Approved");
+      if (reg) {
+        const org = USER_DB.organizations.find((o: any) => o.name === reg.companyName);
+        if (org) user.organizationId = org.id;
+      }
+    }
+    if (user.organizationId) saveUserDB().catch(() => {});
+  }
+  return user;
 };
 
 const authGuard = (req: any, res: any, next: any) => {
