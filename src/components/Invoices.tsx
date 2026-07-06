@@ -1472,15 +1472,25 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                                 onClick={() => {
                                   const portal = db.company.eInvoicePortal;
                                   if (!portal?.configured || !portal?.username) {
-                                    alert("⚠️ E-Invoice Portal credentials not configured!\n\nPlease go to Company Setup → E-Invoice Portal and enter your IRP (Invoice Registration Portal) username and password (GSTIN credentials) before pushing.\n\nWithout this, your IRN will not be registered with the government.");
+                                    alert("⚠️ E-Invoice Portal credentials not configured!\n\nGo to Settings → e-Invoicing → enter your IRP credentials.");
                                     return;
                                   }
+                                  if (!confirm("⚠️ IMPORTANT: BizKhata currently generates a demo IRN for testing purposes.\n\nFor legally valid e-invoicing, you need to integrate with the NIC/IRP portal directly or use a licensed GSP (GST Suvidha Provider).\n\nFor production use, please consult your CA before filing.\n\nProceed with demo IRN?")) return;
                                   setPushingEInvoiceId(inv.id);
                                   setTimeout(() => {
-                                    const irn = "IRN" + Math.random().toString(36).substring(2,18).toUpperCase();
+                                    // IRN format: 64-char hex hash (SHA-256 of GSTIN+DocType+DocNo+DocDate)
+                                    const irnData = `${db.company.gstin || 'GSTIN'}${inv.invoiceNumber}${inv.date}`;
+                                    let hash = 0;
+                                    for (let i = 0; i < irnData.length; i++) {
+                                      hash = ((hash << 5) - hash) + irnData.charCodeAt(i);
+                                      hash |= 0;
+                                    }
+                                    const irn = Array.from({ length: 64 }, (_, i) => 
+                                      ((Math.abs(hash) * (i + 1) * 2654435761) >>> 0).toString(16).padStart(8, '0')
+                                    ).join('').slice(0, 64).toUpperCase();
                                     const ackNo = Math.floor(100000000000 + Math.random() * 900000000000).toString();
                                     const ackDate = new Date().toISOString().split('T')[0];
-                                    onSaveInvoice({ ...inv, status: "E-Invoiced", irn, ackNo, ackDate });
+                                    onSaveInvoice({ ...inv, status: "E-Invoiced", irn, ackNo, ackDate, irnNote: "DEMO - Not registered with NIC/IRP" });
                                     setPushingEInvoiceId(null);
                                   }, 1800);
                                 }}
@@ -2392,7 +2402,21 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                     </div>
                     <button 
                       type="button"
-                      onClick={() => alert(`Ledger Statement Export Mode Enabled`)}
+                      onClick={() => {
+                        const cust = selectedCustomer;
+                        const win = window.open('', '_blank');
+                        if (!win) return;
+                        const rows = (selectedCustomer ? db.invoices.filter((i: any) => i.customerId === selectedCustomer.id) : db.invoices).map((inv: any) => 
+                          `<tr><td>${inv.date}</td><td>${inv.invoiceNumber}</td><td style="text-align:right">₹${(inv.total||0).toLocaleString('en-IN')}</td><td>${inv.status}</td></tr>`
+                        ).join('');
+                        win.document.write(`<!DOCTYPE html><html><head><title>Statement - ${cust?.name}</title>
+                          <style>body{font-family:sans-serif;font-size:12px;padding:24px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #e2e8f0;padding:8px}th{background:#f8fafc}@media print{}</style>
+                          </head><body><h2>Account Statement: ${cust?.name}</h2><p>GSTIN: ${cust?.gstin || '—'}</p><br>
+                          <table><thead><tr><th>Date</th><th>Invoice #</th><th>Amount</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>
+                          </body></html>`);
+                        win.document.close();
+                        setTimeout(() => { win.focus(); win.print(); }, 400);
+                      }}
                       className="text-[10px] bg-slate-105 border border-slate-200 p-1.5 px-3 rounded font-bold hover:bg-slate-200 flex items-center gap-1 cursor-pointer text-slate-750 transition"
                     >
                       <Printer className="w-3.5 h-3.5 text-slate-500" /> Export PDF
@@ -2560,9 +2584,56 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                   className="bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 transition border border-blue-200">
                   Edit
                 </button>
-                <button onClick={() => window.print()}
+                <button onClick={() => {
+                  // Open print dialog with only invoice content visible
+                  const content = document.getElementById('print-sheet-content')?.innerHTML;
+                  if (!content) { window.print(); return; }
+                  const win = window.open('', '_blank', 'width=900,height=700');
+                  if (!win) { window.print(); return; }
+                  win.document.write(`<!DOCTYPE html><html><head>
+                    <title>Invoice ${showViewModal.invoiceNumber}</title>
+                    <meta charset="UTF-8">
+                    <style>
+                      * { margin: 0; padding: 0; box-sizing: border-box; }
+                      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 11px; color: #1e293b; background: white; }
+                      @page { size: A4; margin: 12mm; }
+                      @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+                      .flex { display: flex; } .justify-between { justify-content: space-between; }
+                      .items-start { align-items: flex-start; } .items-end { align-items: flex-end; }
+                      .w-full { width: 100%; } .text-right { text-align: right; }
+                      .font-bold { font-weight: 700; } .font-mono { font-family: monospace; }
+                      table { border-collapse: collapse; width: 100%; }
+                      th, td { padding: 6px 8px; border: 1px solid #e2e8f0; }
+                      th { background: #f8fafc; font-weight: 600; }
+                      .border-b-2 { border-bottom: 2px solid #1e293b; }
+                      .border-t-2 { border-top: 2px solid #1e293b; }
+                      .text-slate-500 { color: #64748b; }
+                      .text-slate-400 { color: #94a3b8; }
+                      .text-emerald-600 { color: #059669; }
+                      .text-2xl { font-size: 1.5rem; }
+                      .text-lg { font-size: 1.125rem; }
+                      .space-y-1 > * + * { margin-top: 4px; }
+                      .space-y-4 > * + * { margin-top: 16px; }
+                      .pb-5 { padding-bottom: 20px; }
+                      .pt-4 { padding-top: 16px; }
+                      .mt-4 { margin-top: 16px; }
+                      .p-8 { padding: 32px; }
+                      .max-w-\\[800px\\] { max-width: 800px; margin: 0 auto; }
+                      .bg-slate-50 { background: #f8fafc; }
+                      .rounded { border-radius: 4px; }
+                      .p-3 { padding: 12px; }
+                      .grid { display: grid; }
+                      .grid-cols-2 { grid-template-columns: 1fr 1fr; }
+                      .gap-8 { gap: 32px; }
+                      .text-xs { font-size: 0.75rem; }
+                      .text-sm { font-size: 0.875rem; }
+                    </style>
+                  </head><body><div class="max-w-[800px] p-8">${content}</div></body></html>`);
+                  win.document.close();
+                  setTimeout(() => { win.focus(); win.print(); win.close(); }, 500);
+                }}
                   className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 transition">
-                  <Printer className="w-3 h-3" /> Print / PDF
+                  <Printer className="w-3 h-3" /> Download PDF
                 </button>
                 <button onClick={() => setShowViewModal(null)} className="text-slate-400 hover:text-slate-700 p-1.5 hover:bg-slate-100 rounded-lg">
                   <X className="w-4 h-4" />
