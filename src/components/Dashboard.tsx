@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { DatabaseState } from "../types.js";
 import { 
   ArrowUpRight, 
@@ -12,16 +12,75 @@ import {
   Plus,
   Phone,
   Clock,
-  ExternalLink
+  ExternalLink,
+  CheckCircle,
+  Circle
 } from "lucide-react";
 
 interface DashboardProps {
   db: DatabaseState;
   onNavigate: (view: string) => void;
   onTriggerAI: (feature: string) => void;
+  token?: string;
 }
 
-export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProps) {
+// Onboarding checklist component
+function OnboardingChecklist({ token, onNavigate }: { token?: string; onNavigate: (v: string) => void }) {
+  const [steps, setSteps] = useState<any[]>([]);
+  const [percent, setPercent] = useState(0);
+
+  useEffect(() => {
+    if (!token) return;
+    fetch('/api/onboarding/status', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) { setSteps(d.steps); setPercent(d.percent); } })
+      .catch(() => {});
+  }, [token]);
+
+  const navMap: Record<string, string> = {
+    company: "settings", opening_balances: "settings", customers: "sales",
+    items: "sales", invoice: "sales", expense: "purchases", bank: "banking"
+  };
+
+  if (steps.length === 0) return null;
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-5">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <h4 className="font-semibold text-gray-800">Getting Started</h4>
+          <p className="text-xs text-gray-500">Complete these steps to get the most out of BizKhata</p>
+        </div>
+        <div className="text-right">
+          <span className="text-2xl font-black text-blue-600">{percent}%</span>
+          <p className="text-xs text-gray-400">complete</p>
+        </div>
+      </div>
+      {/* Progress bar */}
+      <div className="w-full bg-gray-100 h-2 rounded-full mb-4 overflow-hidden">
+        <div className="bg-blue-600 h-full rounded-full transition-all duration-700" style={{ width: `${percent}%` }} />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {steps.map((step: any) => (
+          <button key={step.id} onClick={() => !step.done && onNavigate(navMap[step.id] || "settings")}
+            className={`flex items-center gap-3 p-3 rounded-lg text-left transition ${step.done ? 'bg-green-50 border border-green-100 cursor-default' : 'bg-gray-50 border border-gray-200 hover:bg-blue-50 hover:border-blue-200 cursor-pointer'}`}>
+            {step.done
+              ? <CheckCircle className="w-5 h-5 text-green-500 shrink-0" />
+              : <Circle className="w-5 h-5 text-gray-300 shrink-0" />}
+            <span className={`text-sm font-medium ${step.done ? 'text-green-700 line-through' : 'text-gray-700'}`}>{step.label}</span>
+          </button>
+        ))}
+      </div>
+      {percent === 100 && (
+        <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3 text-xs text-green-700 font-semibold text-center">
+          🎉 All done! Your BizKhata is fully set up.
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function Dashboard({ db, onNavigate, onTriggerAI, token }: DashboardProps) {
   const [activeTab, setActiveTab] = useState<"dashboard" | "fiscal" | "getstarted">("dashboard");
   const [cashFlowPeriod, setCashFlowPeriod] = useState("This Fiscal Year");
   const [showPeriodDrop, setShowPeriodDrop] = useState(false);
@@ -675,44 +734,68 @@ export default function Dashboard({ db, onNavigate, onTriggerAI }: DashboardProp
       )}
 
       {activeTab === "getstarted" && (
-        <div id="bk-getting-started-board" className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-gradient-to-tr from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-5 space-y-3 shadow-xs">
-            <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-              <span className="w-5 h-5 bg-blue-100 text-blue-800 rounded-full flex items-center justify-center font-bold text-xs">1</span>
-              Configure GST Details
-            </h4>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Verify your company GSTIN, legal name, corporate location state, and registered authorized PAN signatures inside parameters.
-            </p>
-            <button onClick={() => onNavigate("settings")} className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1 cursor-pointer">
-              Configure Settings <ArrowRight className="w-3" />
-            </button>
-          </div>
+        <div className="space-y-6">
+          {/* Live Onboarding Progress */}
+          <OnboardingChecklist token={token} onNavigate={onNavigate} />
 
-          <div className="bg-gradient-to-tr from-emerald-50 to-teal-50 border border-emerald-100 rounded-xl p-5 space-y-3 shadow-xs">
-            <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-              <span className="w-5 h-5 bg-emerald-100 text-emerald-800 rounded-full flex items-center justify-center font-bold text-xs">2</span>
-              Generate Digital Invoices
-            </h4>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Quickly create professional Indian tax invoices, generate proforma estimates, draft payment links, and provision credit cancellations.
-            </p>
-            <button onClick={() => onNavigate("sales")} className="text-xs font-bold text-emerald-600 hover:underline flex items-center gap-1 cursor-pointer">
-              Invoicing Hub <ArrowRight className="w-3" />
-            </button>
-          </div>
-
-          <div className="bg-gradient-to-tr from-purple-50 to-indigo-50 border border-purple-100 rounded-xl p-5 space-y-3 shadow-xs">
-            <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-              <span className="w-5 h-5 bg-purple-100 text-purple-800 rounded-full flex items-center justify-center font-bold text-xs">3</span>
-              AI Audit Assistant
-            </h4>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Upload raw spend receipts, auto-generate payment logs, let Gemini classify tax brackets, and instantly double check out of balance ledgers.
-            </p>
-            <button onClick={() => onNavigate("ai")} className="text-xs font-bold text-purple-600 hover:underline flex items-center gap-1 cursor-pointer">
-              Launch AI Assistant <ArrowRight className="w-3" />
-            </button>
+          {/* Data Export Section */}
+          <div className="bg-white border border-gray-200 rounded-xl p-5">
+            <h4 className="font-semibold text-gray-800 mb-1">Data Export & Backup</h4>
+            <p className="text-xs text-gray-500 mb-4">Export your data anytime. Your data belongs to you.</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[
+                { label: "Tally XML", desc: "Import into Tally ERP 9/Prime", url: "/api/export/tally", color: "blue" },
+                { label: "Invoices CSV", desc: "All approved invoices", url: "/api/export/csv/invoices", color: "green" },
+                { label: "Expenses CSV", desc: "All expense records", url: "/api/export/csv/expenses", color: "amber" },
+                { label: "Full Backup (JSON)", desc: "Complete data backup", url: "/api/export/json", color: "purple" },
+              ].map(exp => (
+                <a key={exp.label}
+                  href={exp.url}
+                  onClick={e => {
+                    e.preventDefault();
+                    const a = document.createElement('a');
+                    a.href = exp.url;
+                    a.setAttribute('download', '');
+                    // Add auth header via fetch
+                    fetch(exp.url, { headers: { Authorization: `Bearer ${token}` } })
+                      .then(r => r.blob())
+                      .then(blob => {
+                        const url = URL.createObjectURL(blob);
+                        a.href = url;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      });
+                  }}
+                  className={`block border rounded-xl p-4 hover:shadow-md transition cursor-pointer ${
+                    exp.color === 'blue' ? 'border-blue-100 bg-blue-50 hover:bg-blue-100' :
+                    exp.color === 'green' ? 'border-green-100 bg-green-50 hover:bg-green-100' :
+                    exp.color === 'amber' ? 'border-amber-100 bg-amber-50 hover:bg-amber-100' :
+                    'border-purple-100 bg-purple-50 hover:bg-purple-100'
+                  }`}
+                >
+                  <p className="font-semibold text-gray-800 text-sm">{exp.label}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{exp.desc}</p>
+                </a>
+              ))}
+            </div>
+            <div className="mt-3 flex gap-2 flex-wrap">
+              {["customers","vendors","bills","journals","payments"].map(type => (
+                <button key={type}
+                  onClick={() => {
+                    fetch(`/api/export/csv/${type}`, { headers: { Authorization: `Bearer ${token}` } })
+                      .then(r => r.blob()).then(blob => {
+                        const a = document.createElement('a');
+                        a.href = URL.createObjectURL(blob);
+                        a.download = `bizkhata-${type}.csv`;
+                        a.click();
+                      });
+                  }}
+                  className="text-xs border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 px-3 py-1.5 rounded-lg transition capitalize"
+                >
+                  {type} CSV
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
