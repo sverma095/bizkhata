@@ -10,6 +10,7 @@ import Accounting from "./components/Accounting.jsx";
 import Reports from "./components/Reports.jsx";
 import AIAssistant from "./components/AIAssistant.jsx";
 import LoginScreen from "./components/LoginScreen.jsx";
+import LandingPage from "./components/LandingPage.js";
 import AdminDashboard from "./components/AdminDashboard.jsx";
 import SuperAdminDashboard from "./components/SuperAdminDashboard.jsx";
 import UserDashboard from "./components/UserDashboard.jsx";
@@ -934,15 +935,27 @@ export default function App() {
   }
 
   if (!session) {
+    // Show landing page if no route params (not a reset/invite link)
+    if (!panelView && !routeEmail && !routeCode) {
+      if (typeof window !== 'undefined' && !localStorage.getItem('bk_show_login')) {
+        return (
+          <LandingPage
+            onGetStarted={() => { localStorage.setItem('bk_show_login', 'signup'); window.location.reload(); }}
+            onLogin={() => { localStorage.setItem('bk_show_login', 'login'); window.location.reload(); }}
+          />
+        );
+      }
+    }
+    const loginView = localStorage.getItem('bk_show_login') as any;
+    localStorage.removeItem('bk_show_login');
     return (
       <div className="min-h-screen bg-slate-50">
         <LoginScreen
           onLoginSuccess={handleLoginSuccess}
-          initialView={panelView}
+          initialView={loginView || panelView}
           initialEmail={routeEmail}
           initialCode={routeCode}
         />
-
       </div>
     );
   }
