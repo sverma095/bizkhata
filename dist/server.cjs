@@ -2238,6 +2238,71 @@ app.post("/api/superadmin/init-db", authGuard, superAdminGuard, async (req, res)
     res.status(500).json({ error: err.message });
   }
 });
+var PLANS = {
+  free: {
+    name: "Free",
+    price: 0,
+    seats: 1,
+    features: ["invoices", "expenses", "basic_reports", "1_org_user"]
+  },
+  starter: {
+    name: "Starter",
+    price: 999,
+    seats: 3,
+    features: ["invoices", "estimates", "expenses", "bills", "payments", "basic_reports", "gst_reports", "bank_reconciliation", "3_org_users"]
+  },
+  professional: {
+    name: "Professional",
+    price: 2499,
+    seats: 10,
+    features: ["invoices", "estimates", "expenses", "bills", "payments", "credit_notes", "purchase_orders", "delivery_challans", "basic_reports", "gst_reports", "advanced_reports", "bank_reconciliation", "tds", "multi_currency", "projects", "10_org_users"]
+  },
+  enterprise: {
+    name: "Enterprise",
+    price: 4999,
+    seats: 50,
+    features: ["all_features", "custom_domain", "priority_support", "api_access", "50_org_users"]
+  }
+};
+app.get("/api/plans", (_req, res) => {
+  res.json(PLANS);
+});
+app.get("/api/superadmin/plans", authGuard, superAdminGuard, (_req, res) => {
+  res.json(PLANS);
+});
+app.post("/api/superadmin/organizations/:id/plan", authGuard, superAdminGuard, (req, res) => {
+  const org = USER_DB.organizations.find((o) => o.id === req.params.id);
+  if (!org) return res.status(404).json({ error: "Organisation not found." });
+  const { plan, months } = req.body;
+  if (!PLANS[plan]) return res.status(400).json({ error: "Invalid plan." });
+  const m = Math.max(1, Math.min(36, parseInt(months) || 12));
+  org.plan = plan;
+  org.allocatedSeats = PLANS[plan].seats;
+  org.subscriptionMonths = m;
+  org.subscriptionExpiresAt = new Date(Date.now() + m * 30 * 24 * 60 * 60 * 1e3).toISOString();
+  addAuditLog(null, req.user.fullName, req.user.role, "Plan Updated", `${org.name} \u2192 ${PLANS[plan].name} for ${m} months.`);
+  saveUserDB().catch(() => {
+  });
+  res.json({ success: true, org });
+});
+app.get("/api/plan-features", authGuard, (req, res) => {
+  const user = req.user;
+  const org = USER_DB.organizations.find((o) => o.id === user.organizationId);
+  if (!org) return res.json({ plan: "free", features: PLANS.free.features });
+  const plan = org.plan || "professional";
+  const planData = PLANS[plan] || PLANS.professional;
+  const allFeatures = planData.features.includes("all_features");
+  res.json({
+    plan,
+    planName: planData.name,
+    price: planData.price,
+    seats: planData.seats,
+    features: planData.features,
+    allFeatures,
+    expiresAt: org.subscriptionExpiresAt,
+    daysLeft: org.subscriptionExpiresAt ? Math.ceil((new Date(org.subscriptionExpiresAt).getTime() - Date.now()) / 864e5) : null
+  });
+});
 app.get("/api/legal/tos", (_req, res) => {
   res.json({
     title: "BizKhata Terms of Service",
