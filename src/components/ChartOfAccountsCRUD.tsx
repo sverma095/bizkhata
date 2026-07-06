@@ -8,13 +8,20 @@ interface Props {
   onDeleteAccount: (code: string) => Promise<void>;
 }
 
-const ACCOUNT_TYPES = ["Asset", "Liability", "Income", "Expense", "Equity"];
+const ACCOUNT_GROUPS: Record<string, string[]> = {
+  "Assets": ["Current Asset","Fixed Asset","Loans & Advances (Asset)","Investments","Cash & Bank","Accounts Receivable"],
+  "Liabilities": ["Current Liability","Long-term Liability","Loans (Liability)","Accounts Payable","Duties & Taxes","GST Payable","TDS Payable"],
+  "Income": ["Direct Income","Indirect Income","Other Income"],
+  "Expenses": ["Direct Expense","Indirect Expense","Manufacturing Expense"],
+  "Equity": ["Capital Account","Reserves & Surplus","Drawings","GST Input Credit (ITC)","TDS Receivable"],
+};
+const ACCOUNT_TYPES = Object.values(ACCOUNT_GROUPS).flat();
 const TYPE_COLORS: Record<string, string> = {
-  Asset: "bg-emerald-100 text-emerald-700",
-  Liability: "bg-red-100 text-red-700",
-  Income: "bg-blue-100 text-blue-700",
-  Expense: "bg-orange-100 text-orange-700",
-  Equity: "bg-purple-100 text-purple-700",
+  "Assets": "bg-emerald-100 text-emerald-700",
+  "Liabilities": "bg-red-100 text-red-700",
+  "Income": "bg-blue-100 text-blue-700",
+  "Expenses": "bg-orange-100 text-orange-700",
+  "Equity": "bg-purple-100 text-purple-700",
 };
 
 export default function ChartOfAccountsCRUD({ db, onSaveAccount, onDeleteAccount }: Props) {
@@ -55,12 +62,12 @@ export default function ChartOfAccountsCRUD({ db, onSaveAccount, onDeleteAccount
   };
 
   const filtered = db.accounts
-    .filter(a => filterType === "All" || a.type === filterType)
-    .filter(a => !search || a.name.toLowerCase().includes(search.toLowerCase()) || a.code.toLowerCase().includes(search.toLowerCase()));
+    .filter((a: any) => filterType === "All" || (ACCOUNT_GROUPS[filterType] && ACCOUNT_GROUPS[filterType].includes(a.type)) || a.type === filterType)
+    .filter((a: any) => !search || a.name.toLowerCase().includes(search.toLowerCase()) || a.code.toLowerCase().includes(search.toLowerCase()));
 
-  const byType = ACCOUNT_TYPES.reduce((m, t) => { m[t] = filtered.filter(a => a.type === t); return m; }, {} as Record<string, Account[]>);
-  const totalAssets = db.accounts.filter(a => a.type === "Asset").reduce((s, a) => s + a.balance, 0);
-  const totalLiabilities = db.accounts.filter(a => a.type === "Liability").reduce((s, a) => s + a.balance, 0);
+  const byType = ACCOUNT_TYPES.reduce((m, t) => { m[t] = filtered.filter((a: any) => a.type === t); return m; }, {} as Record<string, any[]>);
+  const totalAssets = db.accounts.filter((a: any) => (ACCOUNT_GROUPS["Assets"] || []).includes(a.type)).reduce((s: number, a: any) => s + (a.balance || 0), 0);
+  const totalLiabilities = db.accounts.filter((a: any) => (ACCOUNT_GROUPS["Liabilities"] || []).includes(a.type)).reduce((s: number, a: any) => s + (a.balance || 0), 0);
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -74,13 +81,18 @@ export default function ChartOfAccountsCRUD({ db, onSaveAccount, onDeleteAccount
         </button>
       </div>
 
-      {/* Stats */}
+      {/* Stats — 5 main groups */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        {ACCOUNT_TYPES.map(t => (
-          <div key={t} className="card-lift bg-white border border-slate-200 rounded-xl p-3 cursor-pointer" onClick={() => setFilterType(filterType === t ? "All" : t)}>
-            <div className="text-[10px] text-slate-500 font-semibold uppercase">{t}s</div>
-            <div className="text-lg font-bold text-slate-800 mt-1">{db.accounts.filter(a => a.type === t).length}</div>
-            <div className="text-[10px] font-mono text-slate-500">₹{db.accounts.filter(a => a.type === t).reduce((s, a) => s + a.balance, 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}</div>
+        {Object.entries(ACCOUNT_GROUPS).map(([group, types]) => (
+          <div key={group} className="card-lift bg-white border border-slate-200 rounded-xl p-3 cursor-pointer hover:border-blue-300 transition"
+            onClick={() => setFilterType(filterType === group ? "All" : group)}>
+            <div className={`text-[10px] font-semibold uppercase ${filterType === group ? 'text-blue-600' : 'text-slate-500'}`}>{group}</div>
+            <div className="text-lg font-bold text-slate-800 mt-1">
+              {db.accounts.filter((a: any) => types.includes(a.type)).length}
+            </div>
+            <div className="text-[10px] font-mono text-slate-500">
+              ₹{db.accounts.filter((a: any) => types.includes(a.type)).reduce((s: number, a: any) => s + (a.balance || 0), 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+            </div>
           </div>
         ))}
       </div>
@@ -104,7 +116,12 @@ export default function ChartOfAccountsCRUD({ db, onSaveAccount, onDeleteAccount
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-slate-600 uppercase">Account Type *</label>
               <select value={type} onChange={e => setType(e.target.value)} className="w-full border border-slate-200 bg-white rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400">
-                {ACCOUNT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                <option value="">Select account type...</option>
+                {Object.entries(ACCOUNT_GROUPS).map(([group, types]) => (
+                  <optgroup key={group} label={`── ${group} ──`}>
+                    {types.map(t => <option key={t} value={t}>{t}</option>)}
+                  </optgroup>
+                ))}
               </select>
             </div>
             <div className="space-y-1">
@@ -127,9 +144,9 @@ export default function ChartOfAccountsCRUD({ db, onSaveAccount, onDeleteAccount
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search accounts..." className="pl-8 pr-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 w-52" />
         </div>
-        <div className="flex gap-1">
-          {["All", ...ACCOUNT_TYPES].map(t => (
-            <button key={t} onClick={() => setFilterType(t)} className={`px-3 py-1.5 text-[10px] font-semibold rounded-lg transition ${filterType === t ? "bg-blue-600 text-white" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"}`}>{t === "All" ? "All" : t + "s"}</button>
+        <div className="flex gap-1 flex-wrap">
+          {["All", ...Object.keys(ACCOUNT_GROUPS)].map(t => (
+            <button key={t} onClick={() => setFilterType(t)} className={`px-3 py-1.5 text-[10px] font-semibold rounded-lg transition ${filterType === t ? "bg-blue-600 text-white" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"}`}>{t}</button>
           ))}
         </div>
       </div>
@@ -147,15 +164,15 @@ export default function ChartOfAccountsCRUD({ db, onSaveAccount, onDeleteAccount
             </tr>
           </thead>
           <tbody>
-            {ACCOUNT_TYPES.map(t => {
+            {ACCOUNT_TYPES.map((t: string) => {
               const accs = byType[t];
               if (!accs || accs.length === 0) return null;
-              const subtotal = accs.reduce((s, a) => s + a.balance, 0);
+              const subtotal = accs.reduce((s: number, a: any) => s + (a.balance || 0), 0);
               return (
                 <React.Fragment key={t}>
                   <tr className="bg-slate-50 border-t border-slate-200">
                     <td colSpan={4} className="px-4 py-2">
-                      <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded ${TYPE_COLORS[t]}`}>{t}s</span>
+                      <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded ${TYPE_COLORS[Object.keys(ACCOUNT_GROUPS).find(g => ACCOUNT_GROUPS[g].includes(t)) || ''] || 'bg-gray-100 text-gray-700'}`}>{t}</span>
                       <span className="ml-2 text-[10px] text-slate-400">{accs.length} accounts</span>
                     </td>
                     <td className="px-4 py-2 text-right font-mono font-bold text-xs text-slate-700">₹{subtotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</td>
@@ -165,7 +182,7 @@ export default function ChartOfAccountsCRUD({ db, onSaveAccount, onDeleteAccount
                       <td className="py-2.5 px-4 font-mono text-[10px] text-slate-500">{acc.code}</td>
                       <td className="py-2.5 px-4 font-semibold text-slate-800">{acc.name}</td>
                       <td className="py-2.5 px-4">
-                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${TYPE_COLORS[acc.type]}`}>{acc.type}</span>
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${TYPE_COLORS[Object.keys(ACCOUNT_GROUPS).find(g => ACCOUNT_GROUPS[g].includes(acc.type)) || ''] || 'bg-gray-100 text-gray-600'}`}>{acc.type}</span>
                       </td>
                       <td className="py-2.5 px-4 text-right font-mono font-bold text-slate-900">₹{acc.balance.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</td>
                       <td className="py-2.5 px-4">
