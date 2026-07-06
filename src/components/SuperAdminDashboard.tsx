@@ -705,10 +705,33 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
               {/* Edit Modal simulated embedded */}
               {editingOrg && (
                 <div className="p-5 bg-slate-50 rounded-xl border border-slate-200 space-y-3" id="su-edit-limits-form-container">
-                  <h4 className="text-xs font-bold uppercase tracking-widest text-slate-500">Configure Client Limits: {editingOrg.name}</h4>
-                  <form onSubmit={handleUpdateOrg} className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+                  <h4 className="text-xs font-bold uppercase tracking-widest text-slate-500">Configure: {editingOrg.name}</h4>
+                  <form onSubmit={handleUpdateOrg} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                    {/* Plan */}
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Max Seat Capacity</label>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Subscription Plan</label>
+                      <select
+                        className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded font-bold"
+                        value={(editingOrg as any).plan || 'professional'}
+                        onChange={async (e) => {
+                          const plan = e.target.value;
+                          const planSeats: Record<string,number> = { free:1, starter:3, professional:10, enterprise:50 };
+                          setEditSeats(planSeats[plan] || 10);
+                          const r = await fetch(`/api/superadmin/organizations/${editingOrg.id}/plan`, {
+                            method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ plan, months: editingOrg.subscriptionMonths || 12 })
+                          });
+                          if (r.ok) { loadAllData(); setMessage({ text: `✓ Plan updated to ${plan}`, isError: false }); }
+                        }}
+                      >
+                        <option value="free">Free — ₹0 / 1 seat</option>
+                        <option value="starter">Starter — ₹999/mo / 3 seats</option>
+                        <option value="professional">Professional — ₹2,499/mo / 10 seats</option>
+                        <option value="enterprise">Enterprise — ₹4,999/mo / 50 seats</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Max Seats</label>
                       <input
                         type="number"
                         id="su-edit-seats-input"
@@ -720,31 +743,25 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Operational setting</label>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Status</label>
                       <select
                         id="su-edit-status-select"
                         className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded font-bold"
                         value={editStatus}
                         onChange={(e) => setEditStatus(e.target.value as any)}
                       >
-                        <option value="Active">Active Portal</option>
-                        <option value="Suspended">Suspended (Locks All Users)</option>
+                        <option value="Active">Active</option>
+                        <option value="Suspended">Suspended</option>
                       </select>
                     </div>
                     <div className="flex gap-2 justify-end">
-                      <button
-                        type="button"
-                        onClick={() => setEditingOrg(null)}
-                        className="px-3 py-1.5 text-xs font-bold text-slate-500 hover:bg-slate-200 rounded transition"
-                      >
+                      <button type="button" onClick={() => setEditingOrg(null)}
+                        className="px-3 py-1.5 text-xs font-bold text-slate-500 hover:bg-slate-200 rounded transition">
                         Cancel
                       </button>
-                      <button
-                        type="submit"
-                        id="su-btn-save-limits"
-                        className="px-4 py-1.5 text-xs font-bold text-white bg-sky-600 hover:bg-sky-500 rounded transition"
-                      >
-                        Commit Limits
+                      <button type="submit" id="su-btn-save-limits"
+                        className="px-4 py-1.5 text-xs font-bold text-white bg-sky-600 hover:bg-sky-500 rounded transition">
+                        Save
                       </button>
                     </div>
                   </form>
