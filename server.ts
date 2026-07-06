@@ -328,82 +328,86 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const EMAIL_FROM = process.env.EMAIL_FROM || process.env.SMTP_USER || "noreply@bizkhata.app";
 
 // Pure Node.js SMTP client — no nodemailer, no external deps, works on Vercel ESM
-async function smtpSend(to: string, subject: string, html: string): Promise<void> {
-  const host = process.env.SMTP_HOST!;
-  const port = parseInt(process.env.SMTP_PORT || "587");
-  const user = process.env.SMTP_USER!;
-  const pass = process.env.SMTP_PASS!;
-  const from = EMAIL_FROM;
-
-  const { createConnection } = await import("net");
-  const { connect: tlsConnect } = await import("tls");
-  const { Buffer } = await import("buffer");
-
-  return new Promise((resolve, reject) => {
-    const b64 = (s: string) => Buffer.from(s).toString("base64");
-    const boundary = `bk_${Date.now()}`;
-    const rawMsg = [
-      `From: BizKhata <${from}>`,
-      `To: ${to}`,
-      `Subject: ${subject}`,
-      `MIME-Version: 1.0`,
-      `Content-Type: multipart/alternative; boundary="${boundary}"`,
-      ``,
-      `--${boundary}`,
-      `Content-Type: text/html; charset=UTF-8`,
-      ``,
-      html,
-      `--${boundary}--`,
-    ].join("\r\n");
-
-    let socket: any;
-    let step = 0;
-    const cmds = [
-      `EHLO bizkhata.app\r\n`,
-      `AUTH LOGIN\r\n`,
-      `${b64(user)}\r\n`,
-      `${b64(pass)}\r\n`,
-      `MAIL FROM:<${from}>\r\n`,
-      `RCPT TO:<${to}>\r\n`,
-      `DATA\r\n`,
-      `${rawMsg}\r\n.\r\n`,
-      `QUIT\r\n`,
-    ];
-
-    const send = (s: string) => socket.write(s);
-
-    const handleData = (data: Buffer) => {
-      const resp = data.toString();
-      const code = parseInt(resp.slice(0, 3));
-      if (code >= 400) { reject(new Error(`SMTP error at step ${step}: ${resp.trim()}`)); socket.destroy(); return; }
-      if (step === 0 && (code === 220 || resp.includes("220"))) { send(cmds[step++]); return; }
-      if (step < cmds.length) { send(cmds[step++]); }
-      else { resolve(); socket.destroy(); }
-    };
-
-    if (port === 465) {
-      socket = tlsConnect({ host, port, rejectUnauthorized: false }, () => socket.on("data", handleData));
-    } else {
-      socket = createConnection({ host, port }, () => socket.on("data", handleData));
-    }
-    socket.on("error", reject);
-    socket.setTimeout(15000, () => { reject(new Error("SMTP timeout")); socket.destroy(); });
-  });
-}
-
 async function sendEmail(to: string, subject: string, html: string): Promise<{ sent: boolean; reason?: string }> {
-  // 1. Try SMTP (pure Node net/tls — no nodemailer)
-  if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+  
+  // 1. Gmail API via OAuth2 (if GMAIL_REFRESH_TOKEN set)
+  // Google OAuth2 token refresh + Gmail API send — works on Vercel (pure HTTPS)
+  if (process.env.GMAIL_REFRESH_TOKEN && process.env.GMAIL_CLIENT_ID && process.env.GMAIL_CLIENT_SECRET) {
     try {
-      await smtpSend(to, subject, html);
-      console.log(`SMTP email sent to ${to}`);
-      return { sent: true };
+      // Refresh access token
+      const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          client_id: process.env.GMAIL_CLIENT_ID,
+          client_secret: process.env.GMAIL_CLIENT_SECRET,
+          refresh_token: process.env.GMAIL_REFRESH_TOKEN,
+          grant_type: "refresh_token"
+        })
+      });
+      const tokenData = await tokenRes.json();
+      if (!tokenData.access_token) throw new Error("Failed to refresh Gmail token");
+
+      // Build RFC 2822 email
+      const emailLines = [
+        `From: BizKhata <${EMAIL_FROM}>`,
+        `To: ${to}`,
+        `Subject: ${subject}`,
+        `MIME-Version: 1.0`,
+        `Content-Type: text/html; charset=UTF-8`,
+        ``,
+        html
+      ].join("\r\n");
+      const encoded = Buffer.from(emailLines).toString("base64url");
+
+      const sendRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${tokenData.access_token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ raw: encoded })
+      });
+      if (sendRes.ok) { console.log(`Gmail API sent to ${to}`); return { sent: true }; }
+      const err = await sendRes.json();
+      console.error("Gmail API error:", err);
     } catch (err: any) {
-      console.error("SMTP failed:", err.message);
+      console.error("Gmail API failed:", err.message);
     }
   }
 
-  // 2. Fallback: Resend API
+  // 2. SMTP2GO / SendGrid / Mailgun via their HTTP APIs (set SMTP_HTTP_API_KEY + SMTP_HTTP_PROVIDER)
+  if (process.env.SMTP_HTTP_API_KEY && process.env.SMTP_HTTP_PROVIDER) {
+    const provider = process.env.SMTP_HTTP_PROVIDER;
+    try {
+      let r: Response;
+      if (provider === "sendgrid") {
+        r = await fetch("https://api.sendgrid.com/v3/mail/send", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${process.env.SMTP_HTTP_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            personalizations: [{ to: [{ email: to }] }],
+            from: { email: EMAIL_FROM, name: "BizKhata" },
+            subject,
+            content: [{ type: "text/html", value: html }]
+          })
+        });
+      } else if (provider === "mailgun") {
+        const domain = process.env.MAILGUN_DOMAIN || "bizkhata.app";
+        const form = new URLSearchParams({ from: `BizKhata <${EMAIL_FROM}>`, to, subject, html });
+        r = await fetch(`https://api.mailgun.net/v3/${domain}/messages`, {
+          method: "POST",
+          headers: { Authorization: `Basic ${Buffer.from(`api:${process.env.SMTP_HTTP_API_KEY}`).toString("base64")}` },
+          body: form
+        });
+      } else {
+        throw new Error(`Unknown provider: ${provider}`);
+      }
+      if (r.ok || r.status === 202) { console.log(`${provider} sent to ${to}`); return { sent: true }; }
+      return { sent: false, reason: `${provider} error ${r.status}` };
+    } catch (err: any) {
+      console.error(`${provider} failed:`, err.message);
+    }
+  }
+
+  // 3. Resend API (simplest to set up)
   if (RESEND_API_KEY) {
     try {
       const controller = new AbortController();
@@ -415,14 +419,16 @@ async function sendEmail(to: string, subject: string, html: string): Promise<{ s
         signal: controller.signal
       });
       clearTimeout(timer);
-      if (!r.ok) return { sent: false, reason: `Resend error ${r.status}` };
-      return { sent: true };
+      if (r.ok) { console.log(`Resend sent to ${to}`); return { sent: true }; }
+      const errBody = await r.text();
+      return { sent: false, reason: `Resend error ${r.status}: ${errBody}` };
     } catch (err: any) {
       return { sent: false, reason: err?.message };
     }
   }
 
-  return { sent: false, reason: "No email provider configured. Set SMTP_HOST/SMTP_USER/SMTP_PASS in Vercel env vars." };
+  console.warn(`sendEmail: no provider configured. OTP for ${to} is in Notifications.`);
+  return { sent: false, reason: "No email provider configured. Options: RESEND_API_KEY, GMAIL_REFRESH_TOKEN+GMAIL_CLIENT_ID+GMAIL_CLIENT_SECRET, or SMTP_HTTP_API_KEY+SMTP_HTTP_PROVIDER (sendgrid/mailgun)" };
 }
 
 function verifyPassword(plain: string, stored: string | undefined): boolean {
@@ -2294,7 +2300,181 @@ app.post("/api/superadmin/init-db", authGuard, superAdminGuard, async (req: any,
   }
 });
 
-// ── Subscription Plans ───────────────────────────────────────────────────
+// ── Tally XML Export ─────────────────────────────────────────────────────
+app.get("/api/export/tally", authGuard, async (req: any, res: any) => {
+  const db = await readDB(req.user.organizationId);
+  const invoices = (db.invoices || []).filter((i: any) => i.status === "Approved");
+  const expenses = db.expenses || [];
+  const company = db.company || {};
+
+  const escXml = (s: any) => String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+
+  const invoiceVouchers = invoices.map((inv: any) => `
+  <VOUCHER VCHTYPE="Sales" ACTION="Create">
+    <DATE>${(inv.date||"").replace(/-/g,"")}</DATE>
+    <NARRATION>${escXml(inv.invoiceNumber)} - ${escXml(inv.customerName || "")}</NARRATION>
+    <VOUCHERTYPENAME>Sales</VOUCHERTYPENAME>
+    <PARTYLEDGERNAME>${escXml(inv.customerName || "Debtor")}</PARTYLEDGERNAME>
+    <ALLLEDGERENTRIES.LIST>
+      <LEDGERNAME>${escXml(inv.customerName || "Debtor")}</LEDGERNAME>
+      <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>
+      <AMOUNT>-${inv.total || 0}</AMOUNT>
+    </ALLLEDGERENTRIES.LIST>
+    <ALLLEDGERENTRIES.LIST>
+      <LEDGERNAME>Sales</LEDGERNAME>
+      <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+      <AMOUNT>${inv.subtotal || inv.total || 0}</AMOUNT>
+    </ALLLEDGERENTRIES.LIST>
+    ${(inv.totalGst || 0) > 0 ? `<ALLLEDGERENTRIES.LIST>
+      <LEDGERNAME>GST Payable</LEDGERNAME>
+      <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+      <AMOUNT>${inv.totalGst || 0}</AMOUNT>
+    </ALLLEDGERENTRIES.LIST>` : ""}
+  </VOUCHER>`).join("\n");
+
+  const expenseVouchers = expenses.map((exp: any) => `
+  <VOUCHER VCHTYPE="Payment" ACTION="Create">
+    <DATE>${(exp.date||"").replace(/-/g,"")}</DATE>
+    <NARRATION>${escXml(exp.category || "Expense")} - ${escXml(exp.vendor || "")}</NARRATION>
+    <VOUCHERTYPENAME>Payment</VOUCHERTYPENAME>
+    <ALLLEDGERENTRIES.LIST>
+      <LEDGERNAME>${escXml(exp.category || "Indirect Expenses")}</LEDGERNAME>
+      <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>
+      <AMOUNT>-${exp.amount || exp.total || 0}</AMOUNT>
+    </ALLLEDGERENTRIES.LIST>
+    <ALLLEDGERENTRIES.LIST>
+      <LEDGERNAME>Bank Account</LEDGERNAME>
+      <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+      <AMOUNT>${exp.amount || exp.total || 0}</AMOUNT>
+    </ALLLEDGERENTRIES.LIST>
+  </VOUCHER>`).join("\n");
+
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<ENVELOPE>
+  <HEADER>
+    <TALLYREQUEST>Import Data</TALLYREQUEST>
+  </HEADER>
+  <BODY>
+    <IMPORTDATA>
+      <REQUESTDESC>
+        <REPORTNAME>Vouchers</REPORTNAME>
+        <STATICVARIABLES>
+          <SVCURRENTCOMPANY>${escXml(company.name || "BizKhata Export")}</SVCURRENTCOMPANY>
+        </STATICVARIABLES>
+      </REQUESTDESC>
+      <REQUESTDATA>
+        <TALLYMESSAGE xmlns:UDF="TallyUDF">
+          ${invoiceVouchers}
+          ${expenseVouchers}
+        </TALLYMESSAGE>
+      </REQUESTDATA>
+    </IMPORTDATA>
+  </BODY>
+</ENVELOPE>`;
+
+  res.setHeader("Content-Type", "application/xml");
+  res.setHeader("Content-Disposition", `attachment; filename="bizkhata-tally-export-${new Date().toISOString().split('T')[0]}.xml"`);
+  res.send(xml);
+});
+
+// ── CSV / JSON Data Backup ────────────────────────────────────────────────
+app.get("/api/export/csv/:type", authGuard, async (req: any, res: any) => {
+  const db = await readDB(req.user.organizationId);
+  const type = req.params.type;
+
+  const toCSV = (rows: any[], cols: string[]) => {
+    const header = cols.join(",");
+    const lines = rows.map(r => cols.map(c => {
+      const v = String(r[c] ?? "").replace(/"/g, '""');
+      return v.includes(",") || v.includes("\n") || v.includes('"') ? `"${v}"` : v;
+    }).join(","));
+    return [header, ...lines].join("\n");
+  };
+
+  const typeMap: Record<string, { data: any[], cols: string[] }> = {
+    invoices: { data: db.invoices || [], cols: ["id","invoiceNumber","date","customerName","subtotal","totalGst","total","status"] },
+    expenses: { data: db.expenses || [], cols: ["id","date","category","vendor","amount","gst","total","paymentMode"] },
+    bills: { data: db.bills || [], cols: ["id","billNumber","date","vendorName","subtotal","totalGst","total","status"] },
+    customers: { data: db.customers || [], cols: ["id","name","email","mobile","gstin","state","openingBalance"] },
+    vendors: { data: db.vendors || [], cols: ["id","name","email","mobile","gstin","state","openingBalance"] },
+    journals: { data: db.journals || [], cols: ["id","date","narration","debitAccount","creditAccount","amount","reference"] },
+    payments: { data: db.payments || [], cols: ["id","date","invoiceNumber","customerName","amount","paymentMode","reference"] },
+  };
+
+  if (!typeMap[type]) return res.status(400).json({ error: "Invalid export type." });
+  const { data, cols } = typeMap[type];
+  const csv = toCSV(data, cols);
+
+  res.setHeader("Content-Type", "text/csv");
+  res.setHeader("Content-Disposition", `attachment; filename="bizkhata-${type}-${new Date().toISOString().split('T')[0]}.csv"`);
+  res.send(csv);
+});
+
+app.get("/api/export/json", authGuard, async (req: any, res: any) => {
+  const db = await readDB(req.user.organizationId);
+  const backup = {
+    exportedAt: new Date().toISOString(),
+    company: db.company,
+    invoices: db.invoices || [],
+    expenses: db.expenses || [],
+    bills: db.bills || [],
+    customers: db.customers || [],
+    vendors: db.vendors || [],
+    items: db.items || [],
+    journals: db.journals || [],
+    payments: db.payments || [],
+    accounts: db.accounts || [],
+  };
+  res.setHeader("Content-Type", "application/json");
+  res.setHeader("Content-Disposition", `attachment; filename="bizkhata-backup-${new Date().toISOString().split('T')[0]}.json"`);
+  res.send(JSON.stringify(backup, null, 2));
+});
+
+// ── WhatsApp Notifications (via WATI/Twilio) ──────────────────────────────
+app.post("/api/notifications/whatsapp", authGuard, async (req: any, res: any) => {
+  const { phone, message, templateName } = req.body;
+  const watiToken = process.env.WATI_API_TOKEN;
+  const watiUrl = process.env.WATI_API_URL; // e.g. https://live-server-xxxxx.wati.io
+
+  if (!watiToken || !watiUrl) {
+    // Log notification for manual follow-up
+    USER_DB.notifications.unshift({
+      id: generateId("notif"), to: phone, subject: "WhatsApp (pending config)",
+      body: message, type: "WhatsApp", timestamp: new Date().toISOString()
+    });
+    return res.json({ sent: false, reason: "WATI_API_TOKEN or WATI_API_URL not configured. Message queued in notifications." });
+  }
+
+  try {
+    const r = await fetch(`${watiUrl}/api/v1/sendTemplateMessage?whatsappNumber=${phone.replace(/\D/g,"")}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${watiToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ template_name: templateName || "bizkhata_notification", broadcast_name: "bizkhata", parameters: [{ name: "message", value: message }] })
+    });
+    const data = await r.json();
+    res.json({ sent: r.ok, data });
+  } catch (err: any) {
+    res.status(500).json({ sent: false, error: err.message });
+  }
+});
+
+// ── Onboarding Status ──────────────────────────────────────────────────────
+app.get("/api/onboarding/status", authGuard, async (req: any, res: any) => {
+  const db = await readDB(req.user.organizationId);
+  const steps = [
+    { id: "company", label: "Set up company profile", done: !!(db.company?.name && db.company?.gstin) },
+    { id: "opening_balances", label: "Enter opening balances", done: !!(db as any).openingBalancesSet },
+    { id: "customers", label: "Add first customer", done: (db.customers||[]).length > 0 },
+    { id: "items", label: "Add products/services", done: (db.items||[]).length > 0 },
+    { id: "invoice", label: "Create first invoice", done: (db.invoices||[]).length > 0 },
+    { id: "expense", label: "Record first expense", done: (db.expenses||[]).length > 0 },
+    { id: "bank", label: "Add bank account", done: (db.accounts||[]).some((a: any) => a.type === "Bank" || a.code === "bank_account") },
+  ];
+  const pct = Math.round(steps.filter(s => s.done).length / steps.length * 100);
+  res.json({ steps, percent: pct, complete: pct === 100 });
+});
+
+
 const PLANS: Record<string, { name: string; price: number; seats: number; features: string[] }> = {
   free: {
     name: "Free",
