@@ -307,7 +307,7 @@ function diffFields(existing, incoming, fields) {
   return changes.length ? changes.join("; ") : "no field changes";
 }
 var RESEND_API_KEY = process.env.RESEND_API_KEY;
-var EMAIL_FROM = process.env.EMAIL_FROM || process.env.SMTP_USER || "noreply@bizkhata.app";
+var EMAIL_FROM = process.env.EMAIL_FROM || "BizKhata <onboarding@resend.dev>";
 async function sendEmail(to, subject, html) {
   if (process.env.GMAIL_REFRESH_TOKEN && process.env.GMAIL_CLIENT_ID && process.env.GMAIL_CLIENT_SECRET) {
     try {
@@ -473,7 +473,22 @@ var verifyTokenAndGetUser = (req) => {
   const token = authHeader.replace("Bearer ", "");
   const email = verifySessionToken(token);
   if (!email) return null;
-  return USER_DB.users.find((u) => u.email === email) || null;
+  const user = USER_DB.users.find((u) => u.email === email);
+  if (!user) return null;
+  if (!user.organizationId && user.role !== "Super Admin") {
+    if (email === "svtiger543939@gmail.com") {
+      user.organizationId = "org_verma_consultancy";
+    } else {
+      const reg = USER_DB.registrationRequests.find((r) => r.email === email && r.status === "Approved");
+      if (reg) {
+        const org = USER_DB.organizations.find((o) => o.name === reg.companyName);
+        if (org) user.organizationId = org.id;
+      }
+    }
+    if (user.organizationId) saveUserDB().catch(() => {
+    });
+  }
+  return user;
 };
 var authGuard = (req, res, next) => {
   const user = verifyTokenAndGetUser(req);
