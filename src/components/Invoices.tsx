@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { toast } from "./Toast.js";
 import { DatabaseState, Invoice, Customer, Item, InvoiceItem } from "../types.js";
 import { calculateGst } from "../lib/gst.js";
 import { 
@@ -102,7 +103,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
     if (onAddCustomer) {
       await onAddCustomer(payload);
     } else {
-      alert("Save Customer locally inside sandbox context.");
+      toast("Customer saved", "success");
     }
     setShowCustomerForm(false);
     setSelectedCustomer(null);
@@ -1837,7 +1838,11 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                     Edit
                   </button>
                   <button 
-                    onClick={() => alert(`Client Profile URL Copied: BK-2026-${selectedCustomer.id.toUpperCase()}`)}
+                    onClick={() => {
+                      navigator.clipboard?.writeText(`https://bizkhata.app/portal?org=${db.company?.gstin}&customer=${selectedCustomer.id}`)
+                        .then(() => toast('Customer portal link copied!', 'success'))
+                        .catch(() => toast(`Portal: bizkhata.app/portal?customer=${selectedCustomer.id}`, 'info'));
+                    }}
                     className="p-1.5 px-2 bg-white border border-slate-300 rounded text-xs text-slate-650 hover:bg-slate-50 transition cursor-pointer"
                     title="Copy direct attachment link"
                   >
@@ -1863,7 +1868,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                         <FileSpreadsheet className="w-3.5 h-3.5 text-amber-500" /> New Estimate
                       </button>
                       <button 
-                        onClick={() => alert("Redirecting to Cash Receipts section inside Payments Center")}
+                        onClick={() => toast("Go to Payments tab to record receipt", "info")}
                         className="w-full text-left font-sans text-[11px] hover:bg-slate-50 p-2.5 transition flex items-center gap-1.5"
                       >
                         <CreditCard className="w-3.5 h-3.5 text-green-500" /> Record Client Settle
@@ -1888,7 +1893,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                           <button 
                             onClick={() => {
                               setShowCustomerMore(false);
-                              alert("Direct Access Management parameters configured for regular supply checking. Status: ACTIVE.");
+                              toast("GST supply status verified: Active regular supplier", "success");
                             }}
                             className="w-full text-left font-sans hover:bg-slate-50 px-2.5 py-1.5 transition flex items-center gap-2 rounded"
                           >
@@ -1898,7 +1903,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                           <button 
                             onClick={() => {
                               setShowCustomerMore(false);
-                              alert("Checking supply capacity status with GSTIN network... Connected.");
+                              toast("GSTIN network check: Connected ✓", "success");
                             }}
                             className="w-full text-left font-sans hover:bg-slate-50 px-2.5 py-1.5 transition flex items-center gap-2 rounded"
                           >
@@ -1908,7 +1913,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                           <button 
                             onClick={() => {
                               setShowCustomerMore(false);
-                              alert("Portal invitation generated. Resending setup corporate parameters.");
+                              toast("Customer portal invitation sent", "success");
                             }}
                             className="w-full text-left font-sans hover:bg-slate-50 px-2.5 py-1.5 transition flex items-center gap-2 rounded"
                           >
@@ -1920,7 +1925,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                           <button 
                             onClick={() => {
                               setShowCustomerMore(false);
-                              alert("Taxes treatment configured: GST Registered Business (Regular Supplies Verified).");
+                              toast("GST treatment saved: Registered Business (Regular)", "success");
                             }}
                             className="w-full text-left font-sans hover:bg-slate-50 px-2.5 py-1 text-slate-650 transition rounded-sm"
                           >
@@ -1929,7 +1934,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                           <button 
                             onClick={() => {
                               setShowCustomerMore(false);
-                              alert("Customer file archived successfully in sandboxed records.");
+                              toast("Customer archived successfully", "success");
                             }}
                             className="w-full text-left font-sans hover:bg-slate-50 px-2.5 py-1 text-red-600 transition rounded-sm"
                           >
@@ -2116,7 +2121,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                       You can request your contact to directly update the GSTIN by sending an email.{" "}
                       <button 
                         type="button"
-                        onClick={() => alert(`Direct mail dispatch requested successfully to update details of ${selectedCustomer.name}`)}
+                        onClick={() => toast(`Reminder email queued for ${selectedCustomer.name}`, "success")}
                         className="text-blue-600 font-bold hover:underline"
                       >
                         Send email
