@@ -324,8 +324,9 @@ function diffFields(existing: any, incoming: any, fields: string[]): string {
   return changes.length ? changes.join("; ") : "no field changes";
 }
 
+const APP_URL = process.env.APP_URL || "https://bizkhata.app";
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
-// EMAIL_FROM must be a verified domain in Resend. Use onboarding@resend.dev for testing.
+// Use verified domain email. While Resend domain verification is in progress, use onboarding@resend.dev
 const EMAIL_FROM = process.env.EMAIL_FROM || "BizKhata <onboarding@resend.dev>";
 
 // Pure Node.js SMTP client — no nodemailer, no external deps, works on Vercel ESM
@@ -1332,7 +1333,7 @@ app.post("/api/users", authGuard, requirePermission("manage_users"), (req: any, 
   const newUser = { id: generateId("user"), organizationId: targetOrgId, fullName, email, mobileNumber, department, designation, role, status: "Pending Activation", password: hashPassword(tempPassword), permissions: permissions || ["view_invoices", "view_reports"], twoFactorEnabled: false, createdAt: new Date().toISOString(), activationCode };
   USER_DB.users.push(newUser);
   org.usedSeats = USER_DB.users.filter((u: any) => u.organizationId === targetOrgId && u.status !== "Disabled").length;
-  USER_DB.notifications.unshift({ id: generateId("notif"), to: email, subject: `Welcome to BizKhata - ${org.name}`, body: `Hello ${fullName},\n\nTemp Password: ${tempPassword}\nRole: ${role}\n\nActivate: https://bizkhata-six.vercel.app/activate?code=${activationCode}&email=${email}`, type: "Email", timestamp: new Date().toISOString() });
+  USER_DB.notifications.unshift({ id: generateId("notif"), to: email, subject: `Welcome to BizKhata - ${org.name}`, body: `Hello ${fullName},\n\nTemp Password: ${tempPassword}\nRole: ${role}\n\nActivate: ${APP_URL}/activate?code=${activationCode}&email=${email}`, type: "Email", timestamp: new Date().toISOString() });
   addAuditLog(targetOrgId, activeUser.fullName, activeUser.role, "User Created", `Created '${fullName}' as '${role}'.`);
   res.status(201).json(safeUser(newUser));
 });
