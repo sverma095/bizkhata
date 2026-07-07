@@ -11,6 +11,7 @@ import Reports from "./components/Reports.jsx";
 import AIAssistant from "./components/AIAssistant.jsx";
 import LoginScreen from "./components/LoginScreen.jsx";
 import LandingPage from "./components/LandingPage.js";
+import { ToastContainer, toast } from "./components/Toast.js";
 import AdminDashboard from "./components/AdminDashboard.jsx";
 import SuperAdminDashboard from "./components/SuperAdminDashboard.jsx";
 import UserDashboard from "./components/UserDashboard.jsx";
@@ -985,7 +986,7 @@ export default function App() {
 
   return (
     <div id="bizkhata-main-container" className="h-screen flex flex-col overflow-hidden bg-slate-50 font-sans text-slate-700">
-      
+      <ToastContainer />
       {/* ----------------- BIZKHATA TOP GLOBAL BAR ----------------- */}
       <header id="bizkhata-global-header" className="h-12 bg-[#1C202F] flex items-center justify-between px-4 text-white shrink-0 select-none z-30 shadow-[0_2px_8px_rgba(0,0,0,0.25)]">
         
