@@ -13,8 +13,11 @@
   ],
   "categories": ["finance", "business", "productivity"],
   "lang": "en-IN",
+  "id": "https://bizkhata.app",
+  "scope": "/",
   "shortcuts": [
     { "name": "New Invoice", "url": "/?tab=sales", "description": "Create a new invoice" },
-    { "name": "Dashboard", "url": "/?tab=dashboard", "description": "View dashboard" }
+    { "name": "Dashboard", "url": "/?tab=dashboard", "description": "View dashboard" },
+    { "name": "Reports", "url": "/?tab=reports", "description": "Financial reports" }
   ]
 }
