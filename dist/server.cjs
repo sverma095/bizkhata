@@ -306,6 +306,7 @@ function diffFields(existing, incoming, fields) {
   }
   return changes.length ? changes.join("; ") : "no field changes";
 }
+var APP_URL = process.env.APP_URL || "https://bizkhata.app";
 var RESEND_API_KEY = process.env.RESEND_API_KEY;
 var EMAIL_FROM = process.env.EMAIL_FROM || "BizKhata <onboarding@resend.dev>";
 async function sendEmail(to, subject, html) {
@@ -1337,7 +1338,7 @@ app.post("/api/users", authGuard, requirePermission("manage_users"), (req, res) 
 Temp Password: ${tempPassword}
 Role: ${role}
 
-Activate: https://bizkhata-six.vercel.app/activate?code=${activationCode}&email=${email}`, type: "Email", timestamp: (/* @__PURE__ */ new Date()).toISOString() });
+Activate: ${APP_URL}/activate?code=${activationCode}&email=${email}`, type: "Email", timestamp: (/* @__PURE__ */ new Date()).toISOString() });
   addAuditLog(targetOrgId, activeUser.fullName, activeUser.role, "User Created", `Created '${fullName}' as '${role}'.`);
   res.status(201).json(safeUser(newUser));
 });
