@@ -352,7 +352,7 @@ async function sendEmail(to: string, subject: string, html: string): Promise<{ s
 
       // Build RFC 2822 email
       const emailLines = [
-        `From: BizKhata <${EMAIL_FROM}>`,
+        `From: ${EMAIL_FROM}`,
         `To: ${to}`,
         `Subject: ${subject}`,
         `MIME-Version: 1.0`,
@@ -393,7 +393,7 @@ async function sendEmail(to: string, subject: string, html: string): Promise<{ s
         });
       } else if (provider === "mailgun") {
         const domain = process.env.MAILGUN_DOMAIN || "bizkhata.app";
-        const form = new URLSearchParams({ from: `BizKhata <${EMAIL_FROM}>`, to, subject, html });
+        const form = new URLSearchParams({ from: EMAIL_FROM, to, subject, html });
         r = await fetch(`https://api.mailgun.net/v3/${domain}/messages`, {
           method: "POST",
           headers: { Authorization: `Basic ${Buffer.from(`api:${process.env.SMTP_HTTP_API_KEY}`).toString("base64")}` },
