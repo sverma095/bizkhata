@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { toast } from "./Toast.js";
 import { DatabaseState, Vendor, Expense, Bill } from "../types.js";
 import { INDIAN_STATES } from "../lib/gst.js";
 import { 
@@ -132,13 +133,13 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
       // clean
       setVendorName(""); setVendorGstin(""); setVendorPan(""); setMsmeStatus("Micro"); setVendorEmail(""); setVendorPhone(""); setVendorAddress(""); setVendorIsRegistered(true);
     } catch (err: any) {
-      alert(err.message || "Could not save vendor. Please check your connection and try again.");
+      toast(err.message || "Could not save vendor", "error");
     }
   };
 
   const handleExpenseSubmit = async (e: React.FormEvent, overrideStatus?: 'Draft' | 'Pending Approval' | 'Approved') => {
     if (e && e.preventDefault) e.preventDefault();
-    if (expSubtotal <= 0) return alert("Amount must be greater than 0");
+    if (expSubtotal <= 0) return toast("Amount must be greater than 0", "error");
     
     const finalStatus = overrideStatus || "Approved";
     const netSubtotal = expTaxInclusive ? Math.round((expSubtotal - expGst) * 100) / 100 : Number(expSubtotal);
@@ -176,13 +177,13 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
       setExpVendor(""); setExpSubtotal(0); setExpGst(0); setExpTds(0); setExpIsRcm(false); setExpAttachmentName("");
       setExpSac(""); setExpHsn(""); setExpGstTreatment(""); setExpSourceSupply(""); setExpCustomerId(""); setExpTaxInclusive(false); setExpTab("details");
     } catch (err: any) {
-      alert(err.message || "Could not save expense. Please check your connection and try again.");
+      toast(err.message || "Could not save expense", "error");
     }
   };
 
   const handleBillSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!billVendorId) return alert("Please select a vendor.");
+    if (!billVendorId) return toast("Please select a vendor", "error");
     const vend = db.vendors.find(v => v.id === billVendorId);
     if (!vend) return;
 
@@ -252,7 +253,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
       setBillNumber(""); setBillSubtotal(0); setBillTds(0); setBillAddressOverride(null);
       setBillDiscountValue(0); setBillDiscountType("percent"); setBillDiscountTiming("after_tax");
     } catch (err: any) {
-      alert(err.message || "Could not save bill. Please check your connection and try again.");
+      toast(err.message || "Could not save bill", "error");
     }
   };
 
@@ -272,7 +273,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
       setShowPayBillForm(null);
       setPayRef(""); setPayAmount(0);
     } catch (err: any) {
-      alert(err.message || "Could not record payment. Please check your connection and try again.");
+      toast(err.message || "Could not record payment", "error");
     }
   };
 
@@ -1134,7 +1135,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                               type="button"
                               onClick={() => {
                                 onAddExpense({ ...e, status: "Pending Approval" });
-                                alert("Expense successfully submitted for approval!");
+                                toast("Expense submitted for approval", "success");
                               }}
                               className="p-1 px-2 border border-amber-200 hover:border-amber-300 bg-amber-50 text-[10px] font-semibold text-amber-800 rounded transition cursor-pointer"
                             >
@@ -1147,7 +1148,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                                 type="button"
                                 onClick={() => {
                                   onAddExpense({ ...e, status: "Approved" });
-                                  alert(`Expense approved by authority step! Debited with standard double-entry logs to ${db.accounts.find(a => a.code === e.category)?.name || e.category}`);
+                                  toast("Expense approved and posted to ledger", "success");
                                 }}
                                 className="p-1 px-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold rounded transition cursor-pointer shadow-sm"
                               >
