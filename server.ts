@@ -654,6 +654,8 @@ app.get("/api/health", async (req: any, res: any) => {
     supabaseUrl: SUPABASE_URL ? SUPABASE_URL.substring(0, 40) : "missing",
     env: process.env.VERCEL === "1" ? "vercel" : "local",
     node: process.version,
+    emailProviderConfigured: !!(process.env.RESEND_API_KEY || process.env.GMAIL_REFRESH_TOKEN || process.env.SMTP_HTTP_API_KEY),
+    emailProvider: process.env.RESEND_API_KEY ? "resend" : process.env.GMAIL_REFRESH_TOKEN ? "gmail" : process.env.SMTP_HTTP_API_KEY ? process.env.SMTP_HTTP_PROVIDER : "none",
   };
   if (SUPABASE_URL && SUPABASE_ANON_KEY) {
     try {
@@ -3343,9 +3345,6 @@ app.use((err: any, req: any, res: any, next: any) => {
   res.status(500).json({ error: "Internal server error", detail: err?.message });
 });
 
-// Health check
-app.get("/api/health", (_req: any, res: any) => {
-  res.json({ ok: true, ts: new Date().toISOString(), node: process.version });
-});
+// Health check is defined earlier (line ~650) — see full diagnostics there.
 
 export default app;
