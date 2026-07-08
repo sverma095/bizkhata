@@ -633,6 +633,11 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                           <td className="p-3">
                             <span className="font-bold text-slate-800">{org.usedSeats}</span>
                             <span className="text-slate-400 text-[10px]"> / {org.allocatedSeats} seats utilized</span>
+                            <div className="mt-1">
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-700">
+                                {(org as any).plan || "professional"}
+                              </span>
+                            </div>
                           </td>
                           <td className="p-3">
                             <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${

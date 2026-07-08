@@ -1146,7 +1146,7 @@ app.post("/api/superadmin/registrations/:id/action", authGuard, superAdminGuard,
     const approvedAt = (/* @__PURE__ */ new Date()).toISOString();
     const months = Math.max(1, Math.min(120, parseInt(subscriptionMonths) || 12));
     const subscriptionExpiresAt = new Date(Date.now() + months * 30 * 24 * 60 * 60 * 1e3).toISOString();
-    USER_DB.organizations.push({ id: orgId, name: reg.companyName, gstNumber: reg.gstNumber, status: "Active", allocatedSeats: reg.numberOfRequiredSeats, usedSeats: 1, createdAt: reg.createdAt, approvedAt, subscriptionExpiresAt, subscriptionMonths: months });
+    USER_DB.organizations.push({ id: orgId, name: reg.companyName, gstNumber: reg.gstNumber, status: "Active", allocatedSeats: reg.numberOfRequiredSeats, usedSeats: 1, plan: reg.requestedPlan || "starter", createdAt: reg.createdAt, approvedAt, subscriptionExpiresAt, subscriptionMonths: months });
     USER_DB.users.push({ id: generateId("user"), organizationId: orgId, fullName: reg.adminName, email: reg.email, mobileNumber: reg.mobileNumber, role: "Admin", status: "Active", password: hashPassword(reg.password || "Admin@123"), permissions: ALL_PERMISSIONS_LIST.map((p) => p.id), twoFactorEnabled: false, createdAt: (/* @__PURE__ */ new Date()).toISOString() });
     const cleanState = getInitialState();
     cleanState.company.name = reg.companyName;
@@ -2432,6 +2432,23 @@ var PLANS = {
 };
 app.get("/api/plans", (_req, res) => {
   res.json(PLANS);
+});
+app.get("/api/organization/entitlements", authGuard, (req, res) => {
+  const org = USER_DB.organizations.find((o) => o.id === req.user.organizationId);
+  if (!org) {
+    res.status(404).json({ error: "No organization found for this user." });
+    return;
+  }
+  const planKey = org.plan || "professional";
+  const plan = PLANS[planKey] || PLANS.professional;
+  res.json({
+    plan: planKey,
+    planName: plan.name,
+    features: plan.features,
+    allocatedSeats: org.allocatedSeats,
+    usedSeats: org.usedSeats,
+    subscriptionExpiresAt: org.subscriptionExpiresAt
+  });
 });
 app.get("/api/superadmin/plans", authGuard, superAdminGuard, (_req, res) => {
   res.json(PLANS);

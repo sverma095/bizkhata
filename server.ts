@@ -1198,7 +1198,7 @@ app.post("/api/superadmin/registrations/:id/action", authGuard, superAdminGuard,
     const approvedAt = new Date().toISOString();
     const months = Math.max(1, Math.min(120, parseInt(subscriptionMonths) || 12));
     const subscriptionExpiresAt = new Date(Date.now() + months * 30 * 24 * 60 * 60 * 1000).toISOString();
-    USER_DB.organizations.push({ id: orgId, name: reg.companyName, gstNumber: reg.gstNumber, status: "Active", allocatedSeats: reg.numberOfRequiredSeats, usedSeats: 1, createdAt: reg.createdAt, approvedAt, subscriptionExpiresAt, subscriptionMonths: months });
+    USER_DB.organizations.push({ id: orgId, name: reg.companyName, gstNumber: reg.gstNumber, status: "Active", allocatedSeats: reg.numberOfRequiredSeats, usedSeats: 1, plan: reg.requestedPlan || "starter", createdAt: reg.createdAt, approvedAt, subscriptionExpiresAt, subscriptionMonths: months });
     USER_DB.users.push({ id: generateId("user"), organizationId: orgId, fullName: reg.adminName, email: reg.email, mobileNumber: reg.mobileNumber, role: "Admin", status: "Active", password: hashPassword(reg.password || "Admin@123"), permissions: ALL_PERMISSIONS_LIST.map(p => p.id), twoFactorEnabled: false, createdAt: new Date().toISOString() });
     // Seed a clean blank ledger for the new org in Supabase (no demo data, zero balances)
     const cleanState = getInitialState();
@@ -2526,6 +2526,24 @@ const PLANS: Record<string, { name: string; price: number; seats: number; featur
 
 app.get("/api/plans", (_req: any, res: any) => {
   res.json(PLANS);
+});
+
+// Returns the calling user's organization plan + entitlements + seat usage.
+// This is the single source of truth for "does this org's plan include feature X" —
+// use this instead of hardcoding feature checks, so upgrading PLANS above stays consistent.
+app.get("/api/organization/entitlements", authGuard, (req: any, res: any) => {
+  const org = USER_DB.organizations.find((o: any) => o.id === req.user.organizationId);
+  if (!org) { res.status(404).json({ error: "No organization found for this user." }); return; }
+  const planKey = org.plan || "professional"; // default until every org has a plan set explicitly
+  const plan = PLANS[planKey] || PLANS.professional;
+  res.json({
+    plan: planKey,
+    planName: plan.name,
+    features: plan.features,
+    allocatedSeats: org.allocatedSeats,
+    usedSeats: org.usedSeats,
+    subscriptionExpiresAt: org.subscriptionExpiresAt,
+  });
 });
 
 app.get("/api/superadmin/plans", authGuard, superAdminGuard, (_req: any, res: any) => {
