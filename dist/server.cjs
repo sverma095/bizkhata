@@ -517,6 +517,28 @@ var requirePermission = (permissionId) => (req, res, next) => {
   }
   next();
 };
+var PLAN_ORDER = ["free", "starter", "professional", "enterprise"];
+var PLAN_FEATURES = {
+  free: [],
+  starter: ["expense_bills", "bank_reconciliation"],
+  professional: ["expense_bills", "bank_reconciliation", "tds"],
+  enterprise: ["expense_bills", "bank_reconciliation", "tds", "api_access"]
+};
+var orgPlan = (org) => {
+  const p = (org?.plan || "starter").toLowerCase();
+  return PLAN_ORDER.includes(p) ? p : "starter";
+};
+var orgHasFeature = (org, feature) => PLAN_FEATURES[orgPlan(org)]?.includes(feature) ?? false;
+var requireFeature = (feature) => (req, res, next) => {
+  const user = req.user;
+  if (user.role === "Super Admin") return next();
+  const org = USER_DB.organizations.find((o) => o.id === user.organizationId);
+  if (!org || !orgHasFeature(org, feature)) {
+    res.status(403).json({ error: `This feature (${feature.replace(/_/g, " ")}) isn't included in your current plan (${orgPlan(org)}). Upgrade to unlock it.`, upgradeRequired: true, feature });
+    return;
+  }
+  next();
+};
 var supabaseStatus = { configured: false, connected: false, error: null };
 var supabase = null;
 if (SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL !== "MY_SUPABASE_URL") {
@@ -1125,7 +1147,8 @@ app.get("/api/auth/me", (req, res) => {
     return;
   }
   const org = user.organizationId ? USER_DB.organizations.find((o) => o.id === user.organizationId) || null : null;
-  res.json({ user: safeUser(user), organization: org });
+  const planFeatures = user.role === "Super Admin" ? PLAN_FEATURES.enterprise : PLAN_FEATURES[orgPlan(org)] || [];
+  res.json({ user: safeUser(user), organization: org, planFeatures });
 });
 app.post("/api/auth/terminate-sessions", authGuard, (req, res) => {
   req.user.twoFactorVerified = false;
@@ -1747,8 +1770,15 @@ app.post("/api/invoices", authGuard, requirePermission("create_invoices"), async
   if (!orgId) {
     return res.status(400).json({ error: "Your account isn't linked to an organization." });
   }
-  const db = await readDB(orgId);
   const invoiceData = req.body;
+  if (invoiceData.tdsAmount > 0) {
+    const org = USER_DB.organizations.find((o) => o.id === orgId);
+    if (!orgHasFeature(org, "tds")) {
+      res.status(403).json({ error: `TDS isn't included in your current plan (${orgPlan(org)}). Upgrade to Professional to use TDS.`, upgradeRequired: true, feature: "tds" });
+      return;
+    }
+  }
+  const db = await readDB(orgId);
   const user = req.body.authorUser || "User";
   if (!invoiceData.invoiceNumber) {
     const lastNum = db.invoices.length;
@@ -1919,13 +1949,20 @@ app.post("/api/credit-notes", authGuard, requirePermission("edit_invoices"), asy
   await writeDB(orgId, db);
   res.json({ success: true, db });
 });
-app.post("/api/expenses", authGuard, requirePermission("manage_billing"), async (req, res) => {
+app.post("/api/expenses", authGuard, requirePermission("manage_billing"), requireFeature("expense_bills"), async (req, res) => {
   const orgId = req.user.organizationId;
   if (!orgId) {
     return res.status(400).json({ error: "Your account isn't linked to an organization." });
   }
-  const db = await readDB(orgId);
   const exp = req.body;
+  if (exp.tdsAmount > 0) {
+    const org = USER_DB.organizations.find((o) => o.id === orgId);
+    if (!orgHasFeature(org, "tds")) {
+      res.status(403).json({ error: `TDS isn't included in your current plan (${orgPlan(org)}). Upgrade to Professional to use TDS.`, upgradeRequired: true, feature: "tds" });
+      return;
+    }
+  }
+  const db = await readDB(orgId);
   const user = req.body.authorUser || "User";
   const existingIndex = db.expenses.findIndex((e) => e.id === exp.id);
   const existingExpense = existingIndex >= 0 ? db.expenses[existingIndex] : null;
@@ -2016,13 +2053,20 @@ app.post("/api/expenses", authGuard, requirePermission("manage_billing"), async 
   await writeDB(orgId, db);
   res.json({ success: true, db });
 });
-app.post("/api/bills", authGuard, requirePermission("manage_billing"), async (req, res) => {
+app.post("/api/bills", authGuard, requirePermission("manage_billing"), requireFeature("expense_bills"), async (req, res) => {
   const orgId = req.user.organizationId;
   if (!orgId) {
     return res.status(400).json({ error: "Your account isn't linked to an organization." });
   }
-  const db = await readDB(orgId);
   const bill = req.body;
+  if (bill.tdsAmount > 0) {
+    const org = USER_DB.organizations.find((o) => o.id === orgId);
+    if (!orgHasFeature(org, "tds")) {
+      res.status(403).json({ error: `TDS isn't included in your current plan (${orgPlan(org)}). Upgrade to Professional to use TDS.`, upgradeRequired: true, feature: "tds" });
+      return;
+    }
+  }
+  const db = await readDB(orgId);
   const user = req.body.authorUser || "User";
   const existingIndex = db.bills.findIndex((b) => b.id === bill.id);
   const existingBill = existingIndex >= 0 ? db.bills[existingIndex] : null;
@@ -2761,7 +2805,7 @@ app.post("/api/ai/invoice-create", authGuard, async (req, res) => {
     res.status(500).json({ error: "Gemini failed to resolve fields. Please try manually.", details: error.message });
   }
 });
-app.post("/api/ai/reconcile", authGuard, async (req, res) => {
+app.post("/api/ai/reconcile", authGuard, requireFeature("bank_reconciliation"), async (req, res) => {
   const { bankFeed } = req.body;
   if (!bankFeed) {
     return res.status(400).json({ error: "Feed prompt is required." });
