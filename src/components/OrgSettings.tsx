@@ -279,6 +279,7 @@ export default function OrgSettings({ db, onUpdateCompany, onUpdateRole, onReset
           onResetDB={onResetDB as any}
           currentUserEmail={currentUserEmail}
           initialSection={COMPANY_SETUP_SECTION_MAP[activeSection]}
+          hideMenu={true}
         />
       );
     }

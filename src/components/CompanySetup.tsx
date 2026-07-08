@@ -314,8 +314,20 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
         </div>
       )}
 
-      {/* ------------------------ SCREENSHOT 1: ALL SETTINGS MENU VIEW ------------------------ */}
-      {activeSection === "menu" ? (
+      {/* When embedded inside OrgSettings, "menu" means a save action just navigated
+          back — show a small confirmation instead of CompanySetup's own full menu,
+          which would otherwise duplicate the parent's settings navigation. */}
+      {activeSection === "menu" && hideMenu ? (
+        <div className="max-w-md mx-auto text-center py-12 space-y-4 animate-fade-in">
+          <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto text-2xl">✓</div>
+          <p className="text-slate-700 font-semibold">Settings saved</p>
+          {initialSection && (
+            <button onClick={() => setActiveSection(initialSection)} className="text-emerald-600 hover:underline text-sm font-semibold">
+              ← Back to this section
+            </button>
+          )}
+        </div>
+      ) : activeSection === "menu" ? (
         <div className="space-y-8 animate-fade-in w-full">
           
           {/* Header row exactly as Screenshot 1 */}
