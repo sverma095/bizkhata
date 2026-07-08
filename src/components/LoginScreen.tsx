@@ -108,7 +108,7 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Could not send OTP.');
       setRegOtpSent(true);
-      setSuccess(data.emailSent ? `Verification code sent to ${regEmail}` : `OTP generated (email not configured) — SuperAdmin can see it in Notifications.`);
+      setSuccess(data.emailSent ? `Verification code sent to ${regEmail}` : `OTP generated (email delivery failed${data.reason ? `: ${data.reason}` : ''}) — SuperAdmin can see it in Notifications.`);
     } catch (err: any) { setError(err.message); }
     finally { setLoading(false); }
   };
