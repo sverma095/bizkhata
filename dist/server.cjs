@@ -928,6 +928,18 @@ app.post("/api/auth/send-reg-otp", async (req, res) => {
   USER_DB.notifications.unshift({ id: generateId("notif"), to: email, subject: "Ledgerio Email Verification OTP", body: `Registration OTP for ${email}: ${otp} (valid 10 min)`, type: "Email", timestamp: (/* @__PURE__ */ new Date()).toISOString() });
   res.json({ success: true, emailSent: emailResult.sent, reason: emailResult.reason });
 });
+app.post("/api/auth/verify-reg-otp", (req, res) => {
+  const { email, otp } = req.body;
+  const otpStore = global.__regOtps || {};
+  const record = otpStore[email];
+  if (!record) return res.status(400).json({ error: "Please request a new code." });
+  if (Date.now() > record.expiry) {
+    delete otpStore[email];
+    return res.status(400).json({ error: "Code expired. Please request a new one." });
+  }
+  if (record.otp !== String(otp || "").trim()) return res.status(400).json({ error: "Incorrect code. Please check and try again." });
+  res.json({ verified: true });
+});
 app.post("/api/auth/register-request", (req, res) => {
   const { companyName, gstNumber, adminName, email, mobileNumber, password, numberOfRequiredSeats, requestedPlan, emailOtp } = req.body;
   if (!companyName || !adminName || !email || !mobileNumber || !password || !numberOfRequiredSeats) {

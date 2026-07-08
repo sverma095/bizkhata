@@ -44,6 +44,8 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
   // Email OTP for registration
   const [regOtp, setRegOtp] = useState('');
   const [regOtpSent, setRegOtpSent] = useState(false);
+  const [regOtpVerified, setRegOtpVerified] = useState(false);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
 
   // Forgot / Reset fields
   const [forgotEmail, setForgotEmail] = useState(initialEmail);
@@ -114,10 +116,23 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
       const res = await fetch('/api/auth/send-reg-otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: regEmail }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Could not send OTP.');
-      setRegOtpSent(true);
+      setRegOtpSent(true); setRegOtpVerified(false);
       setSuccess(data.emailSent ? `Verification code sent to ${regEmail}` : `OTP generated (email delivery failed${data.reason ? `: ${data.reason}` : ''}) — SuperAdmin can see it in Notifications.`);
     } catch (err: any) { setError(err.message); }
     finally { setLoading(false); }
+  };
+
+  const handleVerifyRegOtp = async () => {
+    if (regOtp.length !== 6) return;
+    clearMessages(); setVerifyingOtp(true);
+    try {
+      const res = await fetch('/api/auth/verify-reg-otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: regEmail, otp: regOtp }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Incorrect code.');
+      setRegOtpVerified(true);
+      setSuccess('Email verified! Continue below to finish registration.');
+    } catch (err: any) { setError(err.message); }
+    finally { setVerifyingOtp(false); }
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -331,7 +346,7 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
                       <div className="relative flex-1">
                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                         <input type="email" required value={regEmail}
-                          onChange={e => { setRegEmail(e.target.value); setRegOtpSent(false); setRegOtp(''); }}
+                          onChange={e => { setRegEmail(e.target.value); setRegOtpSent(false); setRegOtp(''); setRegOtpVerified(false); }}
                           placeholder="you@company.com"
                           className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent bg-slate-50" />
                       </div>
@@ -347,15 +362,25 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
                       <div className="flex gap-2 items-center">
                         <div className="relative flex-1">
                           <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500" />
-                          <input type="text" required value={regOtp}
-                            onChange={e => setRegOtp(e.target.value.replace(/\D/g,'').slice(0,6))}
+                          <input type="text" required value={regOtp} disabled={regOtpVerified}
+                            onChange={e => { setRegOtp(e.target.value.replace(/\D/g,'').slice(0,6)); setRegOtpVerified(false); }}
                             placeholder="6-digit code" maxLength={6}
-                            className="w-full pl-9 pr-4 py-2.5 border border-emerald-300 rounded-xl text-sm font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-emerald-50" />
+                            className="w-full pl-9 pr-4 py-2.5 border border-emerald-300 rounded-xl text-sm font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-emerald-50 disabled:opacity-70" />
                         </div>
-                        {regOtp.length === 6 && <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />}
+                        {regOtpVerified ? (
+                          <span className="flex items-center gap-1.5 text-emerald-600 text-xs font-bold px-3 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl shrink-0">
+                            <CheckCircle2 className="w-4 h-4" /> Verified
+                          </span>
+                        ) : (
+                          <button type="button" onClick={handleVerifyRegOtp} disabled={verifyingOtp || regOtp.length !== 6}
+                            className="shrink-0 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition cursor-pointer">
+                            {verifyingOtp ? 'Verifying...' : 'Verify'}
+                          </button>
+                        )}
                       </div>
                     </div>
                   )}
+                  {regOtpVerified && (
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Password</label>
                     <div className="relative">
@@ -368,9 +393,11 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
                     </div>
                     <p className="text-[11px] text-slate-400">8+ characters, with uppercase, lowercase, a number, and a special character.</p>
                   </div>
+                  )}
                 </div>
 
                 {/* Plan */}
+                {regOtpVerified && (
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Choose a plan</label>
                   <div className="grid grid-cols-2 gap-2">
@@ -385,12 +412,17 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
                   </div>
                   <p className="text-[11px] text-slate-400">Need more seats later? Upgrade anytime after approval.</p>
                 </div>
+                )}
 
-                <button type="submit" disabled={loading || !regOtpSent || regOtp.length !== 6}
+                {regOtpVerified && (
+                <button type="submit" disabled={loading || !regOtpVerified}
                   className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 shadow-sm hover:shadow disabled:opacity-60 text-white font-bold text-sm rounded-xl transition">
                   {loading ? 'Submitting...' : 'Submit Registration Request'}
                 </button>
-                <p className="text-xs text-center text-slate-400">Email verification required · GSTIN can be added later</p>
+                )}
+                <p className="text-xs text-center text-slate-400">
+                  {regOtpVerified ? 'GSTIN can be added later' : 'Verify your email to continue · GSTIN can be added later'}
+                </p>
                 <p className="text-xs text-center text-slate-400">
                   By registering, you agree to our{' '}
                   <button type="button" onClick={() => setView('tos')} className="text-emerald-600 hover:underline font-medium">Terms of Service</button>
@@ -400,6 +432,7 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
               </form>
             </div>
           )}
+
 
           {/* FORGOT PASSWORD */}
           {view === 'forgot' && (

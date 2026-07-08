@@ -1052,6 +1052,17 @@ app.post("/api/auth/send-reg-otp", async (req: any, res: any) => {
   res.json({ success: true, emailSent: emailResult.sent, reason: emailResult.reason });
 });
 
+// Verify-only check (doesn't consume the OTP — final register-request still validates it)
+app.post("/api/auth/verify-reg-otp", (req: any, res: any) => {
+  const { email, otp } = req.body;
+  const otpStore = (global as any).__regOtps || {};
+  const record = otpStore[email];
+  if (!record) return res.status(400).json({ error: "Please request a new code." });
+  if (Date.now() > record.expiry) { delete otpStore[email]; return res.status(400).json({ error: "Code expired. Please request a new one." }); }
+  if (record.otp !== String(otp || "").trim()) return res.status(400).json({ error: "Incorrect code. Please check and try again." });
+  res.json({ verified: true });
+});
+
 app.post("/api/auth/register-request", (req: any, res: any) => {
   const { companyName, gstNumber, adminName, email, mobileNumber, password, numberOfRequiredSeats, requestedPlan, emailOtp } = req.body;
   if (!companyName || !adminName || !email || !mobileNumber || !password || !numberOfRequiredSeats) {
