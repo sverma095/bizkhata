@@ -308,7 +308,7 @@ function diffFields(existing, incoming, fields) {
 }
 var APP_URL = process.env.APP_URL || "https://bizkhata.app";
 var RESEND_API_KEY = process.env.RESEND_API_KEY;
-var EMAIL_FROM = process.env.EMAIL_FROM || "Ledgerio <onboarding@resend.dev>";
+var EMAIL_FROM = (process.env.EMAIL_FROM || "Ledgerio <onboarding@resend.dev>").trim();
 async function sendEmail(to, subject, html) {
   if (process.env.GMAIL_REFRESH_TOKEN && process.env.GMAIL_CLIENT_ID && process.env.GMAIL_CLIENT_SECRET) {
     try {

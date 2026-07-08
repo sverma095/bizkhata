@@ -327,7 +327,7 @@ function diffFields(existing: any, incoming: any, fields: string[]): string {
 const APP_URL = process.env.APP_URL || "https://bizkhata.app";
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 // Use verified domain email. While Resend domain verification is in progress, use onboarding@resend.dev
-const EMAIL_FROM = process.env.EMAIL_FROM || "Ledgerio <onboarding@resend.dev>";
+const EMAIL_FROM = (process.env.EMAIL_FROM || "Ledgerio <onboarding@resend.dev>").trim();
 
 // Pure Node.js SMTP client — no nodemailer, no external deps, works on Vercel ESM
 async function sendEmail(to: string, subject: string, html: string): Promise<{ sent: boolean; reason?: string }> {

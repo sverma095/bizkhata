@@ -192,7 +192,7 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
       </div>
 
       {/* Right panel - form */}
-      <div className="w-full md:w-1/2 flex flex-col items-center justify-center p-6 bg-slate-950 overflow-y-auto max-h-screen">
+      <div className="w-full md:w-1/2 flex flex-col items-center justify-start p-6 py-10 bg-slate-950 overflow-y-auto max-h-screen">
         <div className="w-full max-w-md space-y-6">
 
           {/* Mobile logo */}
