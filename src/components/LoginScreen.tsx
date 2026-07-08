@@ -150,7 +150,7 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
   return (
     <div className="min-h-screen flex bg-slate-950">
       {/* Left panel - branding */}
-      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12 bg-gradient-to-br from-slate-900 via-slate-950 to-emerald-950 relative overflow-hidden">
+      <div className="hidden md:flex md:w-1/2 flex-col justify-between p-12 bg-gradient-to-br from-slate-900 via-slate-950 to-emerald-950 relative overflow-hidden">
         <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, #10b981 0%, transparent 50%), radial-gradient(circle at 80% 20%, #3b82f6 0%, transparent 40%)' }} />
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-12">
@@ -166,13 +166,13 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
             Platform
           </h1>
           <p className="text-slate-400 text-sm leading-relaxed max-w-sm">
-            Full-stack accounting with GST compliance, e-invoicing (IRN), multi-user management, real-time Supabase sync, and enterprise-level features — built for Indian businesses.
+            Full-stack accounting with GST compliance, invoicing, multi-user management, and real-time cloud sync — built for Indian businesses. (E-invoicing/IRN is currently in beta.)
           </p>
         </div>
         <div className="relative z-10 grid grid-cols-2 gap-4">
           {[
             { label: 'GST Invoicing', desc: 'CGST/SGST/IGST auto-calculation' },
-            { label: 'E-Invoice (IRN)', desc: 'IRP portal integration' },
+            { label: 'E-Invoice (Beta)', desc: 'IRN generation — demo mode' },
             { label: 'Multi-User', desc: 'Role-based access control' },
             { label: 'Real-time Sync', desc: 'Supabase PostgreSQL cloud' },
           ].map(f => (
@@ -185,11 +185,11 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
       </div>
 
       {/* Right panel - form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 bg-white">
+      <div className="w-full md:w-1/2 flex items-center justify-center p-6 bg-white">
         <div className="w-full max-w-md space-y-6">
 
           {/* Mobile logo */}
-          <div className="flex lg:hidden items-center justify-between mb-2">
+          <div className="flex md:hidden items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center font-black text-white">B</div>
               <span className="font-black text-slate-900 text-lg">Ledgerio</span>

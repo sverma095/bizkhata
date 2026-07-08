@@ -7,7 +7,7 @@ interface LandingPageProps {
 }
 
 const FEATURES = [
-  { icon: FileText, title: "GST Invoicing", desc: "Create professional GST-compliant invoices with CGST/SGST/IGST auto-calculation, e-invoicing support, and PDF export." },
+  { icon: FileText, title: "GST Invoicing", desc: "Create professional GST-compliant invoices with CGST/SGST/IGST auto-calculation, PDF export, and beta e-invoicing (IRN) support." },
   { icon: TrendingUp, title: "Financial Reports", desc: "P&L, Balance Sheet, Cash Flow, Trial Balance, GSTR-1/3B/9 — all auto-generated from your transactions." },
   { icon: Shield, title: "TDS & Compliance", desc: "Auto TDS deduction, RCM entries, HSN/SAC codes, and MSME tracking. Stay audit-ready." },
   { icon: Users, title: "Multi-User", desc: "Invite your accountant, staff, and CA. Role-based permissions keep everyone in their lane." },
@@ -33,6 +33,7 @@ export default function LandingPage({ onGetStarted, onLogin }: LandingPageProps)
             <span className="font-bold text-gray-900 text-lg">Ledgerio</span>
           </div>
           <div className="flex items-center gap-3">
+            <a href="#about" className="hidden sm:block text-sm text-gray-600 hover:text-gray-900 font-medium px-3 py-1.5">About</a>
             <button onClick={onLogin} className="text-sm text-gray-600 hover:text-gray-900 font-medium px-3 py-1.5">Sign in</button>
             <button onClick={onGetStarted} className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition">
               Register free
@@ -90,10 +91,31 @@ export default function LandingPage({ onGetStarted, onLogin }: LandingPageProps)
       <section className="border-y border-gray-100 py-6">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="flex flex-wrap items-center justify-center gap-6 text-xs text-gray-500 font-medium">
-            {["✅ GSTR-1 / 3B / 9", "✅ e-Invoicing (IRN)", "✅ e-Way Bills", "✅ TDS / TCS", "✅ RCM (Reverse Charge)", "✅ MSME tracking", "✅ HSN / SAC codes"].map(tag => (
-              <span key={tag} className="bg-green-50 border border-green-100 text-green-700 px-3 py-1 rounded-full">{tag}</span>
+            {["✅ GSTR-1 / 3B / 9", "🔶 e-Invoicing (Beta)", "🔶 e-Way Bills (Coming soon)", "✅ TDS / TCS", "✅ RCM (Reverse Charge)", "✅ MSME tracking", "✅ HSN / SAC codes"].map(tag => (
+              <span key={tag} className={`border px-3 py-1 rounded-full ${tag.startsWith("🔶") ? "bg-amber-50 border-amber-100 text-amber-700" : "bg-green-50 border-green-100 text-green-700"}`}>{tag}</span>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* About */}
+      <section id="about" className="py-14 bg-gray-50">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">About Ledgerio</h2>
+          <p className="text-gray-600 leading-relaxed mb-4">
+            Ledgerio is a cloud accounting platform built for Indian small and medium businesses — invoicing,
+            GST compliance, expense tracking, and financial reporting in one place. No installation, no
+            local backups to manage: your books are accessible from any device, always in sync.
+          </p>
+          <p className="text-gray-600 leading-relaxed mb-4">
+            Built by Verma Consultancy Services, Ledgerio focuses on the workflows Indian businesses actually
+            need — GSTR-ready reports, TDS handling, multi-user access for your team and CA, and a growing
+            set of compliance tools designed around Indian tax law rather than adapted from a foreign product.
+          </p>
+          <p className="text-gray-500 text-sm">
+            We're an early-stage product improving quickly. Some advanced compliance features (like e-Invoicing
+            and e-Way Bills) are currently in beta — see the badges above for what's fully live today.
+          </p>
         </div>
       </section>
 
