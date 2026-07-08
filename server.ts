@@ -327,7 +327,7 @@ function diffFields(existing: any, incoming: any, fields: string[]): string {
 const APP_URL = process.env.APP_URL || "https://bizkhata.app";
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 // Use verified domain email. While Resend domain verification is in progress, use onboarding@resend.dev
-const EMAIL_FROM = (process.env.EMAIL_FROM || "Ledgerio <onboarding@resend.dev>").trim();
+const EMAIL_FROM = (process.env.EMAIL_FROM || "Ledgerio <onboarding@resend.dev>").trim().replace(/^["']|["']$/g, "");
 
 // Pure Node.js SMTP client — no nodemailer, no external deps, works on Vercel ESM
 async function sendEmail(to: string, subject: string, html: string): Promise<{ sent: boolean; reason?: string }> {
@@ -684,6 +684,8 @@ app.get("/api/health", async (req: any, res: any) => {
     emailProviderConfigured: !!(process.env.RESEND_API_KEY || process.env.GMAIL_REFRESH_TOKEN || process.env.SMTP_HTTP_API_KEY),
     emailProvider: process.env.RESEND_API_KEY ? "resend" : process.env.GMAIL_REFRESH_TOKEN ? "gmail" : process.env.SMTP_HTTP_API_KEY ? process.env.SMTP_HTTP_PROVIDER : "none",
     emailFromAddress: EMAIL_FROM,
+    emailFromAddressRaw: `[${EMAIL_FROM}]`,
+    emailFromAddressLength: EMAIL_FROM.length,
   };
   if (SUPABASE_URL && SUPABASE_ANON_KEY) {
     try {

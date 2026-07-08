@@ -308,7 +308,7 @@ function diffFields(existing, incoming, fields) {
 }
 var APP_URL = process.env.APP_URL || "https://bizkhata.app";
 var RESEND_API_KEY = process.env.RESEND_API_KEY;
-var EMAIL_FROM = (process.env.EMAIL_FROM || "Ledgerio <onboarding@resend.dev>").trim();
+var EMAIL_FROM = (process.env.EMAIL_FROM || "Ledgerio <onboarding@resend.dev>").trim().replace(/^["']|["']$/g, "");
 async function sendEmail(to, subject, html) {
   if (process.env.GMAIL_REFRESH_TOKEN && process.env.GMAIL_CLIENT_ID && process.env.GMAIL_CLIENT_SECRET) {
     try {
@@ -620,7 +620,9 @@ app.get("/api/health", async (req, res) => {
     node: process.version,
     emailProviderConfigured: !!(process.env.RESEND_API_KEY || process.env.GMAIL_REFRESH_TOKEN || process.env.SMTP_HTTP_API_KEY),
     emailProvider: process.env.RESEND_API_KEY ? "resend" : process.env.GMAIL_REFRESH_TOKEN ? "gmail" : process.env.SMTP_HTTP_API_KEY ? process.env.SMTP_HTTP_PROVIDER : "none",
-    emailFromAddress: EMAIL_FROM
+    emailFromAddress: EMAIL_FROM,
+    emailFromAddressRaw: `[${EMAIL_FROM}]`,
+    emailFromAddressLength: EMAIL_FROM.length
   };
   if (SUPABASE_URL && SUPABASE_ANON_KEY) {
     try {
