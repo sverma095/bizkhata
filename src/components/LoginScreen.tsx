@@ -185,19 +185,20 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
       </div>
 
       {/* Right panel - form */}
-      <div className="w-full md:w-1/2 flex items-center justify-center p-6 bg-white">
+      <div className="w-full md:w-1/2 flex flex-col items-center justify-center p-6 bg-slate-950">
         <div className="w-full max-w-md space-y-6">
 
           {/* Mobile logo */}
           <div className="flex md:hidden items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center font-black text-white">B</div>
-              <span className="font-black text-slate-900 text-lg">Ledgerio</span>
+              <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center font-black text-white">L</div>
+              <span className="font-black text-white text-lg">Ledgerio</span>
             </div>
             <a href="/" onClick={(e) => { e.preventDefault(); localStorage.removeItem('bk_show_login'); window.location.href='/'; }}
-              className="text-xs text-gray-400 hover:text-blue-600 transition">← Home</a>
+              className="text-xs text-slate-400 hover:text-emerald-400 transition">← Home</a>
           </div>
 
+          <div className="bg-white rounded-2xl shadow-2xl p-6 sm:p-8 space-y-6">
           {/* Messages */}
           {error && (
             <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl p-3.5">
@@ -459,14 +460,15 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
               </button>
             </div>
           )}
+          </div>
         </div>
 
         {/* Footer with legal links */}
         {(view === 'login' || view === 'signup') && (
-          <div className="mt-4 text-center text-[10px] text-slate-400 space-x-3">
-            <button onClick={() => setView('tos')} className="hover:text-emerald-600 hover:underline">Terms of Service</button>
+          <div className="mt-4 text-center text-[10px] text-slate-500 space-x-3">
+            <button onClick={() => setView('tos')} className="hover:text-emerald-400 hover:underline">Terms of Service</button>
             <span>·</span>
-            <button onClick={() => setView('privacy')} className="hover:text-emerald-600 hover:underline">Privacy Policy</button>
+            <button onClick={() => setView('privacy')} className="hover:text-emerald-400 hover:underline">Privacy Policy</button>
             <span>·</span>
             <span>© 2026 Ledgerio · Verma Consultancy Services</span>
           </div>
