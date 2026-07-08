@@ -45,12 +45,15 @@ interface CompanySetupProps {
   onUpdateRole: (role: UserRole) => Promise<void>;
   onResetDB: () => Promise<void>;
   currentUserEmail: string;
+  initialSection?: string;
+  hideMenu?: boolean;
 }
 
-export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onResetDB, currentUserEmail }: CompanySetupProps) {
+export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onResetDB, currentUserEmail, initialSection, hideMenu }: CompanySetupProps) {
   // Navigation State
   // "menu" | "profile" | "users" | "taxes" | "estimate-form" | "invoice-form" | "expense-form" | "bill-form" | "vendor-credit-form"
-  const [activeSection, setActiveSection] = useState<string>("menu");
+  const [activeSection, setActiveSection] = useState<string>(initialSection || "menu");
+  useEffect(() => { if (initialSection) setActiveSection(initialSection); }, [initialSection]);
   const [searchSettingsQuery, setSearchSettingsQuery] = useState<string>("");
 
   // Input States for Profile Info

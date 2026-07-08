@@ -162,11 +162,36 @@ const MODULE_SETTINGS: Array<{
   },
 ];
 
-// Sections that use CompanySetup for actual editing
-const COMPANY_SETUP_SECTIONS: SettingsSection[] = [
-  "profile", "branding", "locations", "ai", "general", "opening_balances",
-  "taxes", "direct_taxes", "txn_series", "payment_terms", "currencies", "approvals"
-];
+// Sections that use CompanySetup for actual editing. Maps this component's section
+// ids (left-hand nav) to CompanySetup's internal section ids, since the two were
+// built independently with different naming conventions (e.g. "opening_balances"
+// here vs "opening-balances" there). Only includes ids CompanySetup actually
+// implements — sections without a real implementation fall through to the generic
+// placeholder below instead of silently rendering CompanySetup's own full menu.
+const COMPANY_SETUP_SECTION_MAP: Record<string, string> = {
+  profile: "profile",
+  branding: "branding",
+  locations: "locations",
+  ai: "ai-preferences",
+  general: "general-configs",
+  opening_balances: "opening-balances",
+  taxes: "taxes",
+  currencies: "currencies",
+  approvals: "approvals",
+  txn_series: "seq-series",
+  pdf_templates: "pdf-templates",
+  email_notif: "email-notifs",
+  sms_notif: "sms-notifs",
+  reporting_tags: "reporting-tags",
+  web_tabs: "web-tabs",
+  digital_sig: "dsc",
+  eway: "eway",
+  einvoicing: "einvoicing",
+  msme: "msme",
+  preferences: "user-preferences",
+  users: "users",
+};
+const COMPANY_SETUP_SECTIONS: SettingsSection[] = Object.keys(COMPANY_SETUP_SECTION_MAP) as SettingsSection[];
 
 const ROLES_LIST = [
   { name: "Accountant", desc: "This role is ideal for an accountant who takes care of tax filing, compliance and your business finance." },
@@ -253,6 +278,7 @@ export default function OrgSettings({ db, onUpdateCompany, onUpdateRole, onReset
           onUpdateRole={onUpdateRole as any}
           onResetDB={onResetDB as any}
           currentUserEmail={currentUserEmail}
+          initialSection={COMPANY_SETUP_SECTION_MAP[activeSection]}
         />
       );
     }
