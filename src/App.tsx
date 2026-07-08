@@ -114,6 +114,17 @@ export default function App() {
     }
   }, []);
 
+  // Read+clear the one-shot "show login/signup" flag exactly once on mount, into state.
+  // (Previously this read/removeItem happened inline during render, which is impure —
+  // any later re-render would see the flag already gone and flip back to the landing
+  // page, causing a "click Sign In, flashes login, bounces back" bug.)
+  const [showLoginFlag, setShowLoginFlag] = useState<string | null>(null);
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const flag = localStorage.getItem('bk_show_login');
+    if (flag) { setShowLoginFlag(flag); localStorage.removeItem('bk_show_login'); }
+  }, []);
+
   // Hydrate session on load
   React.useEffect(() => {
     const hydrateSession = async () => {
@@ -954,24 +965,20 @@ export default function App() {
   }
 
   if (!session) {
-    // Show landing page if no route params (not a reset/invite link)
-    if (!panelView && !routeEmail && !routeCode) {
-      if (typeof window !== 'undefined' && !localStorage.getItem('bk_show_login')) {
-        return (
-          <LandingPage
-            onGetStarted={() => { localStorage.setItem('bk_show_login', 'signup'); window.location.reload(); }}
-            onLogin={() => { localStorage.setItem('bk_show_login', 'login'); window.location.reload(); }}
-          />
-        );
-      }
+    // Show landing page if no route params (not a reset/invite link) and no one-shot flag set
+    if (!panelView && !routeEmail && !routeCode && !showLoginFlag) {
+      return (
+        <LandingPage
+          onGetStarted={() => { localStorage.setItem('bk_show_login', 'signup'); window.location.reload(); }}
+          onLogin={() => { localStorage.setItem('bk_show_login', 'login'); window.location.reload(); }}
+        />
+      );
     }
-    const loginView = localStorage.getItem('bk_show_login') as any;
-    localStorage.removeItem('bk_show_login');
     return (
       <div className="min-h-screen bg-slate-50">
         <LoginScreen
           onLoginSuccess={handleLoginSuccess}
-          initialView={loginView || panelView}
+          initialView={showLoginFlag || panelView}
           initialEmail={routeEmail}
           initialCode={routeCode}
         />
