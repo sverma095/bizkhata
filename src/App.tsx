@@ -24,7 +24,7 @@ import BankReconciliation from "./components/BankReconciliation.jsx";
 import OpeningBalances from "./components/OpeningBalances.jsx";
 import ChartOfAccountsCRUD from "./components/ChartOfAccountsCRUD.jsx";
 import FixedAssets from "./components/FixedAssets.jsx";
-import BizKhataCompleteUpgrade from "./components/BizKhataCompleteUpgrade.jsx";
+import LedgerioCompleteUpgrade from "./components/LedgerioCompleteUpgrade.jsx";
 import CompanySetup from "./components/CompanySetup.jsx";
 import OrgSettings from "./components/OrgSettings.js";
 
@@ -353,7 +353,7 @@ export default function App() {
         loadClientFallback();
       }
     } catch (err) {
-      console.error("Failed to load Bizkhata parameters.", err);
+      console.error("Failed to load Ledgerio parameters.", err);
       loadClientFallback();
     } finally {
       setLoading(false);
@@ -402,7 +402,7 @@ export default function App() {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-xs text-slate-700 font-sans gap-3.5 select-none leading-relaxed">
         <Sparkles className="w-8 h-8 text-blue-600 animate-spin" />
-        <div className="tracking-widest uppercase font-bold text-[10px] text-slate-500">Loading your Bizkhata corporate accounting workspace...</div>
+        <div className="tracking-widest uppercase font-bold text-[10px] text-slate-500">Loading your Ledgerio corporate accounting workspace...</div>
       </div>
     );
   }
@@ -929,7 +929,7 @@ export default function App() {
       <div className="min-h-screen flex items-center justify-center bg-slate-900">
         <div className="text-center space-y-3">
           <div className="w-10 h-10 border-4 border-emerald-400 border-t-transparent rounded-full animate-spin mx-auto" />
-          <div className="text-slate-400 text-sm font-medium">Connecting to BizKhata...</div>
+          <div className="text-slate-400 text-sm font-medium">Connecting to Ledgerio...</div>
         </div>
       </div>
     );
@@ -990,12 +990,12 @@ export default function App() {
       {/* ----------------- BIZKHATA TOP GLOBAL BAR ----------------- */}
       <header id="bizkhata-global-header" className="h-12 bg-[#1C202F] flex items-center justify-between px-4 text-white shrink-0 select-none z-30 shadow-[0_2px_8px_rgba(0,0,0,0.25)]">
         
-        {/* Left: Bizkhata logo stack */}
+        {/* Left: Ledgerio logo stack */}
         <div className="flex items-center gap-2">
           {/* Logo */}
-          <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACUAAAA0CAYAAAANFPE9AAAABHNCSVQICAgIfAhkiAAAABl0RVh0U29mdHdhcmUAZ25vbWUtc2NyZWVuc2hvdO8Dvz4AAAAsdEVYdENyZWF0aW9uIFRpbWUARnJpZGF5IDI5IE1heSAyMDI2IDExOjIxOjM4IEFNT7RIqAAAAxtJREFUWIXtmEuLHFUYhp/vVPVlLklXdzNO2zohGREdBtRGMoKQP+DelcEL/gK36o/RjQu3ugkBEV14Q4QQjESTcYa0dNKZdE1f63bOcZEREqZ7pmYsSQv1wNmcgpfnfOdSp0rq9bplzlBPWmAauVRacqm05FJpmUspt9FoPGmHQ8xlpXKptORSacml0pJLpSWXSsshKc/z8Dzv5EmShc5D3EPZcsr0g2+isFFGn1mmEFdw4wpKF8EKosBaAI198BtE/fRSpyWuFGhfPs/4OY/yZI363iUq+xdxIw+xD50FQIHtbRNffQ+C+1OzsllTAncun2fUqkMCkihUXEBiAW2w5qDpBKvBWb2ALD87My4TqckzC4yfX0b8ACsGoyISd4hxJlgxYA2C4JRdxMZEP3+KuX9tZl4m02cWXUCw1oBYkkKfycIdCpMGi7rE8lIVQoP+4wv09U8wvZtH7otMpMq7I9xBTFItIaMYzYjJ0m3OVYs0Bh2633Xxv7nCQngdAEGwzP5b8O+lBJzA8PTnu7TfuYCplakVFVu6w9qvN9j58h4bYZeLl0YY6/L1tbPc6joIzNSSzc3Nx55Vq1UAer3eif2C1TKDlzyahTGr2wOC/XVe22ry5tYtWis3cOwe/d8X+PizFb5quzPFMjsSrAjluwHlqx2i4gZ3W2/TfL1F5N3mF/8KEg85R8hKrPhoXfjxL2Fop9cqMymxFqm9gNp8H3f9DdwCdCchSddQWH6ZNbtDM+oR7MQ8tb/IRjHhp1D/d1JWHJzWB7gvvoUqFdChJY40iMtYV9gbNukN1wh7bUx7gPWLDHQyMy8TKbXyCqVX3yUZgw4SEMGiEMBohQ1KmP4ZuFdhcaj4fjDiZpwgIlPXVCaHp+3/SdLZRhwQx0WUgzgKRxRLRlMfB9T3Ykq+8O2DCR/6I8wR79jsdl/xLFLb4NFxKmsompBK3KcW+QzjAbtxfGzUoemzM3bEsUR9bOeHx7o0MDlonUf6jzqjpkr5vn86qRNw3LD/HzfPeSCXSksulZZcKi25VFrmUsr951YwT8xlpeZS6m8hWDMlEzwCiAAAAABJRU5ErkJggg==" alt="BizKhata Logo" className="h-8 w-auto object-contain" />
+          <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACUAAAA0CAYAAAANFPE9AAAABHNCSVQICAgIfAhkiAAAABl0RVh0U29mdHdhcmUAZ25vbWUtc2NyZWVuc2hvdO8Dvz4AAAAsdEVYdENyZWF0aW9uIFRpbWUARnJpZGF5IDI5IE1heSAyMDI2IDExOjIxOjM4IEFNT7RIqAAAAxtJREFUWIXtmEuLHFUYhp/vVPVlLklXdzNO2zohGREdBtRGMoKQP+DelcEL/gK36o/RjQu3ugkBEV14Q4QQjESTcYa0dNKZdE1f63bOcZEREqZ7pmYsSQv1wNmcgpfnfOdSp0rq9bplzlBPWmAauVRacqm05FJpmUspt9FoPGmHQ8xlpXKptORSacml0pJLpSWXSsshKc/z8Dzv5EmShc5D3EPZcsr0g2+isFFGn1mmEFdw4wpKF8EKosBaAI198BtE/fRSpyWuFGhfPs/4OY/yZI363iUq+xdxIw+xD50FQIHtbRNffQ+C+1OzsllTAncun2fUqkMCkihUXEBiAW2w5qDpBKvBWb2ALD87My4TqckzC4yfX0b8ACsGoyISd4hxJlgxYA2C4JRdxMZEP3+KuX9tZl4m02cWXUCw1oBYkkKfycIdCpMGi7rE8lIVQoP+4wv09U8wvZtH7otMpMq7I9xBTFItIaMYzYjJ0m3OVYs0Bh2633Xxv7nCQngdAEGwzP5b8O+lBJzA8PTnu7TfuYCplakVFVu6w9qvN9j58h4bYZeLl0YY6/L1tbPc6joIzNSSzc3Nx55Vq1UAer3eif2C1TKDlzyahTGr2wOC/XVe22ry5tYtWis3cOwe/d8X+PizFb5quzPFMjsSrAjluwHlqx2i4gZ3W2/TfL1F5N3mF/8KEg85R8hKrPhoXfjxL2Fop9cqMymxFqm9gNp8H3f9DdwCdCchSddQWH6ZNbtDM+oR7MQ8tb/IRjHhp1D/d1JWHJzWB7gvvoUqFdChJY40iMtYV9gbNukN1wh7bUx7gPWLDHQyMy8TKbXyCqVX3yUZgw4SEMGiEMBohQ1KmP4ZuFdhcaj4fjDiZpwgIlPXVCaHp+3/SdLZRhwQx0WUgzgKRxRLRlMfB9T3Ykq+8O2DCR/6I8wR79jsdl/xLFLb4NFxKmsompBK3KcW+QzjAbtxfGzUoemzM3bEsUR9bOeHx7o0MDlonUf6jzqjpkr5vn86qRNw3LD/HzfPeSCXSksulZZcKi25VFrmUsr951YwT8xlpeZS6m8hWDMlEzwCiAAAAABJRU5ErkJggg==" alt="Ledgerio Logo" className="h-8 w-auto object-contain" />
           <div className="flex items-baseline gap-1">
-            <span className="font-extrabold text-white text-[15px] leading-none tracking-tight">BizKhata</span>
+            <span className="font-extrabold text-white text-[15px] leading-none tracking-tight">Ledgerio</span>
             <span className="text-[14px] font-bold text-[#00D779]">Workspace</span>
             {session && <span className="ml-2 text-[10px] text-slate-400 font-medium hidden md:block">· {session.user.fullName} ({session.user.role})</span>}
           </div>
@@ -1550,7 +1550,7 @@ export default function App() {
             {/* Advanced Modules - 30 Enterprise Features */}
             {activeTab === "advanced" && (
               <div className="-m-6 md:-m-8">
-                <BizKhataCompleteUpgrade db={db} token={session.token} />
+                <LedgerioCompleteUpgrade db={db} token={session.token} />
               </div>
             )}
 
@@ -1794,7 +1794,7 @@ export default function App() {
                     <p className="text-xs text-slate-500">Track and log billable consulting and software audits hours directly to customer accounts.</p>
                   </div>
                   <div className="px-3.5 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-xs font-semibold text-blue-800 flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5 animate-spin text-blue-600" /> Standard Bizkhata Stopwatch engine
+                    <Clock className="w-3.5 h-3.5 animate-spin text-blue-600" /> Standard Ledgerio Stopwatch engine
                   </div>
                 </div>
 
@@ -2123,7 +2123,7 @@ export default function App() {
 
           {/* Solid humble compliance footer */}
           <footer className="p-4 border-t border-slate-200 text-center text-[10.5px] text-slate-550 select-none bg-slate-50">
-            Bizkhata Ledger Synchronization Engine • GSTIN compliant with Ministry of Corporate Affairs, India.
+            Ledgerio Ledger Synchronization Engine • GSTIN compliant with Ministry of Corporate Affairs, India.
           </footer>
           </div>
 

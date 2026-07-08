@@ -30,7 +30,7 @@ export default function LandingPage({ onGetStarted, onLogin }: LandingPageProps)
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">B</div>
-            <span className="font-bold text-gray-900 text-lg">BizKhata</span>
+            <span className="font-bold text-gray-900 text-lg">Ledgerio</span>
           </div>
           <div className="flex items-center gap-3">
             <button onClick={onLogin} className="text-sm text-gray-600 hover:text-gray-900 font-medium px-3 py-1.5">Sign in</button>
@@ -134,7 +134,7 @@ export default function LandingPage({ onGetStarted, onLogin }: LandingPageProps)
         <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-400">
           <div className="flex items-center gap-2">
             <div className="w-5 h-5 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-[10px]">B</div>
-            <span>© 2026 BizKhata · Verma Consultancy Services · Varanasi, UP</span>
+            <span>© 2026 Ledgerio · Verma Consultancy Services · Varanasi, UP</span>
           </div>
           <div className="flex gap-4">
             <a href="/api/legal/tos" target="_blank" className="hover:text-gray-600">Terms</a>

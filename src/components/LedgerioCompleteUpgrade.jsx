@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-// BizKhata — Complete Enterprise Accounting Upgrade
+// Ledgerio — Complete Enterprise Accounting Upgrade
 // 30 Modules | All Missing & Partial Features Built
 // Supabase: nnuwcyqdhgnmrlfqpv.supabase.co
 // Drop this file into your React project and import as default
@@ -12,7 +12,7 @@ const sbPost = (t, d) => fetch(`${SB_URL}/rest/v1/${t}`, { method: "POST", heade
 
 // ── Generic real persistence for Advanced Modules ───────────────
 // Backs onto /api/modules/:key, which stores data per-org in the same real ledger
-// state as everything else in BizKhata (see server.ts). Replaces ad-hoc local-only
+// state as everything else in Ledgerio (see server.ts). Replaces ad-hoc local-only
 // useState arrays and the unauthenticated direct-to-Supabase sbPost calls above.
 function usePersisted(key, token) {
   const [items, setItems] = useState([]);
@@ -269,7 +269,7 @@ function GSTR2B({ token }) {
     <div className="space-y-4">
       <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">GSTR-2B Reconciliation</h2><p className="text-xs text-gray-500">Match purchase register vs GSTR-2B — verify ITC eligibility</p></div><div className="flex gap-2"><label><Btn>Upload JSON</Btn><input type="file" accept=".json" className="hidden" onChange={e => onUpload(e.target.files[0])} /></label></div></div>
       <Metrics items={[{ l: "Matched", v: matched.length, c: "#0F6E56" }, { l: "Unmatched", v: data.filter(r => r.status === "unmatched").length, c: "#A32D2D" }, { l: "Extra in 2B", v: data.filter(r => r.status === "extra_in_2b").length, c: "#854F0B" }, { l: "Eligible ITC", v: "₹" + itcTotal.toLocaleString(), c: "#0F6E56" }]} />
-      <IBox>ITC claimable ONLY on invoices present in both your books AND GSTR-2B. Unmatched = blocked ITC. Download GSTR-2B JSON from the GST Portal and upload it here — BizKhata doesn't have a direct GSTN API connection yet.</IBox>
+      <IBox>ITC claimable ONLY on invoices present in both your books AND GSTR-2B. Unmatched = blocked ITC. Download GSTR-2B JSON from the GST Portal and upload it here — Ledgerio doesn't have a direct GSTN API connection yet.</IBox>
       <Card>
         <Tbl headers={["Supplier", "GSTIN", "Invoice", "Date", "Taxable", "ITC", "Status", "ITC?"]} rows={data.map(r => { const [c, l] = smap[r.status] || ["gray", r.status]; return [r.sup, r.gstin, r.inv, r.date, "₹" + (r.tax||0).toLocaleString(), "₹" + (r.itc||0).toLocaleString(), <Badge c={c}>{l}</Badge>, <Badge c={r.status === "matched" ? "green" : "red"}>{r.status === "matched" ? "Yes" : "No"}</Badge>]; })} />
         {data.some(r => r.status === "unmatched") && <IBox type="warn">⚠ Unmatched invoice(s): Ask supplier to file GSTR-1. ITC blocked until matched.</IBox>}
@@ -695,7 +695,7 @@ function ChequePrinting({ token }) {
   const words = n => { const a = ["","One","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten","Eleven","Twelve","Thirteen","Fourteen","Fifteen","Sixteen","Seventeen","Eighteen","Nineteen"], b = ["","","Twenty","Thirty","Forty","Fifty","Sixty","Seventy","Eighty","Ninety"]; const c = x => !x ? "" : x < 20 ? a[x] : x < 100 ? b[Math.floor(x/10)] + (x%10 ? " " + a[x%10] : "") : x < 1000 ? a[Math.floor(x/100)] + " Hundred" + (x%100 ? " " + c(x%100) : "") : x < 100000 ? c(Math.floor(x/1000)) + " Thousand" + (x%1000 ? " " + c(x%1000) : "") : c(Math.floor(x/100000)) + " Lakh" + (x%100000 ? " " + c(x%100000) : ""); return (c(Math.floor(n)) || "Zero") + " Rupees Only"; };
   return (
     <div className="space-y-4">
-      <div><h2 className="text-base font-medium">Cheque Printing</h2><p className="text-xs text-gray-500">Print account-payee cheques directly from BizKhata</p></div>
+      <div><h2 className="text-base font-medium">Cheque Printing</h2><p className="text-xs text-gray-500">Print account-payee cheques directly from Ledgerio</p></div>
       <div className="grid grid-cols-2 gap-4">
         <Card>
           <Label>Payee Name</Label><Input value={form.payee} onChange={e => setForm({ ...form, payee: e.target.value })} placeholder="Pay to…" />
@@ -783,7 +783,7 @@ function VendorPortal({ db }) {
       <div><h2 className="text-base font-medium">Vendor Portal</h2><p className="text-xs text-gray-500">Suppliers view POs, submit bills, track payments</p></div>
       <div className="grid grid-cols-2 gap-4">
         <Card><p className="text-sm font-medium mb-3">Vendor Access — live from your Vendors</p>{vendors.map(v => <div key={v.name} className="flex items-start justify-between py-3 border-b border-gray-50 last:border-0"><div><p className="font-medium text-sm">{v.name}</p><p className="text-xs text-gray-500">{v.email}</p><Badge c={v.active ? "green" : "gray"}>{v.active ? "Active" : "Inactive"}</Badge></div><div className="flex flex-col gap-1 ml-3"><Btn onClick={() => alert("Portal invites need an email backend — not connected yet.")}>Invite</Btn></div></div>)}{vendors.length === 0 && <p className="text-xs text-gray-400 py-4">No vendors yet.</p>}</Card>
-        <Card><p className="text-sm font-medium mb-3">Vendor Portal Features</p>{[["📋", "View Purchase Orders", "See all POs from your company"], ["📤", "Submit Bills/Invoices", "Upload bills directly into BizKhata"], ["💰", "Track Payments", "View payment status and history"], ["📦", "Confirm Deliveries", "Acknowledge GRN dispatches"], ["💬", "Raise Queries", "Direct communication channel"]].map(([icon, title, desc]) => <div key={title} className="flex items-start gap-3 py-2 border-b border-gray-50 last:border-0"><span className="text-lg">{icon}</span><div><p className="font-medium text-xs">{title}</p><p className="text-xs text-gray-500">{desc}</p></div></div>)}</Card>
+        <Card><p className="text-sm font-medium mb-3">Vendor Portal Features</p>{[["📋", "View Purchase Orders", "See all POs from your company"], ["📤", "Submit Bills/Invoices", "Upload bills directly into Ledgerio"], ["💰", "Track Payments", "View payment status and history"], ["📦", "Confirm Deliveries", "Acknowledge GRN dispatches"], ["💬", "Raise Queries", "Direct communication channel"]].map(([icon, title, desc]) => <div key={title} className="flex items-start gap-3 py-2 border-b border-gray-50 last:border-0"><span className="text-lg">{icon}</span><div><p className="font-medium text-xs">{title}</p><p className="text-xs text-gray-500">{desc}</p></div></div>)}</Card>
       </div>
     </div>
   );
@@ -880,7 +880,7 @@ const GROUPS = {
   p3: { label: "P3 — Feature Complete", color: "text-emerald-600" },
 };
 
-export default function BizKhataCompleteUpgrade({ db, token }) {
+export default function LedgerioCompleteUpgrade({ db, token }) {
   const [active, setActive] = useState("tds");
   const [search, setSearch] = useState("");
   const activeModule = MODULES.find(m => m.id === active);

@@ -223,7 +223,7 @@ export default function Accounting({ db, defaultTab, onAddManualJournal, userRol
 
             <button 
               onClick={() => {
-                alert("Creating a new double-entry general ledger slot under Bizkhata compliance rules.");
+                alert("Creating a new double-entry general ledger slot under Ledgerio compliance rules.");
               }}
               className="bg-[#006EE5] hover:bg-[#0060C7] text-white font-bold p-1 px-4.5 rounded text-xs flex items-center justify-center gap-1 cursor-pointer transition-all"
             >

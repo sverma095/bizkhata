@@ -1,5 +1,5 @@
 {
-  "name": "Bizkhata",
+  "name": "Ledgerio",
   "description": "Double-entry accounting, GST billing, and MIS software for Indian businesses, with integrated Gemini-powered smart features.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

@@ -275,7 +275,7 @@ export default function UserDashboard(props: UserDashboardProps) {
               <div className="flex justify-between items-center mb-3">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                   <FileText className="w-4.5 h-4.5 text-sky-500" />
-                  BizKhata Interactive Invoices Playground
+                  Ledgerio Interactive Invoices Playground
                 </h3>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 font-mono text-slate-400">SANDBOX SIMULATION</span>
               </div>

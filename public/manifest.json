@@ -1,6 +1,6 @@
 {
-  "name": "BizKhata — GST Accounting",
-  "short_name": "BizKhata",
+  "name": "Ledgerio — GST Accounting",
+  "short_name": "Ledgerio",
   "description": "GST-compliant accounting software for Indian businesses",
   "start_url": "/",
   "display": "standalone",

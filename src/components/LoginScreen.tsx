@@ -156,7 +156,7 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
           <div className="flex items-center gap-3 mb-12">
             <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center font-black text-white text-lg">B</div>
             <div>
-              <div className="text-white font-black text-xl tracking-tight">BizKhata</div>
+              <div className="text-white font-black text-xl tracking-tight">Ledgerio</div>
               <div className="text-emerald-400 text-xs font-semibold tracking-wider">ENTERPRISE ACCOUNTING</div>
             </div>
           </div>
@@ -192,7 +192,7 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
           <div className="flex lg:hidden items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center font-black text-white">B</div>
-              <span className="font-black text-slate-900 text-lg">BizKhata</span>
+              <span className="font-black text-slate-900 text-lg">Ledgerio</span>
             </div>
             <a href="/" onClick={(e) => { e.preventDefault(); localStorage.removeItem('bk_show_login'); window.location.href='/'; }}
               className="text-xs text-gray-400 hover:text-blue-600 transition">← Home</a>
@@ -217,7 +217,7 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
             <div className="space-y-5">
               <div>
                 <h2 className="text-2xl font-black text-slate-900">Welcome back</h2>
-                <p className="text-slate-500 text-sm mt-1">Sign in to your BizKhata account</p>
+                <p className="text-slate-500 text-sm mt-1">Sign in to your Ledgerio account</p>
               </div>
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-1.5">
@@ -468,7 +468,7 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
             <span>·</span>
             <button onClick={() => setView('privacy')} className="hover:text-emerald-600 hover:underline">Privacy Policy</button>
             <span>·</span>
-            <span>© 2026 BizKhata · Verma Consultancy Services</span>
+            <span>© 2026 Ledgerio · Verma Consultancy Services</span>
           </div>
         )}
       </div>

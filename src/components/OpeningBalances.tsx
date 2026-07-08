@@ -91,7 +91,7 @@ export default function OpeningBalances({ db, onSaveOpeningBalances }: Props) {
           <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-1">Opening Balance Date</label>
           <input type="date" value={date} onChange={e => setDate(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400" />
         </div>
-        <div className="text-xs text-slate-500">This should be the day before you start using BizKhata (e.g. March 31, 2025 if you start April 1, 2025)</div>
+        <div className="text-xs text-slate-500">This should be the day before you start using Ledgerio (e.g. March 31, 2025 if you start April 1, 2025)</div>
       </div>
 
       {/* Balance entry table */}

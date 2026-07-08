@@ -39,7 +39,7 @@ export default function AIAssistant({ db, onParseInvoice, onReconcileTransaction
   // State Conversational Copilot
   const [copilotQuery, setCopilotQuery] = useState("");
   const [chatLog, setChatLog] = useState<Array<{ sender: "user" | "ai"; text: string }>>([
-    { sender: "ai", text: "Namaste! I am your Bizkhata AI Accountant. Ask me about your legal entities, CGST/SGST ratios, monthly net profit, or invoice statuses." }
+    { sender: "ai", text: "Namaste! I am your Ledgerio AI Accountant. Ask me about your legal entities, CGST/SGST ratios, monthly net profit, or invoice statuses." }
   ]);
   const [askingCopilot, setAskingCopilot] = useState(false);
 
@@ -55,7 +55,7 @@ export default function AIAssistant({ db, onParseInvoice, onReconcileTransaction
     `ACME OFFICE SUPPLIES LLP
 Registered Address: Sector 4, HSR Layout, Bengaluru, Karnataka, 560102
 GSTIN: 29DDDDD3333D1Z5
-TO: Bizkhata Accounting LLP
+TO: Ledgerio Accounting LLP
 DATE: 2026-05-18
 INVOICE NUMBER: BILL-ACME-9011
 PRODUCT Breakdowns:
@@ -65,7 +65,7 @@ GSTR Standard rate: 18%
 Total Invoiced Settle Sum: 23600.00 INR`,
     `TIGER SECURITY SERVICES ENTERPRISE
 Registered Address: Koramangala, Bengaluru, Karnataka
-TO: Bizkhata Accounting LLP
+TO: Ledgerio Accounting LLP
 DATE: 2026-05-22
 INVOICE: TIGER-908
 Details:
@@ -105,7 +105,7 @@ Grand Sum: 118000.00 INR`
         setMatchingResults({
           matchType: "invoice",
           target: matchedInvoice,
-          explanation: `Bizkhata Matcher has matched this remittance to Outstanding Invoice ${matchedInvoice.invoiceNumber} for ${matchedInvoice.customerName}. The amount is an exact match (₹${feed.amount}). Posting will clear Accounts Receivable ledger and Debit Bank Reserves.`
+          explanation: `Ledgerio Matcher has matched this remittance to Outstanding Invoice ${matchedInvoice.invoiceNumber} for ${matchedInvoice.customerName}. The amount is an exact match (₹${feed.amount}). Posting will clear Accounts Receivable ledger and Debit Bank Reserves.`
         });
       } else {
         setMatchingResults({
@@ -120,7 +120,7 @@ Grand Sum: 118000.00 INR`
         setMatchingResults({
           matchType: "bill",
           target: matchedBill,
-          explanation: `Bizkhata Matcher has mapped this debit to Creditor bill claim ${matchedBill.billNumber} from ${matchedBill.vendorName}. The amount matches exactly (₹${Math.abs(feed.amount)}). Clearing would reduce Liability Accounts Payable.`
+          explanation: `Ledgerio Matcher has mapped this debit to Creditor bill claim ${matchedBill.billNumber} from ${matchedBill.vendorName}. The amount matches exactly (₹${Math.abs(feed.amount)}). Clearing would reduce Liability Accounts Payable.`
         });
       } else {
         setMatchingResults({
@@ -287,7 +287,7 @@ Grand Sum: 118000.00 INR`
                   </div>
 
                   <p className="text-[10.5px] text-[#8C867A] leading-relaxed font-sans">
-                    Bizkhata detected items, including a calculated total amount of <span className="text-[#5A5A40] font-bold font-mono">₹{parsedDraft.total?.toLocaleString() || "1,18,000"}</span>.
+                    Ledgerio detected items, including a calculated total amount of <span className="text-[#5A5A40] font-bold font-mono">₹{parsedDraft.total?.toLocaleString() || "1,18,000"}</span>.
                   </p>
                 </div>
 

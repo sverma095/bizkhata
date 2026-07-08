@@ -21,7 +21,7 @@ export default class ErrorBoundary extends React.Component<{ children: React.Rea
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error("BizKhata crashed:", error, info);
+    console.error("Ledgerio crashed:", error, info);
   }
 
   handleReload = () => {
@@ -39,7 +39,7 @@ export default class ErrorBoundary extends React.Component<{ children: React.Rea
             <div>
               <h2 className="text-sm font-bold text-slate-800">Something went wrong</h2>
               <p className="text-xs text-slate-500 mt-1.5">
-                BizKhata hit an unexpected error and couldn't continue. Your data is safe —
+                Ledgerio hit an unexpected error and couldn't continue. Your data is safe —
                 nothing here is lost. Reloading usually fixes this.
               </p>
             </div>
@@ -47,7 +47,7 @@ export default class ErrorBoundary extends React.Component<{ children: React.Rea
               onClick={this.handleReload}
               className="w-full bg-blue-600 hover:bg-blue-700 shadow-sm hover:shadow text-white font-bold text-xs py-2.5 rounded-lg transition"
             >
-              Reload BizKhata
+              Reload Ledgerio
             </button>
             {this.state.error && (
               <details className="text-left">

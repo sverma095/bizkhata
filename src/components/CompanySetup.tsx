@@ -529,7 +529,7 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
 
           {/* Secure developer protocol signature */}
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-[11px] text-slate-500 font-mono text-center leading-relaxed">
-            Bizkhata Compliance Core • Ministry of Corporate Affairs Audit Guidelines • High Fidelity Settings Layout
+            Ledgerio Compliance Core • Ministry of Corporate Affairs Audit Guidelines • High Fidelity Settings Layout
           </div>
         </div>
       ) : (
@@ -859,7 +859,7 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
                 <Shield className="w-5 h-5 text-blue-600" />
                 <h4 className="text-xs font-bold text-blue-800">No lock-in, ever</h4>
                 <p className="text-[10.5px] text-blue-700 leading-relaxed">
-                  If you ever decide to leave BizKhata, your data leaves with you. We don't hold your
+                  If you ever decide to leave Ledgerio, your data leaves with you. We don't hold your
                   accounting records hostage to keep you subscribed.
                 </p>
               </div>
@@ -1374,7 +1374,7 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
             <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-6 shadow-xs max-w-xl mx-auto animate-fade-in font-sans">
               <div>
                 <h3 className="font-bold text-slate-900 border-b pb-3 flex items-center gap-2 text-sm">🔗 Custom Workspace Web Tabs</h3>
-                <p className="text-xs text-slate-500 mt-1">Embed custom external dashboard links directly as accessible navigation views inside Bizkhata.</p>
+                <p className="text-xs text-slate-500 mt-1">Embed custom external dashboard links directly as accessible navigation views inside Ledgerio.</p>
               </div>
               <div className="space-y-4 text-xs font-semibold text-slate-700">
                 <div className="space-y-2">

@@ -1476,7 +1476,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                                     alert("⚠️ E-Invoice Portal credentials not configured!\n\nGo to Settings → e-Invoicing → enter your IRP credentials.");
                                     return;
                                   }
-                                  if (!confirm("⚠️ IMPORTANT: BizKhata currently generates a demo IRN for testing purposes.\n\nFor legally valid e-invoicing, you need to integrate with the NIC/IRP portal directly or use a licensed GSP (GST Suvidha Provider).\n\nFor production use, please consult your CA before filing.\n\nProceed with demo IRN?")) return;
+                                  if (!confirm("⚠️ IMPORTANT: Ledgerio currently generates a demo IRN for testing purposes.\n\nFor legally valid e-invoicing, you need to integrate with the NIC/IRP portal directly or use a licensed GSP (GST Suvidha Provider).\n\nFor production use, please consult your CA before filing.\n\nProceed with demo IRN?")) return;
                                   setPushingEInvoiceId(inv.id);
                                   setTimeout(() => {
                                     // IRN format: 64-char hex hash (SHA-256 of GSTIN+DocType+DocNo+DocDate)
@@ -1918,7 +1918,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                             className="w-full text-left font-sans hover:bg-slate-50 px-2.5 py-1.5 transition flex items-center gap-2 rounded"
                           >
                             <span className="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
-                            Enable Bizkhata Client Portal
+                            Enable Ledgerio Client Portal
                           </button>
                         </div>
                         <div className="p-1 space-y-0.5">
@@ -2925,7 +2925,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
 
                 {/* ── FOOTER ── */}
                 <div className="mt-6 pt-3 border-t border-slate-200 text-center text-[9px] text-slate-400">
-                  This is a computer-generated invoice and does not require a physical signature. | BizKhata Enterprise Accounting
+                  This is a computer-generated invoice and does not require a physical signature. | Ledgerio Enterprise Accounting
                 </div>
               </div>
             </div>
@@ -3049,7 +3049,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                   className="w-full bg-slate-955 border border-slate-850 rounded px-3 py-2 text-slate-200 outline-none"
                 >
                   <option value="Aditya Hegde (Class 3 DSC USB Token - CCA India)">Aditya Hegde (Class 3 DSC USB Token - CCA India)</option>
-                  <option value="Corporate Authorized Signatory - Bizkhata Solutions">Corporate Authorized Signatory - Bizkhata Solutions</option>
+                  <option value="Corporate Authorized Signatory - Ledgerio Solutions">Corporate Authorized Signatory - Ledgerio Solutions</option>
                   <option value="Auditing Partner DSC Token (Sub-Auth)">Auditing Partner DSC Token (Sub-Auth)</option>
                 </select>
               </div>

@@ -358,7 +358,7 @@ export default function AdminDashboard(props: AdminDashboardProps) {
                 BK
               </div>
               <div>
-                <span className="text-base font-extrabold text-slate-800 tracking-tight leading-tight">BizKhata</span>
+                <span className="text-base font-extrabold text-slate-800 tracking-tight leading-tight">Ledgerio</span>
                 <span className="block text-[9px] text-blue-600 font-mono font-bold tracking-widest uppercase mt-0.5">TENANT CONSOLE</span>
               </div>
             </div>
