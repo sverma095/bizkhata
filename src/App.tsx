@@ -92,9 +92,27 @@ export default function App() {
     return fetch(url, { ...options, headers });
   };
   const [authLoading, setAuthLoading] = useState(true);
-  const [panelView, setPanelView] = useState<'login' | 'register' | 'forgot' | 'reset' | 'activate'>('login');
+  const [panelView, setPanelView] = useState<'' | 'login' | 'register' | 'forgot' | 'reset' | 'activate'>('');
   const [routeEmail, setRouteEmail] = useState('');
   const [routeCode, setRouteCode] = useState('');
+
+  // Parse URL for activation/reset links (e.g. /activate?code=...&email=...) so emailed
+  // links actually pre-fill the right screen. Runs once on mount; defaults to '' (landing
+  // page) when there's no special route so a plain visit to the site shows the landing page.
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const path = window.location.pathname;
+    const params = new URLSearchParams(window.location.search);
+    const email = params.get('email') || '';
+    const code = params.get('code') || '';
+    if (path.startsWith('/activate') && email && code) {
+      setPanelView('activate'); setRouteEmail(email); setRouteCode(code);
+    } else if (path.startsWith('/reset') && email && code) {
+      setPanelView('reset'); setRouteEmail(email); setRouteCode(code);
+    } else if (params.get('view') === 'login') {
+      setPanelView('login');
+    }
+  }, []);
 
   // Hydrate session on load
   React.useEffect(() => {
