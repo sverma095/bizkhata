@@ -656,6 +656,7 @@ app.get("/api/health", async (req: any, res: any) => {
     node: process.version,
     emailProviderConfigured: !!(process.env.RESEND_API_KEY || process.env.GMAIL_REFRESH_TOKEN || process.env.SMTP_HTTP_API_KEY),
     emailProvider: process.env.RESEND_API_KEY ? "resend" : process.env.GMAIL_REFRESH_TOKEN ? "gmail" : process.env.SMTP_HTTP_API_KEY ? process.env.SMTP_HTTP_PROVIDER : "none",
+    emailFromAddress: EMAIL_FROM,
   };
   if (SUPABASE_URL && SUPABASE_ANON_KEY) {
     try {
@@ -1023,7 +1024,7 @@ app.post("/api/auth/send-reg-otp", async (req: any, res: any) => {
 });
 
 app.post("/api/auth/register-request", (req: any, res: any) => {
-  const { companyName, gstNumber, adminName, email, mobileNumber, password, numberOfRequiredSeats, emailOtp } = req.body;
+  const { companyName, gstNumber, adminName, email, mobileNumber, password, numberOfRequiredSeats, requestedPlan, emailOtp } = req.body;
   if (!companyName || !adminName || !email || !mobileNumber || !password || !numberOfRequiredSeats) {
     res.status(400).json({ error: "Company name, admin name, email, mobile, password and seats are required." }); return;
   }
@@ -1039,7 +1040,7 @@ app.post("/api/auth/register-request", (req: any, res: any) => {
   if (USER_DB.users.some((u: any) => u.email === email) || USER_DB.registrationRequests.some((r: any) => r.email === email && r.status !== "Rejected")) {
     res.status(400).json({ error: "An account with this email already exists." }); return;
   }
-  const newReg = { id: generateId("reg"), companyName, gstNumber: gstNumber || "", adminName, email, mobileNumber, password, numberOfRequiredSeats: Number(numberOfRequiredSeats), status: "Pending", emailVerified: true, createdAt: new Date().toISOString() };
+  const newReg = { id: generateId("reg"), companyName, gstNumber: gstNumber || "", adminName, email, mobileNumber, password, numberOfRequiredSeats: Number(numberOfRequiredSeats), requestedPlan: requestedPlan || "starter", status: "Pending", emailVerified: true, createdAt: new Date().toISOString() };
   USER_DB.registrationRequests.unshift(newReg);
   const saEmail = USER_DB.users.find((u: any) => u.role === "Super Admin")?.email || "owner@bizkhata.app";
   USER_DB.notifications.unshift({ id: generateId("notif"), to: saEmail, subject: "New Registration Request", body: `Company '${companyName}' (${email}) registered by '${adminName}'. GSTIN: ${gstNumber || "Not provided"}.`, type: "Email", timestamp: new Date().toISOString() });

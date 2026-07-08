@@ -32,7 +32,14 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
   const [mobile, setMobile] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
-  const [seats, setSeats] = useState(5);
+  const [seats, setSeats] = useState(3);
+  const REG_PLANS = [
+    { id: 'free', name: 'Free', price: '₹0', period: 'forever', seats: 1 },
+    { id: 'starter', name: 'Starter', price: '₹999', period: '/mo', seats: 3 },
+    { id: 'professional', name: 'Professional', price: '₹2,499', period: '/mo', seats: 10 },
+    { id: 'enterprise', name: 'Enterprise', price: '₹4,999', period: '/mo', seats: 50 },
+  ];
+  const [requestedPlan, setRequestedPlan] = useState('starter');
   const [showRegPwd, setShowRegPwd] = useState(false);
   // Email OTP for registration
   const [regOtp, setRegOtp] = useState('');
@@ -116,7 +123,7 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault(); clearMessages(); setLoading(true);
     try {
-      const res = await fetch('/api/auth/register-request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ companyName, gstNumber, adminName, email: regEmail, mobileNumber: mobile, password: regPassword, numberOfRequiredSeats: seats, emailOtp: regOtp }) });
+      const res = await fetch('/api/auth/register-request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ companyName, gstNumber, adminName, email: regEmail, mobileNumber: mobile, password: regPassword, numberOfRequiredSeats: seats, requestedPlan, emailOtp: regOtp }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Registration failed.');
       setSuccess('Registration submitted! You will receive credentials once approved by the administrator.');
@@ -185,7 +192,7 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
       </div>
 
       {/* Right panel - form */}
-      <div className="w-full md:w-1/2 flex flex-col items-center justify-center p-6 bg-slate-950">
+      <div className="w-full md:w-1/2 flex flex-col items-center justify-center p-6 bg-slate-950 overflow-y-auto max-h-screen">
         <div className="w-full max-w-md space-y-6">
 
           {/* Mobile logo */}
@@ -260,7 +267,7 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
 
           {/* REGISTER */}
           {view === 'signup' && (
-            <div className="space-y-4">
+            <div className="space-y-5">
               <div className="flex items-center gap-3">
                 <button onClick={() => { clearMessages(); setView('login'); }} className="p-1.5 hover:bg-slate-100 rounded-lg"><ArrowLeft className="w-4 h-4 text-slate-500" /></button>
                 <div>
@@ -268,85 +275,128 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
                   <p className="text-slate-500 text-xs">Submit request for admin approval</p>
                 </div>
               </div>
-              <form onSubmit={handleRegister} className="space-y-3">
-                {/* Company Name */}
-                <div className="relative">
-                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                  <input type="text" required value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="Company / Business Name"
-                    className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-slate-50" />
-                </div>
-                {/* GSTIN — optional */}
-                <div className="relative">
-                  <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                  <input type="text" value={gstNumber} onChange={e => setGstNumber(e.target.value.toUpperCase())} placeholder="GSTIN (optional — can be added later)"
-                    className="w-full pl-8 pr-20 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-slate-50" />
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded font-medium">Optional</span>
-                </div>
-                {/* Admin Name */}
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                  <input type="text" required value={adminName} onChange={e => setAdminName(e.target.value)} placeholder="Your Full Name"
-                    className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-slate-50" />
-                </div>
-                {/* Email + Send OTP */}
-                <div className="space-y-2">
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                      <input type="email" required value={regEmail}
-                        onChange={e => { setRegEmail(e.target.value); setRegOtpSent(false); setRegOtp(''); }}
-                        placeholder="Email address"
-                        className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-slate-50" />
+              <form onSubmit={handleRegister} className="space-y-5">
+
+                {/* Company details */}
+                <div className="space-y-3">
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Company details</p>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Company / Business Name</label>
+                    <div className="relative">
+                      <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input type="text" required value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="e.g. Verma Traders Pvt Ltd"
+                        className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent bg-slate-50" />
                     </div>
-                    <button type="button" onClick={handleSendRegOtp} disabled={loading || !regEmail}
-                      className="shrink-0 px-3 py-2 bg-slate-700 hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition cursor-pointer">
-                      {regOtpSent ? 'Resend' : 'Send OTP'}
-                    </button>
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">GSTIN</label>
+                      <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-semibold">Optional — add later</span>
+                    </div>
+                    <div className="relative">
+                      <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input type="text" value={gstNumber} onChange={e => setGstNumber(e.target.value.toUpperCase())} placeholder="22AAAAA0000A1Z5"
+                        className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent bg-slate-50" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Your details */}
+                <div className="space-y-3 pt-1 border-t border-slate-100">
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider pt-3">Your details</p>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Full Name</label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input type="text" required value={adminName} onChange={e => setAdminName(e.target.value)} placeholder="Your full name"
+                        className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent bg-slate-50" />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Mobile Number</label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input type="tel" required value={mobile} onChange={e => setMobile(e.target.value)} placeholder="+91 XXXXXXXXXX"
+                        className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent bg-slate-50" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Account / verification */}
+                <div className="space-y-3 pt-1 border-t border-slate-100">
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider pt-3">Account</p>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Email Address</label>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input type="email" required value={regEmail}
+                          onChange={e => { setRegEmail(e.target.value); setRegOtpSent(false); setRegOtp(''); }}
+                          placeholder="you@company.com"
+                          className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent bg-slate-50" />
+                      </div>
+                      <button type="button" onClick={handleSendRegOtp} disabled={loading || !regEmail}
+                        className="shrink-0 px-4 py-2.5 bg-slate-800 hover:bg-slate-900 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition cursor-pointer">
+                        {regOtpSent ? 'Resend' : 'Send OTP'}
+                      </button>
+                    </div>
                   </div>
                   {regOtpSent && (
-                    <div className="flex gap-2 items-center">
-                      <div className="relative flex-1">
-                        <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-emerald-500" />
-                        <input type="text" required value={regOtp}
-                          onChange={e => setRegOtp(e.target.value.replace(/\D/g,'').slice(0,6))}
-                          placeholder="Enter 6-digit code" maxLength={6}
-                          className="w-full pl-8 pr-3 py-2 border border-emerald-300 rounded-lg text-xs font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-emerald-50" />
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-emerald-600 uppercase tracking-wide">Verification Code</label>
+                      <div className="flex gap-2 items-center">
+                        <div className="relative flex-1">
+                          <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500" />
+                          <input type="text" required value={regOtp}
+                            onChange={e => setRegOtp(e.target.value.replace(/\D/g,'').slice(0,6))}
+                            placeholder="6-digit code" maxLength={6}
+                            className="w-full pl-9 pr-4 py-2.5 border border-emerald-300 rounded-xl text-sm font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-emerald-50" />
+                        </div>
+                        {regOtp.length === 6 && <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />}
                       </div>
-                      {regOtp.length === 6 && <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />}
                     </div>
                   )}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Password</label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input type={showRegPwd ? 'text' : 'password'} required value={regPassword} onChange={e => setRegPassword(e.target.value)} placeholder="Create a password"
+                        className="w-full pl-9 pr-10 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent bg-slate-50" />
+                      <button type="button" onClick={() => setShowRegPwd(!showRegPwd)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                        {showRegPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-slate-400">8+ characters, with uppercase, lowercase, a number, and a special character.</p>
+                  </div>
                 </div>
-                {/* Mobile */}
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                  <input type="tel" required value={mobile} onChange={e => setMobile(e.target.value)} placeholder="Mobile number (+91 XXXXXXXXXX)"
-                    className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-slate-50" />
+
+                {/* Plan */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Choose a plan</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {REG_PLANS.map(p => (
+                      <button key={p.id} type="button"
+                        onClick={() => { setRequestedPlan(p.id); setSeats(p.seats); }}
+                        className={`text-left rounded-xl border p-3 transition ${requestedPlan === p.id ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-400' : 'border-slate-200 hover:border-slate-300 bg-white'}`}>
+                        <div className="font-bold text-sm text-slate-800">{p.name}</div>
+                        <div className="text-xs text-slate-500">{p.price}{p.period !== 'forever' ? p.period : ' forever'} · {p.seats} seat{p.seats > 1 ? 's' : ''}</div>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-slate-400">Need more seats later? Upgrade anytime after approval.</p>
                 </div>
-                {/* Password */}
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                  <input type={showRegPwd ? 'text' : 'password'} required value={regPassword} onChange={e => setRegPassword(e.target.value)} placeholder="Password (8+ chars, A-Z, a-z, 0-9, special)"
-                    className="w-full pl-8 pr-9 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-slate-50" />
-                  <button type="button" onClick={() => setShowRegPwd(!showRegPwd)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
-                    {showRegPwd ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                  </button>
-                </div>
-                <div className="flex items-center gap-3">
-                  <label className="text-xs text-slate-600 font-semibold whitespace-nowrap">Seats needed:</label>
-                  <input type="number" min={1} max={100} value={seats} onChange={e => setSeats(parseInt(e.target.value))}
-                    className="w-24 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-center focus:outline-none focus:ring-2 focus:ring-emerald-400" />
-                </div>
+
                 <button type="submit" disabled={loading || !regOtpSent || regOtp.length !== 6}
-                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 shadow-sm hover:shadow disabled:opacity-60 text-white font-bold text-sm rounded-xl transition">
+                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 shadow-sm hover:shadow disabled:opacity-60 text-white font-bold text-sm rounded-xl transition">
                   {loading ? 'Submitting...' : 'Submit Registration Request'}
                 </button>
-                <p className="text-[10px] text-center text-slate-400">Email verification required · GSTIN can be added later</p>
-              <p className="text-[10px] text-center text-slate-400 mt-1">
-                By registering, you agree to our{' '}
-                <button type="button" onClick={() => setView('tos')} className="text-emerald-600 hover:underline">Terms of Service</button>
-                {' '}and{' '}
-                <button type="button" onClick={() => setView('privacy')} className="text-emerald-600 hover:underline">Privacy Policy</button>
-              </p>
+                <p className="text-xs text-center text-slate-400">Email verification required · GSTIN can be added later</p>
+                <p className="text-xs text-center text-slate-400">
+                  By registering, you agree to our{' '}
+                  <button type="button" onClick={() => setView('tos')} className="text-emerald-600 hover:underline font-medium">Terms of Service</button>
+                  {' '}and{' '}
+                  <button type="button" onClick={() => setView('privacy')} className="text-emerald-600 hover:underline font-medium">Privacy Policy</button>
+                </p>
               </form>
             </div>
           )}

@@ -597,7 +597,8 @@ app.get("/api/health", async (req, res) => {
     env: process.env.VERCEL === "1" ? "vercel" : "local",
     node: process.version,
     emailProviderConfigured: !!(process.env.RESEND_API_KEY || process.env.GMAIL_REFRESH_TOKEN || process.env.SMTP_HTTP_API_KEY),
-    emailProvider: process.env.RESEND_API_KEY ? "resend" : process.env.GMAIL_REFRESH_TOKEN ? "gmail" : process.env.SMTP_HTTP_API_KEY ? process.env.SMTP_HTTP_PROVIDER : "none"
+    emailProvider: process.env.RESEND_API_KEY ? "resend" : process.env.GMAIL_REFRESH_TOKEN ? "gmail" : process.env.SMTP_HTTP_API_KEY ? process.env.SMTP_HTTP_PROVIDER : "none",
+    emailFromAddress: EMAIL_FROM
   };
   if (SUPABASE_URL && SUPABASE_ANON_KEY) {
     try {
@@ -904,7 +905,7 @@ app.post("/api/auth/send-reg-otp", async (req, res) => {
   res.json({ success: true, emailSent: emailResult.sent, reason: emailResult.reason });
 });
 app.post("/api/auth/register-request", (req, res) => {
-  const { companyName, gstNumber, adminName, email, mobileNumber, password, numberOfRequiredSeats, emailOtp } = req.body;
+  const { companyName, gstNumber, adminName, email, mobileNumber, password, numberOfRequiredSeats, requestedPlan, emailOtp } = req.body;
   if (!companyName || !adminName || !email || !mobileNumber || !password || !numberOfRequiredSeats) {
     res.status(400).json({ error: "Company name, admin name, email, mobile, password and seats are required." });
     return;
@@ -934,7 +935,7 @@ app.post("/api/auth/register-request", (req, res) => {
     res.status(400).json({ error: "An account with this email already exists." });
     return;
   }
-  const newReg = { id: generateId("reg"), companyName, gstNumber: gstNumber || "", adminName, email, mobileNumber, password, numberOfRequiredSeats: Number(numberOfRequiredSeats), status: "Pending", emailVerified: true, createdAt: (/* @__PURE__ */ new Date()).toISOString() };
+  const newReg = { id: generateId("reg"), companyName, gstNumber: gstNumber || "", adminName, email, mobileNumber, password, numberOfRequiredSeats: Number(numberOfRequiredSeats), requestedPlan: requestedPlan || "starter", status: "Pending", emailVerified: true, createdAt: (/* @__PURE__ */ new Date()).toISOString() };
   USER_DB.registrationRequests.unshift(newReg);
   const saEmail = USER_DB.users.find((u) => u.role === "Super Admin")?.email || "owner@bizkhata.app";
   USER_DB.notifications.unshift({ id: generateId("notif"), to: saEmail, subject: "New Registration Request", body: `Company '${companyName}' (${email}) registered by '${adminName}'. GSTIN: ${gstNumber || "Not provided"}.`, type: "Email", timestamp: (/* @__PURE__ */ new Date()).toISOString() });

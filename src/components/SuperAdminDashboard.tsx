@@ -809,6 +809,7 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                             <div><span className="font-semibold text-slate-400">Admin Owner:</span> <span className="text-slate-700">{reg.adminName}</span></div>
                             <div><span className="font-semibold text-slate-400">Contact:</span> <span className="text-slate-750">{reg.email}</span></div>
                             <div><span className="font-semibold text-slate-400">Asked seats:</span> <span className="font-bold text-sky-600">{reg.numberOfRequiredSeats} Seats</span></div>
+                            <div><span className="font-semibold text-slate-400">Requested plan:</span> <span className="font-bold text-emerald-600 capitalize">{reg.requestedPlan || "—"}</span></div>
                           </div>
 
                           {reg.additionalInfoRequest && (
