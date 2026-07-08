@@ -308,7 +308,7 @@ function diffFields(existing, incoming, fields) {
 }
 var APP_URL = process.env.APP_URL || "https://bizkhata.app";
 var RESEND_API_KEY = process.env.RESEND_API_KEY;
-var EMAIL_FROM = process.env.EMAIL_FROM || "BizKhata <onboarding@resend.dev>";
+var EMAIL_FROM = process.env.EMAIL_FROM || "Ledgerio <onboarding@resend.dev>";
 async function sendEmail(to, subject, html) {
   if (process.env.GMAIL_REFRESH_TOKEN && process.env.GMAIL_CLIENT_ID && process.env.GMAIL_CLIENT_SECRET) {
     try {
@@ -325,7 +325,7 @@ async function sendEmail(to, subject, html) {
       const tokenData = await tokenRes.json();
       if (!tokenData.access_token) throw new Error("Failed to refresh Gmail token");
       const emailLines = [
-        `From: BizKhata <${EMAIL_FROM}>`,
+        `From: ${EMAIL_FROM}`,
         `To: ${to}`,
         `Subject: ${subject}`,
         `MIME-Version: 1.0`,
@@ -359,14 +359,14 @@ async function sendEmail(to, subject, html) {
           headers: { Authorization: `Bearer ${process.env.SMTP_HTTP_API_KEY}`, "Content-Type": "application/json" },
           body: JSON.stringify({
             personalizations: [{ to: [{ email: to }] }],
-            from: { email: EMAIL_FROM, name: "BizKhata" },
+            from: { email: EMAIL_FROM, name: "Ledgerio" },
             subject,
             content: [{ type: "text/html", value: html }]
           })
         });
       } else if (provider === "mailgun") {
         const domain = process.env.MAILGUN_DOMAIN || "bizkhata.app";
-        const form = new URLSearchParams({ from: `BizKhata <${EMAIL_FROM}>`, to, subject, html });
+        const form = new URLSearchParams({ from: EMAIL_FROM, to, subject, html });
         r = await fetch(`https://api.mailgun.net/v3/${domain}/messages`, {
           method: "POST",
           headers: { Authorization: `Basic ${Buffer.from(`api:${process.env.SMTP_HTTP_API_KEY}`).toString("base64")}` },
@@ -595,7 +595,9 @@ app.get("/api/health", async (req, res) => {
     supabaseConfigured: !!supabase,
     supabaseUrl: SUPABASE_URL ? SUPABASE_URL.substring(0, 40) : "missing",
     env: process.env.VERCEL === "1" ? "vercel" : "local",
-    node: process.version
+    node: process.version,
+    emailProviderConfigured: !!(process.env.RESEND_API_KEY || process.env.GMAIL_REFRESH_TOKEN || process.env.SMTP_HTTP_API_KEY),
+    emailProvider: process.env.RESEND_API_KEY ? "resend" : process.env.GMAIL_REFRESH_TOKEN ? "gmail" : process.env.SMTP_HTTP_API_KEY ? process.env.SMTP_HTTP_PROVIDER : "none"
   };
   if (SUPABASE_URL && SUPABASE_ANON_KEY) {
     try {
@@ -705,7 +707,7 @@ function getInitialState() {
         id: "audit_init",
         timestamp: (/* @__PURE__ */ new Date()).toISOString(),
         action: "System Init",
-        details: "Bizkhata default ledger initialized successfully with secure role access management.",
+        details: "Ledgerio default ledger initialized successfully with secure role access management.",
         userId: "system",
         userName: "System"
       }
@@ -893,12 +895,12 @@ app.post("/api/auth/send-reg-otp", async (req, res) => {
   global.__regOtps[email] = { otp, expiry: Date.now() + 10 * 60 * 1e3 };
   const emailResult = await sendEmail(
     email,
-    "Verify your email \u2014 BizKhata",
-    `<p style="font-family:sans-serif">Your email verification code for BizKhata registration is:</p>
+    "Verify your email \u2014 Ledgerio",
+    `<p style="font-family:sans-serif">Your email verification code for Ledgerio registration is:</p>
      <h2 style="font-family:monospace;letter-spacing:6px;color:#1e40af">${otp}</h2>
      <p style="font-family:sans-serif;color:#666">This code expires in 10 minutes.</p>`
   );
-  USER_DB.notifications.unshift({ id: generateId("notif"), to: email, subject: "BizKhata Email Verification OTP", body: `Registration OTP for ${email}: ${otp} (valid 10 min)`, type: "Email", timestamp: (/* @__PURE__ */ new Date()).toISOString() });
+  USER_DB.notifications.unshift({ id: generateId("notif"), to: email, subject: "Ledgerio Email Verification OTP", body: `Registration OTP for ${email}: ${otp} (valid 10 min)`, type: "Email", timestamp: (/* @__PURE__ */ new Date()).toISOString() });
   res.json({ success: true, emailSent: emailResult.sent, reason: emailResult.reason });
 });
 app.post("/api/auth/register-request", (req, res) => {
@@ -978,12 +980,12 @@ app.post("/api/auth/login", async (req, res) => {
   if (user.organizationId) {
     org = USER_DB.organizations.find((o) => o.id === user.organizationId) || null;
     if (org && org.status === "Suspended") {
-      res.status(403).json({ error: "Your organization is suspended. Contact BizKhata support." });
+      res.status(403).json({ error: "Your organization is suspended. Contact Ledgerio support." });
       return;
     }
     if (org && org.subscriptionExpiresAt && new Date(org.subscriptionExpiresAt) < /* @__PURE__ */ new Date()) {
       org.status = "Suspended";
-      res.status(403).json({ error: `Your subscription expired on ${new Date(org.subscriptionExpiresAt).toLocaleDateString("en-IN")}. Please renew with BizKhata support to continue.` });
+      res.status(403).json({ error: `Your subscription expired on ${new Date(org.subscriptionExpiresAt).toLocaleDateString("en-IN")}. Please renew with Ledgerio support to continue.` });
       return;
     }
   }
@@ -993,8 +995,8 @@ app.post("/api/auth/login", async (req, res) => {
     user.resetCodeExpiry = Date.now() + 10 * 60 * 1e3;
     user.resetCodeAttempts = 0;
     user.twoFactorVerified = false;
-    const emailResult = await sendEmail(user.email, "Your BizKhata login code", `<p>Your one-time login code is:</p><h2>${otp}</h2><p>This code expires in 10 minutes.</p>`);
-    USER_DB.notifications.unshift({ id: generateId("notif"), to: user.email, subject: "Your BizKhata login code", body: `Your OTP is ${otp} (valid 10 minutes).`, type: "Email", code: otp, timestamp: (/* @__PURE__ */ new Date()).toISOString() });
+    const emailResult = await sendEmail(user.email, "Your Ledgerio login code", `<p>Your one-time login code is:</p><h2>${otp}</h2><p>This code expires in 10 minutes.</p>`);
+    USER_DB.notifications.unshift({ id: generateId("notif"), to: user.email, subject: "Your Ledgerio login code", body: `Your OTP is ${otp} (valid 10 minutes).`, type: "Email", code: otp, timestamp: (/* @__PURE__ */ new Date()).toISOString() });
     addAuditLog(user.organizationId, user.fullName, user.role, "2FA OTP Sent", emailResult.sent ? "Emailed login OTP." : `OTP generated (email not sent: ${emailResult.reason}).`);
     res.json({ twoFactorRequired: true, email: user.email, emailSent: emailResult.sent });
     return;
@@ -1044,8 +1046,8 @@ app.post("/api/auth/resend-2fa", async (req, res) => {
   user.activationCode = otp;
   user.resetCodeExpiry = Date.now() + 10 * 60 * 1e3;
   user.resetCodeAttempts = 0;
-  const emailResult = await sendEmail(user.email, "Your BizKhata login code", `<p>Your one-time login code is:</p><h2>${otp}</h2><p>This code expires in 10 minutes.</p>`);
-  USER_DB.notifications.unshift({ id: generateId("notif"), to: user.email, subject: "Your BizKhata login code", body: `Your OTP is ${otp} (valid 10 minutes).`, type: "Email", code: otp, timestamp: (/* @__PURE__ */ new Date()).toISOString() });
+  const emailResult = await sendEmail(user.email, "Your Ledgerio login code", `<p>Your one-time login code is:</p><h2>${otp}</h2><p>This code expires in 10 minutes.</p>`);
+  USER_DB.notifications.unshift({ id: generateId("notif"), to: user.email, subject: "Your Ledgerio login code", body: `Your OTP is ${otp} (valid 10 minutes).`, type: "Email", code: otp, timestamp: (/* @__PURE__ */ new Date()).toISOString() });
   res.json({ success: true, emailSent: emailResult.sent });
 });
 app.post("/api/auth/toggle-2fa", authGuard, (req, res) => {
@@ -1064,13 +1066,13 @@ app.post("/api/auth/forgot-password", async (req, res) => {
     user.resetCode = resetCode;
     user.resetCodeExpiry = Date.now() + 10 * 60 * 1e3;
     user.resetCodeAttempts = 0;
-    USER_DB.notifications.unshift({ id: generateId("notif"), to: email, subject: "BizKhata Password Reset", body: `Reset OTP: ${resetCode} (valid 10 minutes).`, type: "Email", code: resetCode, timestamp: (/* @__PURE__ */ new Date()).toISOString() });
+    USER_DB.notifications.unshift({ id: generateId("notif"), to: email, subject: "Ledgerio Password Reset", body: `Reset OTP: ${resetCode} (valid 10 minutes).`, type: "Email", code: resetCode, timestamp: (/* @__PURE__ */ new Date()).toISOString() });
     addAuditLog(user.organizationId, user.fullName, user.role, "Password Reset Requested", "Reset OTP generated.");
     sendEmail(
       email,
-      "BizKhata Password Reset Code",
+      "Ledgerio Password Reset Code",
       `<div style="font-family:sans-serif;max-width:480px;margin:auto">
-        <h2 style="color:#1e40af">BizKhata Password Reset</h2>
+        <h2 style="color:#1e40af">Ledgerio Password Reset</h2>
         <p>Your password reset code is:</p>
         <div style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#1e40af;background:#f0f4ff;padding:16px;border-radius:8px;text-align:center">${resetCode}</div>
         <p style="color:#666;margin-top:16px">This code expires in <strong>10 minutes</strong>. If you did not request this, ignore this email.</p>
@@ -1154,7 +1156,7 @@ app.post("/api/superadmin/registrations/:id/action", authGuard, superAdminGuard,
         });
       });
     }
-    USER_DB.notifications.unshift({ id: generateId("notif"), to: reg.email, subject: "BizKhata Account Approved", body: `Your account for ${reg.companyName} is approved for ${months} month(s). Login with the email and password you set during sign-up. Subscription valid until: ${new Date(subscriptionExpiresAt).toLocaleDateString("en-IN")}.`, type: "Email", timestamp: (/* @__PURE__ */ new Date()).toISOString() });
+    USER_DB.notifications.unshift({ id: generateId("notif"), to: reg.email, subject: "Ledgerio Account Approved", body: `Your account for ${reg.companyName} is approved for ${months} month(s). Login with the email and password you set during sign-up. Subscription valid until: ${new Date(subscriptionExpiresAt).toLocaleDateString("en-IN")}.`, type: "Email", timestamp: (/* @__PURE__ */ new Date()).toISOString() });
     addAuditLog(null, req.user.fullName, req.user.role, "Approve Registration", `Approved '${reg.companyName}' for ${months} months until ${new Date(subscriptionExpiresAt).toLocaleDateString("en-IN")}.`);
   } else if (action === "Reject") {
     reg.status = "Rejected";
@@ -1333,7 +1335,7 @@ app.post("/api/users", authGuard, requirePermission("manage_users"), (req, res) 
   const newUser = { id: generateId("user"), organizationId: targetOrgId, fullName, email, mobileNumber, department, designation, role, status: "Pending Activation", password: hashPassword(tempPassword), permissions: permissions || ["view_invoices", "view_reports"], twoFactorEnabled: false, createdAt: (/* @__PURE__ */ new Date()).toISOString(), activationCode };
   USER_DB.users.push(newUser);
   org.usedSeats = USER_DB.users.filter((u) => u.organizationId === targetOrgId && u.status !== "Disabled").length;
-  USER_DB.notifications.unshift({ id: generateId("notif"), to: email, subject: `Welcome to BizKhata - ${org.name}`, body: `Hello ${fullName},
+  USER_DB.notifications.unshift({ id: generateId("notif"), to: email, subject: `Welcome to Ledgerio - ${org.name}`, body: `Hello ${fullName},
 
 Temp Password: ${tempPassword}
 Role: ${role}
@@ -1527,13 +1529,13 @@ app.post("/api/users/add", authGuard, requirePermission("manage_users"), async (
     isOwner: false
   };
   db.users.push(newUser);
-  const mailSubject = "Welcome to Bizkhata - Your Accounting Portal account is ready!";
+  const mailSubject = "Welcome to Ledgerio - Your Accounting Portal account is ready!";
   const mailBody = `Dear ${name},
 
-Your organization manager (${author || "@admin"}) has assigned an accounting seat for you on the Bizkhata General Ledger platform.
+Your organization manager (${author || "@admin"}) has assigned an accounting seat for you on the Ledgerio General Ledger platform.
 
 Here are your access details:
-\u2022 Portal URL: Bizkhata Cloud Edge
+\u2022 Portal URL: Ledgerio Cloud Edge
 \u2022 Registered Email: ${email.toLowerCase()}
 \u2022 Mobile Number: ${mobile}
 \u2022 Designated Role: ${role || "Viewer"}
@@ -1542,7 +1544,7 @@ Here are your access details:
 You can log in directly at the system portal page.
 
 Warm regards,
-Bizkhata Zoho Books Infrastructure Team.`;
+Ledgerio Infrastructure Team.`;
   const newMailLog = {
     id: "mail_" + uuid(),
     to: email.toLowerCase(),
@@ -2298,7 +2300,7 @@ app.get("/api/export/tally", authGuard, async (req, res) => {
       <REQUESTDESC>
         <REPORTNAME>Vouchers</REPORTNAME>
         <STATICVARIABLES>
-          <SVCURRENTCOMPANY>${escXml(company.name || "BizKhata Export")}</SVCURRENTCOMPANY>
+          <SVCURRENTCOMPANY>${escXml(company.name || "Ledgerio Export")}</SVCURRENTCOMPANY>
         </STATICVARIABLES>
       </REQUESTDESC>
       <REQUESTDATA>
@@ -2379,7 +2381,7 @@ app.post("/api/notifications/whatsapp", authGuard, async (req, res) => {
     const r = await fetch(`${watiUrl}/api/v1/sendTemplateMessage?whatsappNumber=${phone.replace(/\D/g, "")}`, {
       method: "POST",
       headers: { Authorization: `Bearer ${watiToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ template_name: templateName || "bizkhata_notification", broadcast_name: "bizkhata", parameters: [{ name: "message", value: message }] })
+      body: JSON.stringify({ template_name: templateName || "bizkhata_notification", broadcast_name: "Ledgerio", parameters: [{ name: "message", value: message }] })
     });
     const data = await r.json();
     res.json({ sent: r.ok, data });
@@ -2468,35 +2470,35 @@ app.get("/api/plan-features", authGuard, (req, res) => {
 });
 app.get("/api/legal/tos", (_req, res) => {
   res.json({
-    title: "BizKhata Terms of Service",
+    title: "Ledgerio Terms of Service",
     effectiveDate: "2026-01-01",
     content: `
 **1. Acceptance of Terms**
-By accessing or using BizKhata ("Service"), you agree to be bound by these Terms of Service. If you do not agree, do not use the Service.
+By accessing or using Ledgerio ("Service"), you agree to be bound by these Terms of Service. If you do not agree, do not use the Service.
 
 **2. Service Description**
-BizKhata is a cloud-based accounting and GST compliance platform for Indian businesses. The Service includes invoicing, expense management, GST filing preparation, financial reporting, and related features.
+Ledgerio is a cloud-based accounting and GST compliance platform for Indian businesses. The Service includes invoicing, expense management, GST filing preparation, financial reporting, and related features.
 
 **3. Account Registration**
 You must provide accurate information during registration. Each organisation is responsible for maintaining the security of its login credentials. You must notify us immediately of any unauthorised access.
 
 **4. Subscription & Billing**
-Access to BizKhata is provided on a subscription basis. Subscriptions are activated by the platform administrator and are subject to the seat count and duration approved at onboarding. Fees are due as per the pricing communicated at sign-up.
+Access to Ledgerio is provided on a subscription basis. Subscriptions are activated by the platform administrator and are subject to the seat count and duration approved at onboarding. Fees are due as per the pricing communicated at sign-up.
 
 **5. Data Ownership**
-All accounting data you enter into BizKhata remains your property. We do not claim ownership over your financial records, customer data, or business information.
+All accounting data you enter into Ledgerio remains your property. We do not claim ownership over your financial records, customer data, or business information.
 
 **6. Data Security**
 We use industry-standard encryption and security practices. Data is stored on Supabase (PostgreSQL) servers. We do not sell your data to third parties.
 
 **7. Prohibited Use**
-You may not use BizKhata to process fraudulent transactions, file false GST returns, or engage in any activity that violates Indian law including the Income Tax Act, GST Act, or Companies Act.
+You may not use Ledgerio to process fraudulent transactions, file false GST returns, or engage in any activity that violates Indian law including the Income Tax Act, GST Act, or Companies Act.
 
 **8. Service Availability**
 We strive for 99.5% uptime but do not guarantee uninterrupted access. Scheduled maintenance will be notified in advance.
 
 **9. Limitation of Liability**
-BizKhata is a tool to assist with accounting. We are not responsible for errors in GST filings, tax calculations, or financial decisions made using the Service. Always verify critical filings with a qualified CA.
+Ledgerio is a tool to assist with accounting. We are not responsible for errors in GST filings, tax calculations, or financial decisions made using the Service. Always verify critical filings with a qualified CA.
 
 **10. Termination**
 We reserve the right to suspend or terminate accounts that violate these terms, with reasonable notice except in cases of fraud or security breach.
@@ -2511,7 +2513,7 @@ For queries: support@bizkhata.app | Verma Consultancy Services, Varanasi, Uttar 
 });
 app.get("/api/legal/privacy", (_req, res) => {
   res.json({
-    title: "BizKhata Privacy Policy",
+    title: "Ledgerio Privacy Policy",
     effectiveDate: "2026-01-01",
     content: `
 **1. Information We Collect**
@@ -2554,7 +2556,7 @@ We retain your data for as long as your subscription is active, plus 7 years aft
 We use only essential session cookies for authentication. No advertising or tracking cookies.
 
 **9. Children's Privacy**
-BizKhata is not intended for use by anyone under 18 years of age.
+Ledgerio is not intended for use by anyone under 18 years of age.
 
 **10. Changes to This Policy**
 We will notify registered users by email of any material changes to this policy with 30 days notice.
@@ -2696,7 +2698,7 @@ app.post("/api/ai/invoice-create", authGuard, async (req, res) => {
     });
   }
   try {
-    const systemPrompt = `You are Bizkhata's smart invoice extraction system. Parse the client's unstructured prompt (e.g., mail copy, bill list, note) and return matched business fields as JSON. Identify:
+    const systemPrompt = `You are Ledgerio's smart invoice extraction system. Parse the client's unstructured prompt (e.g., mail copy, bill list, note) and return matched business fields as JSON. Identify:
     1. Customer Name
     2. Items list (name, qty, rate, gstRate (standard 18% if unspecified))
     Strictly output details inside the following JSON structure:
@@ -2840,7 +2842,7 @@ app.post("/api/ai/explain-report", authGuard, async (req, res) => {
   const { reportType, data } = req.body;
   if (!ai) {
     return res.json({
-      explanation: "### BizKhata AI Financial Analyst\nTo get personalized AI summaries and forecast charts, please activate the GEMINI_API_KEY in the Secrets panel.\n\nFrom the heuristic view:\n1. **Tax compliance** looks good with CGST/SGST structured correctly for intra-state and IGST for inter-state supplies.\n2. **Bank Reserves** reflect your current opening balance as entered in Company Setup \u2192 Opening Balances."
+      explanation: "### Ledgerio AI Financial Analyst\nTo get personalized AI summaries and forecast charts, please activate the GEMINI_API_KEY in the Secrets panel.\n\nFrom the heuristic view:\n1. **Tax compliance** looks good with CGST/SGST structured correctly for intra-state and IGST for inter-state supplies.\n2. **Bank Reserves** reflect your current opening balance as entered in Company Setup \u2192 Opening Balances."
     });
   }
   try {
@@ -2876,7 +2878,7 @@ We kindly request you to process the NEFT/RTGS bank transfer at your earliest co
 
 Best Regards,
 Finance & Compliance Team
-Bizkhata Pvt Ltd`
+Ledgerio Pvt Ltd`
     });
   }
   try {
@@ -2908,7 +2910,7 @@ app.post("/api/ai/copilot", authGuard, async (req, res) => {
     });
   }
   try {
-    const systemPrompt = `You are BizKhata's AI accounting copilot \u2014 an expert CA (Chartered Accountant) specializing in Indian GST, TDS, accounting standards (IndAS/GAAP), and business finance. Answer questions concisely and accurately. Context about this organization: ${JSON.stringify(context || {})}.`;
+    const systemPrompt = `You are Ledgerio's AI accounting copilot \u2014 an expert CA (Chartered Accountant) specializing in Indian GST, TDS, accounting standards (IndAS/GAAP), and business finance. Answer questions concisely and accurately. Context about this organization: ${JSON.stringify(context || {})}.`;
     const userMessage = Array.isArray(messages) ? messages[messages.length - 1]?.content || "" : messages;
     const response = await ai.models.generateContent({
       model: "gemini-3.5-flash",
@@ -3241,16 +3243,13 @@ if (process.env.VERCEL !== "1") {
       });
     }
     app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Bizkhata express ledger server listening on port ${PORT}...`);
+      console.log(`Ledgerio express ledger server listening on port ${PORT}...`);
     });
   })();
 }
 app.use((err, req, res, next) => {
   console.error("Unhandled error:", err?.message || err);
   res.status(500).json({ error: "Internal server error", detail: err?.message });
-});
-app.get("/api/health", (_req, res) => {
-  res.json({ ok: true, ts: (/* @__PURE__ */ new Date()).toISOString(), node: process.version });
 });
 var server_default = app;
 //# sourceMappingURL=server.cjs.map
