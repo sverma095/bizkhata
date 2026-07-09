@@ -8,6 +8,7 @@ interface OrgSettingsProps {
   onUpdateRole: (role: string) => void;
   onResetDB: () => void;
   currentUserEmail: string;
+  onClose?: () => void;
 }
 
 type SettingsSection =
@@ -406,8 +407,12 @@ const ROLES_LIST = [
   { name: "Viewer", desc: "Read-only access to view invoices, reports and transactions." },
 ];
 
-export default function OrgSettings({ db, onUpdateCompany, onUpdateRole, onResetDB, currentUserEmail }: OrgSettingsProps) {
+export default function OrgSettings({ db, onUpdateCompany, onUpdateRole, onResetDB, currentUserEmail, onClose }: OrgSettingsProps) {
   const [activeSection, setActiveSection] = useState<SettingsSection>("profile");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState<"preferences" | "fields" | "validation" | "buttons" | "related">("preferences");
+  const isModuleItem = !!TOGGLE_LABELS[activeSection];
+  React.useEffect(() => { setActiveTab("preferences"); }, [activeSection]);
 
   const renderContent = () => {
     // Roles section
@@ -542,64 +547,86 @@ export default function OrgSettings({ db, onUpdateCompany, onUpdateRole, onReset
     );
   };
 
+  const query = searchQuery.trim().toLowerCase();
+  const matchesQuery = (label: string) => !query || label.toLowerCase().includes(query);
+
   return (
-    <div className="space-y-0 animate-fade-in">
+    <div className="fixed inset-0 z-40 bg-white flex flex-col animate-fade-in">
       {/* Header */}
-      <div className="pb-4 border-b border-gray-200 mb-6">
-        <h1 className="text-xl font-bold text-gray-900">Settings</h1>
+      <div className="flex items-center gap-4 px-6 h-16 border-b border-gray-200 shrink-0">
+        <div className="flex items-center gap-2">
+          <Settings className="w-5 h-5 text-blue-600" />
+          <div>
+            <h1 className="text-sm font-bold text-gray-900 leading-tight">All Settings</h1>
+            <p className="text-xs text-gray-500 leading-tight">{db?.company?.name || "Your Company"}</p>
+          </div>
+        </div>
+        <div className="flex-1 max-w-md mx-auto">
+          <input
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search settings ( / )"
+            className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white"
+          />
+        </div>
+        <button onClick={onClose} className="text-sm font-semibold text-gray-500 hover:text-gray-800 border border-gray-200 hover:bg-gray-50 rounded-lg px-3 py-1.5 transition flex items-center gap-1.5 shrink-0">
+          Close Settings <span className="text-gray-400">✕</span>
+        </button>
       </div>
 
-      {/* Top-level settings groups */}
-      <div className="mb-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="flex flex-1 min-h-0">
+        {/* Sidebar */}
+        <div className="w-64 border-r border-gray-200 overflow-y-auto shrink-0 py-4">
+          <div className="px-4 mb-2">
+            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wide">Organization Settings</p>
+          </div>
           {SECTIONS.map(section => {
             const Icon = section.icon;
+            const items = section.items.filter(i => matchesQuery(i.label));
+            if (query && items.length === 0) return null;
             return (
-              <div key={section.group} className="bg-white border border-gray-200 rounded-xl p-4 space-y-2">
-                <div className="flex items-center gap-2 border-b border-gray-100 pb-2 mb-1">
-                  <Icon className={`w-4 h-4 ${section.iconColor}`} />
-                  <h3 className="text-xs font-semibold text-gray-700">{section.group}</h3>
+              <div key={section.group} className="mb-4">
+                <div className="flex items-center gap-2 px-4 py-1">
+                  <Icon className={`w-3.5 h-3.5 ${section.iconColor}`} />
+                  <h3 className="text-xs font-semibold text-gray-500">{section.group}</h3>
                 </div>
-                {section.items.map(item => (
+                {items.map(item => (
                   <button
                     key={item.id}
                     onClick={() => setActiveSection(item.id)}
-                    className={`block w-full text-left text-sm px-1 py-0.5 rounded hover:text-blue-700 transition ${
-                      activeSection === item.id ? "text-blue-700 font-semibold" : "text-gray-600"
+                    className={`block w-full text-left text-sm pl-9 pr-4 py-1.5 transition ${
+                      activeSection === item.id ? "bg-blue-50 text-blue-700 font-semibold border-r-2 border-blue-600" : "text-gray-600 hover:bg-gray-50"
                     }`}
                   >
                     {item.label}
                     {item.label === "Payment Terms" && (
-                      <span className="ml-1 text-[9px] bg-red-100 text-red-600 font-bold px-1 rounded">NEW</span>
+                      <span className="ml-1.5 text-[9px] bg-red-100 text-red-600 font-bold px-1 rounded">NEW</span>
                     )}
                   </button>
                 ))}
               </div>
             );
           })}
-        </div>
-      </div>
 
-      {/* Module Settings */}
-      <div className="mb-8">
-        <h2 className="text-sm font-semibold text-gray-700 mb-4">Module Settings</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="px-4 mb-2 mt-6 pt-4 border-t border-gray-100">
+            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wide">Module Settings</p>
+          </div>
           {MODULE_SETTINGS.map(group => {
             const Icon = group.icon;
+            const items = group.items.filter(i => matchesQuery(i.label));
+            if (query && items.length === 0) return null;
             return (
-              <div key={group.group} className="bg-white border border-gray-200 rounded-xl p-4 space-y-2">
-                <div className="flex items-center gap-2 border-b border-gray-100 pb-2 mb-1">
-                  <span className={`p-1 rounded ${group.iconBg}`}>
-                    <Icon className="w-3.5 h-3.5" />
-                  </span>
-                  <h3 className="text-xs font-semibold text-gray-700">{group.group}</h3>
+              <div key={group.group} className="mb-4">
+                <div className="flex items-center gap-2 px-4 py-1">
+                  <span className={`p-0.5 rounded ${group.iconBg}`}><Icon className="w-3 h-3" /></span>
+                  <h3 className="text-xs font-semibold text-gray-500">{group.group}</h3>
                 </div>
-                {group.items.map(item => (
+                {items.map(item => (
                   <button
                     key={item.id}
                     onClick={() => setActiveSection(item.id)}
-                    className={`block w-full text-left text-sm px-1 py-0.5 rounded hover:text-blue-700 transition ${
-                      activeSection === item.id ? "text-blue-700 font-semibold" : "text-gray-600"
+                    className={`block w-full text-left text-sm pl-9 pr-4 py-1.5 transition ${
+                      activeSection === item.id ? "bg-blue-50 text-blue-700 font-semibold border-r-2 border-blue-600" : "text-gray-600 hover:bg-gray-50"
                     }`}
                   >
                     {item.label}
@@ -609,12 +636,55 @@ export default function OrgSettings({ db, onUpdateCompany, onUpdateRole, onReset
             );
           })}
         </div>
-      </div>
 
-      {/* Section content */}
-      <div>
-        {renderContent()}
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto">
+          {isModuleItem ? (
+            <div>
+              <div className="px-8 pt-6">
+                <h2 className="text-lg font-bold text-gray-900 mb-3">{TOGGLE_LABELS[activeSection]}</h2>
+                <div className="flex items-center gap-6 border-b border-gray-200 text-sm">
+                  {[
+                    { id: "preferences", label: "Preferences" },
+                    { id: "fields", label: "Fields" },
+                    { id: "validation", label: "Validation Rules" },
+                    { id: "buttons", label: "Buttons" },
+                    { id: "related", label: "Related Lists" },
+                  ].map(tab => (
+                    <button key={tab.id} onClick={() => setActiveTab(tab.id as any)}
+                      className={`pb-2.5 -mb-px border-b-2 font-medium transition ${activeTab === tab.id ? "border-blue-600 text-blue-700" : "border-transparent text-gray-500 hover:text-gray-700"}`}>
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="p-8">
+                {activeTab === "preferences" ? (
+                  <ToggleModuleSection sectionId={activeSection} />
+                ) : (
+                  <div className="max-w-md text-center py-16 mx-auto">
+                    <Settings className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                    <p className="text-sm text-gray-500 font-medium">
+                      {tab_label(activeTab)} customization isn't built yet.
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      This would let you add custom fields, validation rules, or buttons — a larger feature than a simple toggle, not implemented yet.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="p-8">
+              {renderContent()}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
+}
+
+function tab_label(tab: string) {
+  return { fields: "Fields", validation: "Validation Rules", buttons: "Buttons", related: "Related Lists" }[tab] || tab;
 }

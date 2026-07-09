@@ -1616,6 +1616,7 @@ export default function App() {
                 onUpdateRole={handleUpdateRole}
                 onResetDB={handleResetDB}
                 currentUserEmail={activeUserEmail}
+                onClose={() => setActiveTab("dashboard")}
               />
             )}
 
