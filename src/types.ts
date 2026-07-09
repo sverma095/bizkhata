@@ -22,6 +22,13 @@ export interface CompanyInfo {
     password: string;
     configured: boolean;
   };
+  moduleSettings?: Record<string, boolean>;
+  paymentTerms?: { name: string; days: number }[];
+  directTaxes?: {
+    tdsDefaultRate: number;
+    tcsDefaultRate: number;
+    panForm26AS: string;
+  };
 }
 
 export enum UserRole {

@@ -423,6 +423,40 @@ export default function OrgSettings({ db, onUpdateCompany, onUpdateRole, onReset
       );
     }
 
+    if (activeSection === "workflow_actions") {
+      const actionTypes = [
+        { name: "Send Email", desc: "Notify a specified recipient by email when the trigger event occurs." },
+        { name: "Send Notification", desc: "Show an in-app notification to relevant users." },
+        { name: "Require Approval", desc: "Route the transaction to an approver before it can proceed." },
+      ];
+      return (
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden max-w-2xl">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-base font-semibold text-gray-800">Workflow Actions</h2>
+            <p className="text-xs text-gray-500 mt-1">Available actions you can attach to a Workflow Rule.</p>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {actionTypes.map(a => (
+              <div key={a.name} className="px-6 py-4">
+                <p className="text-sm font-semibold text-gray-800">{a.name}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{a.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    if (activeSection === "workflow_logs") {
+      return (
+        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center max-w-2xl">
+          <Settings className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+          <h3 className="text-base font-semibold text-gray-700 mb-1">Workflow Logs</h3>
+          <p className="text-sm text-gray-400">No execution logs yet — logs appear here once your Workflow Rules start running against real transactions.</p>
+        </div>
+      );
+    }
+
     // Placeholder for other sections
     const sectionLabel = [...SECTIONS.flatMap(s => s.items), ...MODULE_SETTINGS.flatMap(s => s.items)]
       .find(i => i.id === activeSection)?.label || activeSection;
