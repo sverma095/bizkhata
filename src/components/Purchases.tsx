@@ -953,7 +953,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                         <span className="text-gray-500 shrink-0">Discount</span>
                         <input type="number" min={0} value={billDiscountValue}
                           onChange={(e) => setBillDiscountValue(parseFloat(e.target.value) || 0)}
-                          className="flex-1 bg-white border border-gray-300 rounded px-2 py-1 text-gray-800 text-xs outline-none text-right" placeholder="0"
+                          className="flex-1 min-w-0 bg-white border border-gray-300 rounded px-2 py-1 text-gray-800 text-xs outline-none text-right" placeholder="0"
                         />
                         <select value={billDiscountType} onChange={e => setBillDiscountType(e.target.value as any)}
                           className="bg-white border border-gray-300 rounded px-1 py-1 text-gray-700 text-xs outline-none">

@@ -1160,7 +1160,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                     <span className="text-gray-500 w-20 shrink-0">Discount</span>
                     <input type="number" min={0} step={0.01} value={discountValue}
                       onChange={(e) => setDiscountValue(parseFloat(e.target.value)||0)}
-                      className="flex-1 bg-white border border-gray-300 rounded px-2 py-1 text-gray-800 text-xs outline-none text-right"
+                      className="flex-1 min-w-0 bg-white border border-gray-300 rounded px-2 py-1 text-gray-800 text-xs outline-none text-right"
                       placeholder="0"
                     />
                     <select value={discountType} onChange={(e) => setDiscountType(e.target.value as any)}
