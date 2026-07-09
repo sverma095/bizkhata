@@ -193,6 +193,11 @@ const LIST_MODULE_MAP: Record<string, { key: string; title: string; fields: Arra
     { id: "trigger", label: "Trigger Event", type: "select", options: ["Invoice Created", "Invoice Approved", "Bill Received", "Payment Overdue"] },
     { id: "action", label: "Action", type: "select", options: ["Send Email", "Send Notification", "Require Approval"] },
   ]},
+  workflow_actions: { key: "workflowactions", title: "Workflow Actions", fields: [
+    { id: "name", label: "Action Name", type: "text" },
+    { id: "type", label: "Action Type", type: "select", options: ["Send Email", "Send SMS", "Assign Approver", "Call Webhook", "Update Field"] },
+    { id: "target", label: "Target (email / URL / field)", type: "text" },
+  ]},
   schedules: { key: "schedreports", title: "Scheduled Reports", fields: [
     { id: "reportName", label: "Report Name", type: "select", options: ["P&L Statement", "Balance Sheet", "GSTR-1", "Outstanding Receivables"] },
     { id: "frequency", label: "Frequency", type: "select", options: ["Daily", "Weekly", "Monthly"] },
@@ -312,6 +317,47 @@ function ListModuleSection({ config }: { config: { key: string; title: string; f
               {config.fields.map(f => item[f.id] ? <span key={f.id}><span className="text-gray-400">{f.label}:</span> {item[f.id]}</span> : null)}
             </div>
             <button onClick={() => handleDelete(item.id)} className="text-red-500 hover:text-red-700 text-xs font-semibold shrink-0 ml-4">Delete</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function WorkflowLogsSection() {
+  const [logs, setLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  React.useEffect(() => {
+    authedFetch('/api/audit-logs').then(r => r.json()).then(data => {
+      const filtered = (Array.isArray(data) ? data : []).filter((l: any) =>
+        typeof l.actionPerformed === 'string' && l.actionPerformed.toLowerCase().includes('module')
+      );
+      setLogs(filtered);
+    }).finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden max-w-3xl">
+      <div className="px-6 py-4 border-b border-gray-200">
+        <h2 className="text-base font-semibold text-gray-800">Workflow Logs</h2>
+        <p className="text-xs text-gray-500 mt-1">
+          This shows real activity from changes to Workflow Rules and Actions. It does not show automatic
+          rule-execution history (e.g. "rule fired on Invoice #123") since that automation engine hasn't been
+          built yet — rules and actions can be configured but aren't triggered automatically at this time.
+        </p>
+      </div>
+      <div className="divide-y divide-gray-100">
+        {loading ? (
+          <div className="p-6 text-sm text-gray-400">Loading...</div>
+        ) : logs.length === 0 ? (
+          <div className="p-6 text-sm text-gray-400">No workflow-related activity yet.</div>
+        ) : logs.map(log => (
+          <div key={log.id} className="px-6 py-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-700">{log.actionPerformed}</span>
+              <span className="text-xs text-gray-400">{new Date(log.timestamp).toLocaleString('en-IN')}</span>
+            </div>
+            <p className="text-xs text-gray-500 mt-0.5">{log.details} · by {log.userName}</p>
           </div>
         ))}
       </div>
@@ -477,6 +523,10 @@ export default function OrgSettings({ db, onUpdateCompany, onUpdateRole, onReset
 
     if (LIST_MODULE_MAP[activeSection]) {
       return <ListModuleSection config={LIST_MODULE_MAP[activeSection]} />;
+    }
+
+    if (activeSection === "workflow_logs") {
+      return <WorkflowLogsSection />;
     }
 
     if (TOGGLE_LABELS[activeSection]) {

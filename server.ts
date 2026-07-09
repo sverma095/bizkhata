@@ -1268,7 +1268,7 @@ const ALLOWED_MODULE_KEYS = new Set([
   "tds", "workflow", "email", "gstr2b", "reminders", "approvals", "bankfeeds", "cportal", "vportal",
   "budget", "projects", "timesheets", "multicurrency", "audit", "grn", "rcm", "depreciation",
   "recurring", "billexp", "advances", "partial", "milestone", "batch", "composite", "cheque",
-  "hsn", "attachments", "pricelists", "multigstin", "schedreports", "costcentres", "docs", "paymentterms"
+  "hsn", "attachments", "pricelists", "multigstin", "schedreports", "costcentres", "docs", "paymentterms", "workflowactions"
 ]);
 app.get("/api/modules/:key", authGuard, async (req: any, res: any) => {
   const { key } = req.params;
@@ -1286,6 +1286,7 @@ app.post("/api/modules/:key", authGuard, async (req: any, res: any) => {
   const item = { id: `${key}_${uuid()}`, createdAt: new Date().toISOString(), createdBy: req.user.fullName, ...req.body };
   db.advancedModules[key].push(item);
   await writeDB(orgId, db);
+  addAuditLog(orgId, req.user.fullName, req.user.role, `Module: ${key}`, `Created entry: ${Object.values(req.body).slice(0, 2).join(" / ")}`);
   res.json(item);
 });
 app.put("/api/modules/:key/:id", authGuard, async (req: any, res: any) => {
@@ -1298,6 +1299,7 @@ app.put("/api/modules/:key/:id", authGuard, async (req: any, res: any) => {
   if (idx === -1) return res.status(404).json({ error: "Not found." });
   arr[idx] = { ...arr[idx], ...req.body };
   await writeDB(orgId, db);
+  addAuditLog(orgId, req.user.fullName, req.user.role, `Module: ${key}`, `Updated entry ${id}`);
   res.json(arr[idx]);
 });
 app.delete("/api/modules/:key/:id", authGuard, async (req: any, res: any) => {
@@ -1308,6 +1310,7 @@ app.delete("/api/modules/:key/:id", authGuard, async (req: any, res: any) => {
   if (db.advancedModules?.[key]) {
     db.advancedModules[key] = db.advancedModules[key].filter((i: any) => i.id !== id);
     await writeDB(orgId, db);
+    addAuditLog(orgId, req.user.fullName, req.user.role, `Module: ${key}`, `Deleted entry ${id}`);
   }
   res.json({ success: true });
 });

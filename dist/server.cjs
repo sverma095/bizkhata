@@ -1236,7 +1236,8 @@ var ALLOWED_MODULE_KEYS = /* @__PURE__ */ new Set([
   "schedreports",
   "costcentres",
   "docs",
-  "paymentterms"
+  "paymentterms",
+  "workflowactions"
 ]);
 app.get("/api/modules/:key", authGuard, async (req, res) => {
   const { key } = req.params;
@@ -1254,6 +1255,7 @@ app.post("/api/modules/:key", authGuard, async (req, res) => {
   const item = { id: `${key}_${uuid()}`, createdAt: (/* @__PURE__ */ new Date()).toISOString(), createdBy: req.user.fullName, ...req.body };
   db.advancedModules[key].push(item);
   await writeDB(orgId, db);
+  addAuditLog(orgId, req.user.fullName, req.user.role, `Module: ${key}`, `Created entry: ${Object.values(req.body).slice(0, 2).join(" / ")}`);
   res.json(item);
 });
 app.put("/api/modules/:key/:id", authGuard, async (req, res) => {
@@ -1266,6 +1268,7 @@ app.put("/api/modules/:key/:id", authGuard, async (req, res) => {
   if (idx === -1) return res.status(404).json({ error: "Not found." });
   arr[idx] = { ...arr[idx], ...req.body };
   await writeDB(orgId, db);
+  addAuditLog(orgId, req.user.fullName, req.user.role, `Module: ${key}`, `Updated entry ${id}`);
   res.json(arr[idx]);
 });
 app.delete("/api/modules/:key/:id", authGuard, async (req, res) => {
@@ -1276,6 +1279,7 @@ app.delete("/api/modules/:key/:id", authGuard, async (req, res) => {
   if (db.advancedModules?.[key]) {
     db.advancedModules[key] = db.advancedModules[key].filter((i) => i.id !== id);
     await writeDB(orgId, db);
+    addAuditLog(orgId, req.user.fullName, req.user.role, `Module: ${key}`, `Deleted entry ${id}`);
   }
   res.json({ success: true });
 });
