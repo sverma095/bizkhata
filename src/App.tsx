@@ -97,32 +97,39 @@ export default function App() {
   const [routeCode, setRouteCode] = useState('');
 
   // Parse URL for activation/reset links (e.g. /activate?code=...&email=...) so emailed
-  // links actually pre-fill the right screen. Runs once on mount; defaults to '' (landing
-  // page) when there's no special route so a plain visit to the site shows the landing page.
-  React.useEffect(() => {
+  // links actually pre-fill the right screen. Also recognizes /login and /register directly
+  // (set via pushState when navigating from the landing page) so a reload or bookmark on
+  // those paths shows the right screen. Runs once on mount; defaults to '' (landing page)
+  // when there's no special route.
+  const [showLoginFlag, setShowLoginFlag] = useState<string | null>(null);
+  const applyRouteFromLocation = () => {
     if (typeof window === 'undefined') return;
     const path = window.location.pathname;
     const params = new URLSearchParams(window.location.search);
     const email = params.get('email') || '';
     const code = params.get('code') || '';
     if (path.startsWith('/activate') && email && code) {
-      setPanelView('activate'); setRouteEmail(email); setRouteCode(code);
+      setPanelView('activate'); setRouteEmail(email); setRouteCode(code); setShowLoginFlag(null);
     } else if (path.startsWith('/reset') && email && code) {
-      setPanelView('reset'); setRouteEmail(email); setRouteCode(code);
-    } else if (params.get('view') === 'login') {
-      setPanelView('login');
+      setPanelView('reset'); setRouteEmail(email); setRouteCode(code); setShowLoginFlag(null);
+    } else if (path.startsWith('/register')) {
+      setShowLoginFlag('signup');
+    } else if (path.startsWith('/login') || params.get('view') === 'login') {
+      setShowLoginFlag('login');
+    } else {
+      setShowLoginFlag(null); setPanelView('');
     }
-  }, []);
-
-  // Read+clear the one-shot "show login/signup" flag exactly once on mount, into state.
-  // (Previously this read/removeItem happened inline during render, which is impure —
-  // any later re-render would see the flag already gone and flip back to the landing
-  // page, causing a "click Sign In, flashes login, bounces back" bug.)
-  const [showLoginFlag, setShowLoginFlag] = useState<string | null>(null);
+  };
   React.useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const flag = localStorage.getItem('bk_show_login');
+    applyRouteFromLocation();
+    // Also pick up the one-shot flag from OrgSettings/CompanySetup-style redirects that
+    // still use localStorage (e.g. after logout redirecting back to a specific view).
+    const flag = typeof window !== 'undefined' ? localStorage.getItem('bk_show_login') : null;
     if (flag) { setShowLoginFlag(flag); localStorage.removeItem('bk_show_login'); }
+    // Respond to the browser's actual Back/Forward buttons instead of leaving the site.
+    const onPopState = () => applyRouteFromLocation();
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
   // Hydrate session on load
@@ -969,8 +976,8 @@ export default function App() {
     if (!panelView && !routeEmail && !routeCode && !showLoginFlag) {
       return (
         <LandingPage
-          onGetStarted={() => { localStorage.setItem('bk_show_login', 'signup'); window.location.reload(); }}
-          onLogin={() => { localStorage.setItem('bk_show_login', 'login'); window.location.reload(); }}
+          onGetStarted={() => { window.history.pushState({}, '', '/register'); setShowLoginFlag('signup'); }}
+          onLogin={() => { window.history.pushState({}, '', '/login'); setShowLoginFlag('login'); }}
         />
       );
     }
@@ -978,6 +985,7 @@ export default function App() {
       <div className="min-h-screen bg-slate-50">
         <LoginScreen
           onLoginSuccess={handleLoginSuccess}
+          onBackToLanding={() => { window.history.pushState({}, '', '/'); setShowLoginFlag(null); setPanelView(''); }}
           initialView={showLoginFlag || panelView}
           initialEmail={routeEmail}
           initialCode={routeCode}

@@ -4,12 +4,13 @@ import { SessionInfo } from '../types.js';
 
 interface LoginScreenProps {
   onLoginSuccess: (session: SessionInfo) => void;
+  onBackToLanding?: () => void;
   initialView?: string;
   initialEmail?: string;
   initialCode?: string;
 }
 
-export default function LoginScreen({ onLoginSuccess, initialView = 'login', initialEmail = '', initialCode = '' }: LoginScreenProps) {
+export default function LoginScreen({ onLoginSuccess, onBackToLanding, initialView = 'login', initialEmail = '', initialCode = '' }: LoginScreenProps) {
   const [view, setView] = useState<'login' | 'signup' | 'forgot' | 'reset' | 'twofa' | 'tos' | 'privacy'>(initialView === 'reset' ? 'reset' : 'login');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -216,7 +217,7 @@ export default function LoginScreen({ onLoginSuccess, initialView = 'login', ini
               <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center font-black text-white">L</div>
               <span className="font-black text-white text-lg">Ledgerio</span>
             </div>
-            <a href="/" onClick={(e) => { e.preventDefault(); localStorage.removeItem('bk_show_login'); window.location.href='/'; }}
+            <a href="/" onClick={(e) => { e.preventDefault(); if (onBackToLanding) onBackToLanding(); else { localStorage.removeItem('bk_show_login'); window.location.href='/'; } }}
               className="text-xs text-slate-400 hover:text-emerald-400 transition">← Home</a>
           </div>
 
