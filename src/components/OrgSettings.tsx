@@ -162,6 +162,163 @@ const MODULE_SETTINGS: Array<{
   },
 ];
 
+// Sections backed by the generic advancedModules list-CRUD backend (/api/modules/:key).
+// Each entry defines the simple field schema for that module's items.
+const LIST_MODULE_MAP: Record<string, { key: string; title: string; fields: Array<{ id: string; label: string; type: "text" | "number" | "select"; options?: string[] }> }> = {
+  direct_taxes: { key: "tds", title: "Direct Taxes (TDS/TCS Rates)", fields: [
+    { id: "section", label: "Section (e.g. 194C, 194J)", type: "text" },
+    { id: "description", label: "Description", type: "text" },
+    { id: "rate", label: "Rate %", type: "number" },
+    { id: "threshold", label: "Threshold Amount (₹)", type: "number" },
+  ]},
+  payment_terms: { key: "paymentterms", title: "Payment Terms", fields: [
+    { id: "name", label: "Term Name (e.g. Net 30)", type: "text" },
+    { id: "days", label: "Days", type: "number" },
+  ]},
+  reminders: { key: "reminders", title: "Payment Reminders", fields: [
+    { id: "name", label: "Reminder Name", type: "text" },
+    { id: "daysBefore", label: "Days Before/After Due Date", type: "number" },
+    { id: "message", label: "Message", type: "text" },
+  ]},
+  customer_portal: { key: "cportal", title: "Customer Portal Access", fields: [
+    { id: "customerEmail", label: "Customer Email", type: "text" },
+    { id: "accessLevel", label: "Access Level", type: "select", options: ["View Only", "View & Pay", "Full Access"] },
+  ]},
+  vendor_portal: { key: "vportal", title: "Vendor Portal Access", fields: [
+    { id: "vendorEmail", label: "Vendor Email", type: "text" },
+    { id: "accessLevel", label: "Access Level", type: "select", options: ["View Only", "View & Upload Invoices", "Full Access"] },
+  ]},
+  workflow_rules: { key: "workflow", title: "Workflow Rules", fields: [
+    { id: "name", label: "Rule Name", type: "text" },
+    { id: "trigger", label: "Trigger Event", type: "select", options: ["Invoice Created", "Invoice Approved", "Bill Received", "Payment Overdue"] },
+    { id: "action", label: "Action", type: "select", options: ["Send Email", "Send Notification", "Require Approval"] },
+  ]},
+  schedules: { key: "schedreports", title: "Scheduled Reports", fields: [
+    { id: "reportName", label: "Report Name", type: "select", options: ["P&L Statement", "Balance Sheet", "GSTR-1", "Outstanding Receivables"] },
+    { id: "frequency", label: "Frequency", type: "select", options: ["Daily", "Weekly", "Monthly"] },
+    { id: "recipientEmail", label: "Recipient Email", type: "text" },
+  ]},
+};
+
+// Simple on/off feature toggles — no data of their own, just enabled/disabled state,
+// backed by /api/settings/enabled-modules.
+const TOGGLE_LABELS: Record<string, string> = Object.fromEntries(
+  MODULE_SETTINGS.flatMap(g => g.items.map(i => [i.id, i.label]))
+);
+
+const authedFetch = (url: string, options: any = {}) => {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('bizkhata_session_token') : null;
+  return fetch(url, { ...options, headers: { ...(options.headers || {}), 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) } });
+};
+
+function ToggleModuleSection({ sectionId }: { sectionId: string }) {
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [saving, setSaving] = useState(false);
+  React.useEffect(() => {
+    let cancelled = false;
+    authedFetch('/api/settings/enabled-modules').then(r => r.json()).then(data => {
+      if (!cancelled) setEnabled(data[sectionId] !== false); // default ON
+    }).catch(() => { if (!cancelled) setEnabled(true); });
+    return () => { cancelled = true; };
+  }, [sectionId]);
+
+  const toggle = async () => {
+    const next = !enabled;
+    setEnabled(next); setSaving(true);
+    try {
+      await authedFetch('/api/settings/enabled-modules', { method: 'PUT', body: JSON.stringify({ [sectionId]: next }) });
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-6 max-w-lg">
+      <h2 className="text-base font-semibold text-gray-800 mb-1">{TOGGLE_LABELS[sectionId] || sectionId}</h2>
+      <p className="text-xs text-gray-500 mb-5">Turn this module on or off in your app's navigation.</p>
+      <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-4 py-3">
+        <span className="text-sm font-medium text-gray-700">{enabled === null ? 'Loading...' : enabled ? 'Enabled' : 'Disabled'}</span>
+        <button onClick={toggle} disabled={enabled === null || saving}
+          className={`relative w-11 h-6 rounded-full transition ${enabled ? 'bg-emerald-500' : 'bg-gray-300'} disabled:opacity-50`}>
+          <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ListModuleSection({ config }: { config: { key: string; title: string; fields: Array<{ id: string; label: string; type: string; options?: string[] }> } }) {
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+
+  const load = () => {
+    setLoading(true);
+    authedFetch(`/api/modules/${config.key}`).then(r => r.json()).then(data => setItems(Array.isArray(data) ? data : [])).finally(() => setLoading(false));
+  };
+  React.useEffect(load, [config.key]);
+
+  const handleAdd = async () => {
+    const hasAllRequired = config.fields.every(f => (form[f.id] || '').toString().trim() !== '');
+    if (!hasAllRequired) return;
+    setSaving(true);
+    try {
+      await authedFetch(`/api/modules/${config.key}`, { method: 'POST', body: JSON.stringify(form) });
+      setForm({});
+      load();
+    } finally { setSaving(false); }
+  };
+
+  const handleDelete = async (id: string) => {
+    await authedFetch(`/api/modules/${config.key}/${id}`, { method: 'DELETE' });
+    load();
+  };
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden max-w-3xl">
+      <div className="px-6 py-4 border-b border-gray-200">
+        <h2 className="text-base font-semibold text-gray-800">{config.title}</h2>
+      </div>
+      <div className="p-6 space-y-4 border-b border-gray-100 bg-gray-50">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {config.fields.map(f => (
+            <div key={f.id}>
+              <label className="text-xs font-semibold text-gray-600 mb-1 block">{f.label}</label>
+              {f.type === 'select' ? (
+                <select value={form[f.id] || ''} onChange={e => setForm({ ...form, [f.id]: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
+                  <option value="">Select...</option>
+                  {f.options?.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              ) : (
+                <input type={f.type === 'number' ? 'number' : 'text'} value={form[f.id] || ''} onChange={e => setForm({ ...form, [f.id]: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+              )}
+            </div>
+          ))}
+        </div>
+        <button onClick={handleAdd} disabled={saving}
+          className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg transition">
+          {saving ? 'Adding...' : '+ Add'}
+        </button>
+      </div>
+      <div className="divide-y divide-gray-100">
+        {loading ? (
+          <div className="p-6 text-sm text-gray-400">Loading...</div>
+        ) : items.length === 0 ? (
+          <div className="p-6 text-sm text-gray-400">No entries yet. Add one above.</div>
+        ) : items.map(item => (
+          <div key={item.id} className="px-6 py-3 flex items-center justify-between hover:bg-gray-50">
+            <div className="text-sm text-gray-700 flex flex-wrap gap-x-4 gap-y-1">
+              {config.fields.map(f => item[f.id] ? <span key={f.id}><span className="text-gray-400">{f.label}:</span> {item[f.id]}</span> : null)}
+            </div>
+            <button onClick={() => handleDelete(item.id)} className="text-red-500 hover:text-red-700 text-xs font-semibold shrink-0 ml-4">Delete</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // Sections that use CompanySetup for actual editing. Maps this component's section
 // ids (left-hand nav) to CompanySetup's internal section ids, since the two were
 // built independently with different naming conventions (e.g. "opening_balances"
@@ -282,6 +439,14 @@ export default function OrgSettings({ db, onUpdateCompany, onUpdateRole, onReset
           hideMenu={true}
         />
       );
+    }
+
+    if (LIST_MODULE_MAP[activeSection]) {
+      return <ListModuleSection config={LIST_MODULE_MAP[activeSection]} />;
+    }
+
+    if (TOGGLE_LABELS[activeSection]) {
+      return <ToggleModuleSection sectionId={activeSection} />;
     }
 
     return (

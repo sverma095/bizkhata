@@ -824,6 +824,7 @@ function getInitialState(): DatabaseState {
     bills: [],
     journals: [],
     advancedModules: {},
+    enabledModules: {},
     auditLogs: [
       {
         id: "audit_init",
@@ -1267,7 +1268,7 @@ const ALLOWED_MODULE_KEYS = new Set([
   "tds", "workflow", "email", "gstr2b", "reminders", "approvals", "bankfeeds", "cportal", "vportal",
   "budget", "projects", "timesheets", "multicurrency", "audit", "grn", "rcm", "depreciation",
   "recurring", "billexp", "advances", "partial", "milestone", "batch", "composite", "cheque",
-  "hsn", "attachments", "pricelists", "multigstin", "schedreports", "costcentres", "docs"
+  "hsn", "attachments", "pricelists", "multigstin", "schedreports", "costcentres", "docs", "paymentterms"
 ]);
 app.get("/api/modules/:key", authGuard, async (req: any, res: any) => {
   const { key } = req.params;
@@ -1309,6 +1310,21 @@ app.delete("/api/modules/:key/:id", authGuard, async (req: any, res: any) => {
     await writeDB(orgId, db);
   }
   res.json({ success: true });
+});
+
+// Simple on/off toggles for feature modules (Estimates, Invoices, Bills, Projects, etc.)
+// — these hold no data of their own, just whether that module shows in the app nav.
+app.get("/api/settings/enabled-modules", authGuard, async (req: any, res: any) => {
+  const db = await readDB(req.user.organizationId);
+  res.json(db.enabledModules || {});
+});
+app.put("/api/settings/enabled-modules", authGuard, async (req: any, res: any) => {
+  const orgId = req.user.organizationId;
+  const db = await readDB(orgId);
+  db.enabledModules = { ...(db.enabledModules || {}), ...req.body };
+  await writeDB(orgId, db);
+  addAuditLog(orgId, req.user.fullName, req.user.role, "Update Module Settings", `Updated feature toggles: ${Object.keys(req.body).join(", ")}`);
+  res.json(db.enabledModules);
 });
 
 app.get("/api/superadmin/organizations", authGuard, superAdminGuard, (req: any, res: any) => res.json(USER_DB.organizations));

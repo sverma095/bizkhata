@@ -727,6 +727,7 @@ function getInitialState() {
     bills: [],
     journals: [],
     advancedModules: {},
+    enabledModules: {},
     auditLogs: [
       {
         id: "audit_init",
@@ -1234,7 +1235,8 @@ var ALLOWED_MODULE_KEYS = /* @__PURE__ */ new Set([
   "multigstin",
   "schedreports",
   "costcentres",
-  "docs"
+  "docs",
+  "paymentterms"
 ]);
 app.get("/api/modules/:key", authGuard, async (req, res) => {
   const { key } = req.params;
@@ -1276,6 +1278,18 @@ app.delete("/api/modules/:key/:id", authGuard, async (req, res) => {
     await writeDB(orgId, db);
   }
   res.json({ success: true });
+});
+app.get("/api/settings/enabled-modules", authGuard, async (req, res) => {
+  const db = await readDB(req.user.organizationId);
+  res.json(db.enabledModules || {});
+});
+app.put("/api/settings/enabled-modules", authGuard, async (req, res) => {
+  const orgId = req.user.organizationId;
+  const db = await readDB(orgId);
+  db.enabledModules = { ...db.enabledModules || {}, ...req.body };
+  await writeDB(orgId, db);
+  addAuditLog(orgId, req.user.fullName, req.user.role, "Update Module Settings", `Updated feature toggles: ${Object.keys(req.body).join(", ")}`);
+  res.json(db.enabledModules);
 });
 app.get("/api/superadmin/organizations", authGuard, superAdminGuard, (req, res) => res.json(USER_DB.organizations));
 app.put("/api/superadmin/organizations/:id", authGuard, superAdminGuard, (req, res) => {
