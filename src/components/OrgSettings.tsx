@@ -330,7 +330,7 @@ function WorkflowLogsSection() {
   React.useEffect(() => {
     authedFetch('/api/audit-logs').then(r => r.json()).then(data => {
       const filtered = (Array.isArray(data) ? data : []).filter((l: any) =>
-        typeof l.actionPerformed === 'string' && l.actionPerformed.toLowerCase().includes('module')
+        typeof l.actionPerformed === 'string' && (l.actionPerformed.toLowerCase().includes('module') || l.actionPerformed.toLowerCase().includes('workflow'))
       );
       setLogs(filtered);
     }).finally(() => setLoading(false));
@@ -341,9 +341,9 @@ function WorkflowLogsSection() {
       <div className="px-6 py-4 border-b border-gray-200">
         <h2 className="text-base font-semibold text-gray-800">Workflow Logs</h2>
         <p className="text-xs text-gray-500 mt-1">
-          This shows real activity from changes to Workflow Rules and Actions. It does not show automatic
-          rule-execution history (e.g. "rule fired on Invoice #123") since that automation engine hasn't been
-          built yet — rules and actions can be configured but aren't triggered automatically at this time.
+          Real activity log — includes both configuration changes (rules/actions created or edited) and
+          automatic rule firings. Rules currently fire on: Invoice Created, Invoice Approved, Bill Received,
+          and Payment Overdue (checked when the app loads data, since there's no background scheduler yet).
         </p>
       </div>
       <div className="divide-y divide-gray-100">

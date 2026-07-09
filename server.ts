@@ -433,6 +433,50 @@ async function sendEmail(to: string, subject: string, html: string): Promise<{ s
   return { sent: false, reason: "No email provider configured. Options: RESEND_API_KEY, GMAIL_REFRESH_TOKEN+GMAIL_CLIENT_ID+GMAIL_CLIENT_SECRET, or SMTP_HTTP_API_KEY+SMTP_HTTP_PROVIDER (sendgrid/mailgun)" };
 }
 
+// Real workflow automation. Rules are configured under Settings > Workflow Rules
+// (db.advancedModules.workflow) and matched by trigger event. Each rule's `action`
+// field determines what actually happens — this is the part that used to be pure
+// configuration with nothing behind it; now it genuinely executes.
+// Called fire-and-forget from real endpoints (invoice/bill creation, approval, etc.)
+// so it never blocks or fails the main request.
+async function runWorkflowRules(orgId: string, triggerEvent: string, entity: any, db: any) {
+  try {
+    const rules: any[] = db.advancedModules?.workflow || [];
+    const matching = rules.filter(r => r.trigger === triggerEvent);
+    if (!matching.length) return;
+
+    for (const rule of matching) {
+      const label = entity?.invoiceNumber || entity?.billNumber || entity?.id || "record";
+      const amount = entity?.total ? `₹${entity.total}` : "";
+      const recipientEmail = entity?.customerEmail || entity?.vendorEmail || null;
+
+      if (rule.action === "Send Email" && recipientEmail) {
+        sendEmail(
+          recipientEmail,
+          `${triggerEvent}: ${label}`,
+          `<p>This is an automated message regarding ${label} ${amount ? `(${amount})` : ""}.</p><p>Triggered by rule: ${rule.name}</p>`
+        ).catch(() => {});
+      } else if (rule.action === "Send Notification") {
+        USER_DB.notifications.unshift({
+          id: generateId("notif"),
+          to: orgId, // org-wide notification, not a single user
+          subject: `${triggerEvent}: ${label}`,
+          body: `Workflow rule "${rule.name}" fired for ${label} ${amount}`.trim(),
+          type: "Workflow",
+          timestamp: new Date().toISOString(),
+        });
+      } else if (rule.action === "Require Approval" && entity) {
+        entity.requiresApproval = true;
+        if (entity.status !== "Approved") entity.status = "Pending Approval";
+      }
+
+      addAuditLog(orgId, "System", "Automation", "Workflow Rule Fired", `Rule "${rule.name}" (${rule.trigger} → ${rule.action}) fired for ${label}`);
+    }
+  } catch (e) {
+    console.error("runWorkflowRules error:", e);
+  }
+}
+
 function verifyPassword(plain: string, stored: string | undefined): boolean {
   if (!stored) return false;
   if (isLegacyPlaintext(stored)) return stored === plain;
@@ -1497,6 +1541,24 @@ app.get("/api/db", authGuard, async (req: any, res: any) => {
   const orgId = req.user.organizationId;
   if (!orgId) { res.status(400).json({ error: "Your account isn't linked to an organization." }); return; }
   const db = await readDB(orgId);
+
+  // Best-effort "Payment Overdue" check. There's no background scheduler in this
+  // serverless deployment, so overdue detection happens lazily whenever the app's
+  // data loads — each invoice fires the rule at most once (tracked via
+  // overdueRuleFired) rather than re-firing on every page load.
+  const today = new Date().toISOString().slice(0, 10);
+  let overdueFired = false;
+  for (const inv of db.invoices || []) {
+    const isUnpaid = inv.status !== "Paid" && inv.status !== "Cancelled" && inv.status !== "Draft";
+    const isPastDue = inv.dueDate && inv.dueDate < today;
+    if (isUnpaid && isPastDue && !inv.overdueRuleFired) {
+      runWorkflowRules(orgId, "Payment Overdue", inv, db);
+      inv.overdueRuleFired = true;
+      overdueFired = true;
+    }
+  }
+  if (overdueFired) await writeDB(orgId, db);
+
   res.json(db);
 });
 
@@ -1814,6 +1876,9 @@ app.post("/api/invoices", authGuard, requirePermission("create_invoices"), async
     return;
   }
 
+  const wasNewInvoice = existingIndex < 0;
+  const previousStatus = existingInvoice?.status;
+
   let changeSummary = "";
   if (existingIndex >= 0) {
     changeSummary = diffFields(existingInvoice, invoiceData, [...FINANCIAL_LOCK_FIELDS.invoice, "status", "dueDate"]);
@@ -1823,6 +1888,14 @@ app.post("/api/invoices", authGuard, requirePermission("create_invoices"), async
   } else {
     invoiceData.id = "inv_" + uuid();
     db.invoices.push(invoiceData);
+  }
+
+  // Fire workflow automation for real events (not silent config anymore)
+  if (wasNewInvoice) {
+    runWorkflowRules(orgId, "Invoice Created", invoiceData, db);
+  }
+  if (invoiceData.status === "Approved" && previousStatus !== "Approved") {
+    runWorkflowRules(orgId, "Invoice Approved", invoiceData, db);
   }
 
   // Generate Balanced Journal Entry if Tax Invoice & is Approved/Sent/Paid (Not Draft or Proforma)
@@ -2154,6 +2227,7 @@ app.post("/api/bills", authGuard, requirePermission("manage_billing"), requireFe
       if (dupe) { res.status(409).json({ error: `Bill number '${bill.billNumber}' is already in use.` }); return; }
     }
     db.bills.push(bill);
+    runWorkflowRules(orgId, "Bill Received", bill, db);
   }
 
   if (!bill.status) {

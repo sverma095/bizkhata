@@ -408,6 +408,42 @@ async function sendEmail(to, subject, html) {
   console.warn(`sendEmail: no provider configured. OTP for ${to} is in Notifications.`);
   return { sent: false, reason: "No email provider configured. Options: RESEND_API_KEY, GMAIL_REFRESH_TOKEN+GMAIL_CLIENT_ID+GMAIL_CLIENT_SECRET, or SMTP_HTTP_API_KEY+SMTP_HTTP_PROVIDER (sendgrid/mailgun)" };
 }
+async function runWorkflowRules(orgId, triggerEvent, entity, db) {
+  try {
+    const rules = db.advancedModules?.workflow || [];
+    const matching = rules.filter((r) => r.trigger === triggerEvent);
+    if (!matching.length) return;
+    for (const rule of matching) {
+      const label = entity?.invoiceNumber || entity?.billNumber || entity?.id || "record";
+      const amount = entity?.total ? `\u20B9${entity.total}` : "";
+      const recipientEmail = entity?.customerEmail || entity?.vendorEmail || null;
+      if (rule.action === "Send Email" && recipientEmail) {
+        sendEmail(
+          recipientEmail,
+          `${triggerEvent}: ${label}`,
+          `<p>This is an automated message regarding ${label} ${amount ? `(${amount})` : ""}.</p><p>Triggered by rule: ${rule.name}</p>`
+        ).catch(() => {
+        });
+      } else if (rule.action === "Send Notification") {
+        USER_DB.notifications.unshift({
+          id: generateId("notif"),
+          to: orgId,
+          // org-wide notification, not a single user
+          subject: `${triggerEvent}: ${label}`,
+          body: `Workflow rule "${rule.name}" fired for ${label} ${amount}`.trim(),
+          type: "Workflow",
+          timestamp: (/* @__PURE__ */ new Date()).toISOString()
+        });
+      } else if (rule.action === "Require Approval" && entity) {
+        entity.requiresApproval = true;
+        if (entity.status !== "Approved") entity.status = "Pending Approval";
+      }
+      addAuditLog(orgId, "System", "Automation", "Workflow Rule Fired", `Rule "${rule.name}" (${rule.trigger} \u2192 ${rule.action}) fired for ${label}`);
+    }
+  } catch (e) {
+    console.error("runWorkflowRules error:", e);
+  }
+}
 function verifyPassword(plain, stored) {
   if (!stored) return false;
   if (isLegacyPlaintext(stored)) return stored === plain;
@@ -1536,6 +1572,18 @@ app.get("/api/db", authGuard, async (req, res) => {
     return;
   }
   const db = await readDB(orgId);
+  const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+  let overdueFired = false;
+  for (const inv of db.invoices || []) {
+    const isUnpaid = inv.status !== "Paid" && inv.status !== "Cancelled" && inv.status !== "Draft";
+    const isPastDue = inv.dueDate && inv.dueDate < today;
+    if (isUnpaid && isPastDue && !inv.overdueRuleFired) {
+      runWorkflowRules(orgId, "Payment Overdue", inv, db);
+      inv.overdueRuleFired = true;
+      overdueFired = true;
+    }
+  }
+  if (overdueFired) await writeDB(orgId, db);
   res.json(db);
 });
 app.get("/api/supabase-status", async (req, res) => {
@@ -1829,6 +1877,8 @@ app.post("/api/invoices", authGuard, requirePermission("create_invoices"), async
     res.status(423).json({ error: `This invoice is ${existingInvoice.status} \u2014 '${lockCheck.field}' can no longer be edited directly. Issue a Credit Note to correct it.` });
     return;
   }
+  const wasNewInvoice = existingIndex < 0;
+  const previousStatus = existingInvoice?.status;
   let changeSummary = "";
   if (existingIndex >= 0) {
     changeSummary = diffFields(existingInvoice, invoiceData, [...FINANCIAL_LOCK_FIELDS.invoice, "status", "dueDate"]);
@@ -1837,6 +1887,12 @@ app.post("/api/invoices", authGuard, requirePermission("create_invoices"), async
   } else {
     invoiceData.id = "inv_" + uuid();
     db.invoices.push(invoiceData);
+  }
+  if (wasNewInvoice) {
+    runWorkflowRules(orgId, "Invoice Created", invoiceData, db);
+  }
+  if (invoiceData.status === "Approved" && previousStatus !== "Approved") {
+    runWorkflowRules(orgId, "Invoice Approved", invoiceData, db);
   }
   if (!invoiceData.isProforma && invoiceData.status !== "Draft" && invoiceData.status !== "Cancelled") {
     const journalEntry = createInvoiceJournal(invoiceData, db.company);
@@ -2124,6 +2180,7 @@ app.post("/api/bills", authGuard, requirePermission("manage_billing"), requireFe
       }
     }
     db.bills.push(bill);
+    runWorkflowRules(orgId, "Bill Received", bill, db);
   }
   if (!bill.status) {
     bill.status = "Approved";
