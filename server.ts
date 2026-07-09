@@ -1312,7 +1312,7 @@ const ALLOWED_MODULE_KEYS = new Set([
   "tds", "workflow", "email", "gstr2b", "reminders", "approvals", "bankfeeds", "cportal", "vportal",
   "budget", "projects", "timesheets", "multicurrency", "audit", "grn", "rcm", "depreciation",
   "recurring", "billexp", "advances", "partial", "milestone", "batch", "composite", "cheque",
-  "hsn", "attachments", "pricelists", "multigstin", "schedreports", "costcentres", "docs", "paymentterms", "workflowactions"
+  "hsn", "attachments", "pricelists", "multigstin", "schedreports", "costcentres", "docs", "paymentterms", "workflowactions", "relatedlists"
 ]);
 app.get("/api/modules/:key", authGuard, async (req: any, res: any) => {
   const { key } = req.params;

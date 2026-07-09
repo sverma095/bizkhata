@@ -1273,7 +1273,8 @@ var ALLOWED_MODULE_KEYS = /* @__PURE__ */ new Set([
   "costcentres",
   "docs",
   "paymentterms",
-  "workflowactions"
+  "workflowactions",
+  "relatedlists"
 ]);
 app.get("/api/modules/:key", authGuard, async (req, res) => {
   const { key } = req.params;

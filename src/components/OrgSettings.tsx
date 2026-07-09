@@ -251,6 +251,143 @@ function ToggleModuleSection({ sectionId }: { sectionId: string }) {
   );
 }
 
+// Common field/validation/button options — a reasonable generic set that applies
+// sensibly across document-type modules (Invoices, Estimates, Bills, etc). Persisted
+// via composite keys on the same /api/settings/enabled-modules store used for the
+// Preferences tab, so no new backend endpoint is needed.
+const FIELD_OPTIONS = [
+  { id: "gstin", label: "GSTIN / Tax ID field" },
+  { id: "po_ref", label: "PO / Reference Number field" },
+  { id: "due_date", label: "Due Date field" },
+  { id: "notes", label: "Notes field" },
+  { id: "terms", label: "Terms & Conditions field" },
+];
+const VALIDATION_OPTIONS = [
+  { id: "require_gstin", label: "Require customer/vendor GSTIN before saving" },
+  { id: "require_due_date", label: "Require a due date" },
+  { id: "no_negative_amounts", label: "Prevent negative line-item amounts" },
+  { id: "require_line_item", label: "Require at least one line item" },
+];
+const BUTTON_OPTIONS = [
+  { id: "send_email", label: "Show 'Send via Email' button" },
+  { id: "send_whatsapp", label: "Show 'Send via WhatsApp' button" },
+  { id: "convert", label: "Show 'Convert' button" },
+  { id: "duplicate", label: "Show 'Duplicate' button" },
+];
+
+function MultiToggleSection({ sectionId, category, options, note }: { sectionId: string; category: string; options: Array<{ id: string; label: string }>; note?: string }) {
+  const [values, setValues] = useState<Record<string, boolean> | null>(null);
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    authedFetch('/api/settings/enabled-modules').then(r => r.json()).then(data => {
+      if (cancelled) return;
+      const v: Record<string, boolean> = {};
+      options.forEach(o => { v[o.id] = data[`${sectionId}__${category}__${o.id}`] === true; });
+      setValues(v);
+    });
+    return () => { cancelled = true; };
+  }, [sectionId, category]);
+
+  const toggle = async (optionId: string) => {
+    const next = !(values?.[optionId]);
+    setValues(v => ({ ...(v || {}), [optionId]: next }));
+    setSavingId(optionId);
+    try {
+      await authedFetch('/api/settings/enabled-modules', { method: 'PUT', body: JSON.stringify({ [`${sectionId}__${category}__${optionId}`]: next }) });
+    } finally { setSavingId(null); }
+  };
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 max-w-lg overflow-hidden">
+      {note && <div className="px-5 py-3 bg-amber-50 border-b border-amber-100 text-xs text-amber-700">{note}</div>}
+      <div className="divide-y divide-gray-100">
+        {options.map(o => {
+          const enabled = values?.[o.id] === true;
+          return (
+            <div key={o.id} className="flex items-center justify-between px-5 py-3.5">
+              <span className="text-sm text-gray-700">{o.label}</span>
+              <button onClick={() => toggle(o.id)} disabled={values === null || savingId === o.id}
+                className={`relative w-10 h-5.5 rounded-full transition shrink-0 ${enabled ? 'bg-emerald-500' : 'bg-gray-300'} disabled:opacity-50`}>
+                <span className={`absolute top-0.5 w-4.5 h-4.5 rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function RelatedListsSection({ sectionId }: { sectionId: string }) {
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({ name: "", url: "" });
+  const [saving, setSaving] = useState(false);
+
+  const load = () => {
+    setLoading(true);
+    authedFetch('/api/modules/relatedlists').then(r => r.json()).then(data => {
+      setItems((Array.isArray(data) ? data : []).filter((i: any) => i.section === sectionId));
+    }).finally(() => setLoading(false));
+  };
+  React.useEffect(load, [sectionId]);
+
+  const handleAdd = async () => {
+    if (!form.name.trim() || !form.url.trim()) return;
+    setSaving(true);
+    try {
+      await authedFetch('/api/modules/relatedlists', { method: 'POST', body: JSON.stringify({ ...form, section: sectionId }) });
+      setForm({ name: "", url: "" });
+      load();
+    } finally { setSaving(false); }
+  };
+  const handleDelete = async (id: string) => {
+    await authedFetch(`/api/modules/relatedlists/${id}`, { method: 'DELETE' });
+    load();
+  };
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden max-w-2xl">
+      <div className="px-6 py-4 border-b border-gray-200">
+        <h2 className="text-base font-semibold text-gray-800">Related Lists</h2>
+        <p className="text-xs text-gray-500 mt-1">Link out to relevant external pages or internal references from this record type.</p>
+      </div>
+      <div className="p-6 space-y-3 border-b border-gray-100 bg-gray-50">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs font-semibold text-gray-600 mb-1 block">Link Name</label>
+            <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Shipping Tracker"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-600 mb-1 block">URL</label>
+            <input value={form.url} onChange={e => setForm({ ...form, url: e.target.value })} placeholder="https://..."
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+          </div>
+        </div>
+        <button onClick={handleAdd} disabled={saving}
+          className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg transition">
+          {saving ? 'Adding...' : '+ Add'}
+        </button>
+      </div>
+      <div className="divide-y divide-gray-100">
+        {loading ? (
+          <div className="p-6 text-sm text-gray-400">Loading...</div>
+        ) : items.length === 0 ? (
+          <div className="p-6 text-sm text-gray-400">No related links yet. Add one above.</div>
+        ) : items.map(item => (
+          <div key={item.id} className="px-6 py-3 flex items-center justify-between hover:bg-gray-50">
+            <a href={item.url} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:underline">{item.name}</a>
+            <button onClick={() => handleDelete(item.id)} className="text-red-500 hover:text-red-700 text-xs font-semibold shrink-0 ml-4">Delete</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ListModuleSection({ config }: { config: { key: string; title: string; fields: Array<{ id: string; label: string; type: string; options?: string[] }> } }) {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -659,18 +796,20 @@ export default function OrgSettings({ db, onUpdateCompany, onUpdateRole, onReset
                 </div>
               </div>
               <div className="p-8">
-                {activeTab === "preferences" ? (
-                  <ToggleModuleSection sectionId={activeSection} />
-                ) : (
-                  <div className="max-w-md text-center py-16 mx-auto">
-                    <Settings className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                    <p className="text-sm text-gray-500 font-medium">
-                      {tab_label(activeTab)} customization isn't built yet.
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      This would let you add custom fields, validation rules, or buttons — a larger feature than a simple toggle, not implemented yet.
-                    </p>
-                  </div>
+                {activeTab === "preferences" && <ToggleModuleSection sectionId={activeSection} />}
+                {activeTab === "fields" && (
+                  <MultiToggleSection sectionId={activeSection} category="fields" options={FIELD_OPTIONS}
+                    note="Turning a field off hides it on the form for this document type — it won't appear when creating or editing." />
+                )}
+                {activeTab === "validation" && (
+                  <MultiToggleSection sectionId={activeSection} category="validation" options={VALIDATION_OPTIONS}
+                    note="These rules are saved per document type, but are only enforced where the underlying form already checks for them — not yet wired into every save action." />
+                )}
+                {activeTab === "buttons" && (
+                  <MultiToggleSection sectionId={activeSection} category="buttons" options={BUTTON_OPTIONS} />
+                )}
+                {activeTab === "related" && (
+                  <RelatedListsSection sectionId={activeSection} />
                 )}
               </div>
             </div>
@@ -683,8 +822,4 @@ export default function OrgSettings({ db, onUpdateCompany, onUpdateRole, onReset
       </div>
     </div>
   );
-}
-
-function tab_label(tab: string) {
-  return { fields: "Fields", validation: "Validation Rules", buttons: "Buttons", related: "Related Lists" }[tab] || tab;
 }
