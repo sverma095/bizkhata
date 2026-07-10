@@ -180,7 +180,10 @@ export default function App() {
   const handleLogout = () => {
     setSession(null);
     localStorage.removeItem('bizkhata_session_token');
-    setPanelView('login');
+    setPanelView('');
+    setShowLoginFlag(null);
+    setMarketingPath(null);
+    window.history.pushState({}, '', '/');
   };
 
   const handleUpdateSelfUser = (updatedUser: AppUserFull) => {
@@ -2366,34 +2369,34 @@ export default function App() {
           {/* Drawer Scrollable Content */}
           <div className="flex-1 overflow-y-auto p-5 space-y-6">
             
-            {/* User Profile Block exactly as Screenshot 2 */}
+            {/* User Profile Block */}
             <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3.5 select-none text-left">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-[#FFBE00] text-slate-900 font-black text-sm rounded-full flex items-center justify-center border border-[#E5AA00] shadow-sm uppercase">
-                  S
+                  {(session?.user?.fullName || "U").charAt(0)}
                 </div>
                 <div className="space-y-0.5">
-                  <h4 className="font-black text-slate-900 text-[13px] leading-tight">Sudhanshu</h4>
-                  
+                  <h4 className="font-black text-slate-900 text-[13px] leading-tight">{session?.user?.fullName || "User"}</h4>
                 </div>
               </div>
 
-              {/* Unique corporate ids mimicking screenshot 2 */}
               <div className="text-[10px] text-slate-500 font-mono space-y-0.5 border-t border-slate-200/60 pt-2 leading-relaxed">
-                <div>User ID: <span className="text-slate-700 font-bold">883615580</span></div>
-                <div>Organization ID: <span className="text-slate-700 font-bold">729374673</span></div>
+                <div>User ID: <span className="text-slate-700 font-bold">{session?.user?.id || "—"}</span></div>
+                <div>Organization ID: <span className="text-slate-700 font-bold">{session?.user?.organizationId || "—"}</span></div>
               </div>
 
               {/* Plan marker */}
               <div className="bg-yellow-50 border border-yellow-250 rounded-xl p-2.5 text-center flex items-center justify-center gap-1.5">
                 <Award className="w-4 h-4 text-yellow-600 shrink-0" />
-                <span className="text-[10px] font-bold text-yellow-800 uppercase tracking-wider">Professional Premium Plan</span>
+                <span className="text-[10px] font-bold text-yellow-800 uppercase tracking-wider">
+                  {(db as any)?.company?.plan ? `${(db as any).company.plan} Plan` : "—"}
+                </span>
               </div>
 
               {/* Sub items */}
               <div className="flex justify-between text-[11px] font-bold text-[#006EE5] pt-1">
-                <button onClick={() => { alert("Redirecting to multi-device security token setup..."); }} className="hover:underline">My Account</button>
-                <button onClick={() => { localStorage.removeItem("bizkhata_session_v1"); window.location.reload(); }} className="text-rose-600 hover:underline">Sign Out</button>
+                <button onClick={() => setActiveTab("settings")} className="hover:underline">My Account</button>
+                <button onClick={handleLogout} className="text-rose-600 hover:underline">Sign Out</button>
               </div>
             </div>
 
