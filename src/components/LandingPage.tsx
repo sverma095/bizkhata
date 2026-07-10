@@ -4,6 +4,7 @@ import { CheckCircle, FileText, TrendingUp, Shield, Users, Zap, ArrowRight, Star
 interface LandingPageProps {
   onGetStarted: () => void;
   onLogin: () => void;
+  onNavigate?: (path: string) => void;
 }
 
 const FEATURES = [
@@ -72,7 +73,7 @@ const FaqItem: React.FC<{ q: string; a: string }> = ({ q, a }) => {
   );
 };
 
-export default function LandingPage({ onGetStarted, onLogin }: LandingPageProps) {
+export default function LandingPage({ onGetStarted, onLogin, onNavigate }: LandingPageProps) {
   return (
     <div className="min-h-screen bg-slate-950 font-sans text-white">
       {/* Nav */}
@@ -334,25 +335,28 @@ export default function LandingPage({ onGetStarted, onLogin }: LandingPageProps)
             <div>
               <h4 className="font-semibold text-white mb-3">Product</h4>
               <ul className="space-y-2 text-slate-400">
-                <li><a href="#features" className="hover:text-white transition">Features</a></li>
-                <li><a href="#compare" className="hover:text-white transition">Compare</a></li>
-                <li><a href="#pricing" className="hover:text-white transition">Pricing</a></li>
-                <li><a href="#security" className="hover:text-white transition">Security</a></li>
+                <li><button onClick={() => onNavigate?.('/features')} className="hover:text-white transition">Features</button></li>
+                <li><button onClick={() => onNavigate?.('/compare')} className="hover:text-white transition">Compare</button></li>
+                <li><button onClick={() => onNavigate?.('/pricing')} className="hover:text-white transition">Pricing</button></li>
+                <li><button onClick={() => onNavigate?.('/security')} className="hover:text-white transition">Security</button></li>
+                <li><button onClick={() => onNavigate?.('/ai')} className="hover:text-white transition">AI Features</button></li>
+                <li><button onClick={() => onNavigate?.('/industries')} className="hover:text-white transition">Industries</button></li>
               </ul>
             </div>
             <div>
               <h4 className="font-semibold text-white mb-3">Company</h4>
               <ul className="space-y-2 text-slate-400">
                 <li><a href="#about" className="hover:text-white transition">About</a></li>
-                <li><a href="mailto:careers@bizkhata.app" className="hover:text-white transition">Careers</a></li>
-                <li><a href="mailto:support@bizkhata.app" className="hover:text-white transition">Contact</a></li>
+                <li><button onClick={() => onNavigate?.('/careers')} className="hover:text-white transition">Careers</button></li>
+                <li><button onClick={() => onNavigate?.('/contact')} className="hover:text-white transition">Contact</button></li>
               </ul>
             </div>
             <div>
               <h4 className="font-semibold text-white mb-3">Resources</h4>
               <ul className="space-y-2 text-slate-400">
-                <li><span className="text-slate-600">Documentation <span className="text-[10px] bg-white/5 px-1.5 py-0.5 rounded ml-1">Soon</span></span></li>
-                <li><span className="text-slate-600">Blog <span className="text-[10px] bg-white/5 px-1.5 py-0.5 rounded ml-1">Soon</span></span></li>
+                <li><button onClick={() => onNavigate?.('/docs')} className="hover:text-white transition">Documentation</button></li>
+                <li><button onClick={() => onNavigate?.('/blog')} className="hover:text-white transition">Blog</button></li>
+                <li><button onClick={() => onNavigate?.('/resources')} className="hover:text-white transition">Resource Hub</button></li>
                 <li><a href="#faq" className="hover:text-white transition">FAQ</a></li>
               </ul>
             </div>

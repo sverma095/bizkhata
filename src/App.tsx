@@ -11,6 +11,7 @@ import Reports from "./components/Reports.jsx";
 import AIAssistant from "./components/AIAssistant.jsx";
 import LoginScreen from "./components/LoginScreen.jsx";
 import LandingPage from "./components/LandingPage.js";
+import { FeaturesPage, IndustriesPage, ComparePage, AIPage, ResourcesPage, DocsPage, BlogPage, PricingPage, SecurityPage, ContactPage, CareersPage } from "./components/MarketingPages.js";
 import { ToastContainer, toast } from "./components/Toast.js";
 import AdminDashboard from "./components/AdminDashboard.jsx";
 import SuperAdminDashboard from "./components/SuperAdminDashboard.jsx";
@@ -102,6 +103,8 @@ export default function App() {
   // those paths shows the right screen. Runs once on mount; defaults to '' (landing page)
   // when there's no special route.
   const [showLoginFlag, setShowLoginFlag] = useState<string | null>(null);
+  const [marketingPath, setMarketingPath] = useState<string | null>(null);
+  const MARKETING_PATHS = ['/features', '/industries', '/compare', '/ai', '/resources', '/docs', '/blog', '/pricing', '/security', '/contact', '/careers'];
   const applyRouteFromLocation = () => {
     if (typeof window === 'undefined') return;
     const path = window.location.pathname;
@@ -109,15 +112,18 @@ export default function App() {
     const email = params.get('email') || '';
     const code = params.get('code') || '';
     if (path.startsWith('/activate') && email && code) {
-      setPanelView('activate'); setRouteEmail(email); setRouteCode(code); setShowLoginFlag(null);
+      setPanelView('activate'); setRouteEmail(email); setRouteCode(code); setShowLoginFlag(null); setMarketingPath(null);
     } else if (path.startsWith('/reset') && email && code) {
-      setPanelView('reset'); setRouteEmail(email); setRouteCode(code); setShowLoginFlag(null);
+      setPanelView('reset'); setRouteEmail(email); setRouteCode(code); setShowLoginFlag(null); setMarketingPath(null);
     } else if (path.startsWith('/register')) {
-      setShowLoginFlag('signup');
+      setShowLoginFlag('signup'); setMarketingPath(null);
     } else if (path.startsWith('/login') || params.get('view') === 'login') {
-      setShowLoginFlag('login');
-    } else {
+      setShowLoginFlag('login'); setMarketingPath(null);
+    } else if (MARKETING_PATHS.some(p => path === p || path.startsWith(p + '/'))) {
+      setMarketingPath(MARKETING_PATHS.find(p => path === p || path.startsWith(p + '/')) || null);
       setShowLoginFlag(null); setPanelView('');
+    } else {
+      setShowLoginFlag(null); setPanelView(''); setMarketingPath(null);
     }
   };
   React.useEffect(() => {
@@ -972,12 +978,27 @@ export default function App() {
   }
 
   if (!session) {
+    if (marketingPath) {
+      const navProps = {
+        onGetStarted: () => { window.history.pushState({}, '', '/register'); setShowLoginFlag('signup'); setMarketingPath(null); },
+        onLogin: () => { window.history.pushState({}, '', '/login'); setShowLoginFlag('login'); setMarketingPath(null); },
+        onNavigate: (path: string) => { window.history.pushState({}, '', path); applyRouteFromLocation(); },
+      };
+      const pages: Record<string, any> = {
+        '/features': FeaturesPage, '/industries': IndustriesPage, '/compare': ComparePage, '/ai': AIPage,
+        '/resources': ResourcesPage, '/docs': DocsPage, '/blog': BlogPage, '/pricing': PricingPage,
+        '/security': SecurityPage, '/contact': ContactPage, '/careers': CareersPage,
+      };
+      const PageComponent = pages[marketingPath];
+      if (PageComponent) return <PageComponent {...navProps} />;
+    }
     // Show landing page if no route params (not a reset/invite link) and no one-shot flag set
     if (!panelView && !routeEmail && !routeCode && !showLoginFlag) {
       return (
         <LandingPage
           onGetStarted={() => { window.history.pushState({}, '', '/register'); setShowLoginFlag('signup'); }}
           onLogin={() => { window.history.pushState({}, '', '/login'); setShowLoginFlag('login'); }}
+          onNavigate={(path: string) => { window.history.pushState({}, '', path); applyRouteFromLocation(); }}
         />
       );
     }
