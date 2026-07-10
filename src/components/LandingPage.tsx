@@ -363,8 +363,8 @@ export default function LandingPage({ onGetStarted, onLogin, onNavigate }: Landi
             <div>
               <h4 className="font-semibold text-white mb-3">Legal</h4>
               <ul className="space-y-2 text-slate-400">
-                <li><a href="/api/legal/tos" target="_blank" className="hover:text-white transition">Terms of Service</a></li>
-                <li><a href="/api/legal/privacy" target="_blank" className="hover:text-white transition">Privacy Policy</a></li>
+                <li><button onClick={() => onNavigate?.('/terms')} className="hover:text-white transition">Terms of Service</button></li>
+                <li><button onClick={() => onNavigate?.('/privacy')} className="hover:text-white transition">Privacy Policy</button></li>
               </ul>
             </div>
           </div>

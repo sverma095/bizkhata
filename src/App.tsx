@@ -11,7 +11,7 @@ import Reports from "./components/Reports.jsx";
 import AIAssistant from "./components/AIAssistant.jsx";
 import LoginScreen from "./components/LoginScreen.jsx";
 import LandingPage from "./components/LandingPage.js";
-import { FeaturesPage, IndustriesPage, ComparePage, AIPage, ResourcesPage, DocsPage, BlogPage, PricingPage, SecurityPage, ContactPage, CareersPage } from "./components/MarketingPages.js";
+import { FeaturesPage, IndustriesPage, ComparePage, AIPage, ResourcesPage, DocsPage, BlogPage, PricingPage, SecurityPage, ContactPage, CareersPage, TermsPage, PrivacyPage } from "./components/MarketingPages.js";
 import { ToastContainer, toast } from "./components/Toast.js";
 import AdminDashboard from "./components/AdminDashboard.jsx";
 import SuperAdminDashboard from "./components/SuperAdminDashboard.jsx";
@@ -104,7 +104,7 @@ export default function App() {
   // when there's no special route.
   const [showLoginFlag, setShowLoginFlag] = useState<string | null>(null);
   const [marketingPath, setMarketingPath] = useState<string | null>(null);
-  const MARKETING_PATHS = ['/features', '/industries', '/compare', '/ai', '/resources', '/docs', '/blog', '/pricing', '/security', '/contact', '/careers'];
+  const MARKETING_PATHS = ['/features', '/industries', '/compare', '/ai', '/resources', '/docs', '/blog', '/pricing', '/security', '/contact', '/careers', '/terms', '/privacy'];
   const applyRouteFromLocation = () => {
     if (typeof window === 'undefined') return;
     const path = window.location.pathname;
@@ -988,6 +988,7 @@ export default function App() {
         '/features': FeaturesPage, '/industries': IndustriesPage, '/compare': ComparePage, '/ai': AIPage,
         '/resources': ResourcesPage, '/docs': DocsPage, '/blog': BlogPage, '/pricing': PricingPage,
         '/security': SecurityPage, '/contact': ContactPage, '/careers': CareersPage,
+        '/terms': TermsPage, '/privacy': PrivacyPage,
       };
       const PageComponent = pages[marketingPath];
       if (PageComponent) return <PageComponent {...navProps} />;

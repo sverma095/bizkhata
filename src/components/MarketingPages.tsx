@@ -66,8 +66,8 @@ export function MarketingFooter({ onNavigate }: { onNavigate: (path: string) => 
           <div>
             <h4 className="font-semibold text-white mb-3">Legal</h4>
             <ul className="space-y-2 text-slate-400">
-              <li><a href="/api/legal/tos" target="_blank" className="hover:text-white transition">Terms of Service</a></li>
-              <li><a href="/api/legal/privacy" target="_blank" className="hover:text-white transition">Privacy Policy</a></li>
+              <li><button onClick={() => onNavigate('/terms')} className="hover:text-white transition">Terms of Service</button></li>
+              <li><button onClick={() => onNavigate('/privacy')} className="hover:text-white transition">Privacy Policy</button></li>
             </ul>
           </div>
         </div>
@@ -438,6 +438,52 @@ export function ContactPage(props: NavProps) {
       </section>
     </PageShell>
   );
+}
+
+// ───────────────────────────── LEGAL PAGES ─────────────────────────────
+function renderLegalContent(content: string) {
+  return content.split('\n').map((line, i) => {
+    const trimmed = line.trim();
+    if (!trimmed) return null;
+    const boldMatch = trimmed.match(/^\*\*(.+)\*\*$/);
+    if (boldMatch) {
+      return <h3 key={i} className="text-white font-bold text-base mt-6 mb-2 first:mt-0">{boldMatch[1]}</h3>;
+    }
+    return <p key={i} className="text-sm text-slate-400 leading-relaxed mb-2">{trimmed.replace(/^-\s*/, '• ')}</p>;
+  });
+}
+
+function LegalDocPage({ endpoint, ...props }: NavProps & { endpoint: string }) {
+  const [doc, setDoc] = React.useState<{ title: string; effectiveDate: string; content: string } | null>(null);
+  const [error, setError] = React.useState(false);
+  React.useEffect(() => {
+    fetch(endpoint).then(r => r.json()).then(setDoc).catch(() => setError(true));
+  }, [endpoint]);
+
+  return (
+    <PageShell {...props}>
+      <section className="max-w-3xl mx-auto px-4 sm:px-6 pt-16 pb-20">
+        {error ? (
+          <p className="text-center text-slate-400">Couldn't load this document. Please try again shortly.</p>
+        ) : !doc ? (
+          <p className="text-center text-slate-500">Loading...</p>
+        ) : (
+          <>
+            <h1 className="text-2xl font-black text-white mb-1">{doc.title}</h1>
+            <p className="text-xs text-slate-500 mb-8">Effective {doc.effectiveDate}</p>
+            <div>{renderLegalContent(doc.content)}</div>
+          </>
+        )}
+      </section>
+    </PageShell>
+  );
+}
+
+export function TermsPage(props: NavProps) {
+  return <LegalDocPage {...props} endpoint="/api/legal/tos" />;
+}
+export function PrivacyPage(props: NavProps) {
+  return <LegalDocPage {...props} endpoint="/api/legal/privacy" />;
 }
 
 // ───────────────────────────── CAREERS PAGE ─────────────────────────────
