@@ -1508,7 +1508,7 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
 function EInvoicePortalSection({ db, onSaveCompany, triggerToast, setActiveSection }: {
   db: any; onSaveCompany: (data: any) => Promise<void>; triggerToast: (msg: string) => void; setActiveSection: (s: string) => void;
 }) {
-  const portal = db.company.eInvoicePortal || {};
+  const portal = db?.company?.eInvoicePortal || {};
   const [username, setUsername] = React.useState(portal.username || "");
   const [password, setPassword] = React.useState(portal.password || "");
   const [saving, setSaving] = React.useState(false);

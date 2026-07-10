@@ -580,7 +580,6 @@ export default function OrgSettings({ db, onUpdateCompany, onUpdateRole, onReset
     }
 
     if (activeSection === "subscription") {
-      const org = (db as any).__orgMeta;
       return (
         <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
           <h2 className="text-base font-semibold text-gray-800 border-b border-gray-200 pb-3">Manage Subscription</h2>
@@ -683,6 +682,14 @@ export default function OrgSettings({ db, onUpdateCompany, onUpdateRole, onReset
       </div>
     );
   };
+
+  if (!db) {
+    return (
+      <div className="fixed inset-0 z-40 bg-white flex items-center justify-center">
+        <p className="text-sm text-gray-400">Loading settings...</p>
+      </div>
+    );
+  }
 
   const query = searchQuery.trim().toLowerCase();
   const matchesQuery = (label: string) => !query || label.toLowerCase().includes(query);
