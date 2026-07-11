@@ -75,17 +75,15 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
         fetch('/api/support/tickets', { headers })
       ]);
 
-      if (oRes.ok && rRes.ok && sRes.ok && lRes.ok && uRes.ok) {
-        const [orgs, regs, seats, logs, uList] = await Promise.all([
-          oRes.json(), rRes.json(), sRes.json(), lRes.json(), uRes.json()
-        ]);
-        setOrganizations(orgs);
-        setRegistrations(regs);
-        setSeatRequests(seats);
-        setAuditLogs(logs);
-        setUsers(uList);
-      }
-      if (tRes.ok) setSupportTickets(await tRes.json());
+      // Each endpoint updates its own state independently — one failing (e.g. a
+      // transient hiccup on /api/users) must not hide data from the others that
+      // succeeded, like pending registrations.
+      if (oRes.ok) setOrganizations(await oRes.json()); else console.error("Failed to load organizations:", oRes.status);
+      if (rRes.ok) setRegistrations(await rRes.json()); else console.error("Failed to load registrations:", rRes.status);
+      if (sRes.ok) setSeatRequests(await sRes.json()); else console.error("Failed to load seat requests:", sRes.status);
+      if (lRes.ok) setAuditLogs(await lRes.json()); else console.error("Failed to load audit logs:", lRes.status);
+      if (uRes.ok) setUsers(await uRes.json()); else console.error("Failed to load users:", uRes.status);
+      if (tRes.ok) setSupportTickets(await tRes.json()); else console.error("Failed to load support tickets:", tRes.status);
     } catch (err) {
       console.error("Failed to load platform data profiles", err);
     } finally {
