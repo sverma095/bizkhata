@@ -693,8 +693,15 @@ app.use(async (req: any, res: any, next: any) => {
   if (req.method !== "GET") {
     const originalJson = res.json.bind(res);
     res.json = (body: any) => {
-      saveUserDB().catch(err => console.error("USER_DB middleware: save failed", err));
-      return originalJson(body);
+      // Critical: must finish the Supabase write BEFORE sending the response.
+      // Vercel can freeze/recycle a serverless function immediately after the
+      // response is sent, which would silently kill a fire-and-forget save
+      // mid-write — meaning a "successful" registration, seat request, or user
+      // edit could vanish before it's ever actually persisted.
+      saveUserDB()
+        .catch(err => console.error("USER_DB middleware: save failed", err))
+        .finally(() => originalJson(body));
+      return res;
     };
   }
   next();

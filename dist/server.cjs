@@ -626,8 +626,8 @@ app.use(async (req, res, next) => {
   if (req.method !== "GET") {
     const originalJson = res.json.bind(res);
     res.json = (body) => {
-      saveUserDB().catch((err) => console.error("USER_DB middleware: save failed", err));
-      return originalJson(body);
+      saveUserDB().catch((err) => console.error("USER_DB middleware: save failed", err)).finally(() => originalJson(body));
+      return res;
     };
   }
   next();
