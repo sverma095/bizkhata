@@ -1074,6 +1074,28 @@ async function writeDB(orgId: string, state: DatabaseState): Promise<void> {
 }
 
 // REST Api Endpoints
+// ── Auth rate limiting ─────────────────────────────────────────────────────
+// In-memory per-IP sliding window, consistent with the existing `global`-cache
+// pattern used elsewhere (e.g. __regOtps). Resets on cold start, which is
+// acceptable here: the goal is to blunt scripted abuse, not provide hard
+// guarantees across instances.
+const rateLimit = (windowMs: number, max: number) => (req: any, res: any, next: any) => {
+  const ip = (req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "unknown").toString().split(",")[0].trim();
+  const key = `${req.path}:${ip}`;
+  if (!(global as any).__rateBuckets) (global as any).__rateBuckets = {};
+  const buckets = (global as any).__rateBuckets;
+  const now = Date.now();
+  const bucket = (buckets[key] = buckets[key] || []).filter((t: number) => now - t < windowMs);
+  if (bucket.length >= max) {
+    res.status(429).json({ error: "Too many requests. Please try again later." });
+    return;
+  }
+  bucket.push(now);
+  buckets[key] = bucket;
+  next();
+};
+const authRateLimit = rateLimit(10 * 60 * 1000, 5); // 5 per 10 min per IP per route
+
 // ── User Management API Routes ────────────────────────────────────────────────
 
 // Notifications
@@ -1082,7 +1104,7 @@ app.post("/api/notifications/clear", authGuard, superAdminGuard, (req: any, res:
 
 // Registration request
 // Send registration email OTP
-app.post("/api/auth/send-reg-otp", async (req: any, res: any) => {
+app.post("/api/auth/send-reg-otp", authRateLimit, async (req: any, res: any) => {
   const { email } = req.body;
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return res.status(400).json({ error: "Valid email required." });
@@ -1105,7 +1127,7 @@ app.post("/api/auth/send-reg-otp", async (req: any, res: any) => {
 });
 
 // Verify-only check (doesn't consume the OTP — final register-request still validates it)
-app.post("/api/auth/verify-reg-otp", (req: any, res: any) => {
+app.post("/api/auth/verify-reg-otp", authRateLimit, (req: any, res: any) => {
   const { email, otp } = req.body;
   const otpStore = (global as any).__regOtps || {};
   const record = otpStore[email];
@@ -1115,7 +1137,7 @@ app.post("/api/auth/verify-reg-otp", (req: any, res: any) => {
   res.json({ verified: true });
 });
 
-app.post("/api/auth/register-request", (req: any, res: any) => {
+app.post("/api/auth/register-request", authRateLimit, (req: any, res: any) => {
   const { companyName, gstNumber, adminName, email, mobileNumber, password, numberOfRequiredSeats, requestedPlan, emailOtp } = req.body;
   if (!companyName || !adminName || !email || !mobileNumber || !password || !numberOfRequiredSeats) {
     res.status(400).json({ error: "Company name, admin name, email, mobile, password and seats are required." }); return;
@@ -1141,7 +1163,7 @@ app.post("/api/auth/register-request", (req: any, res: any) => {
 });
 
 // Login
-app.post("/api/auth/login", async (req: any, res: any) => {
+app.post("/api/auth/login", authRateLimit, async (req: any, res: any) => {
   const { email, password } = req.body;
   if (!email || !password) { res.status(400).json({ error: "Email and Password required." }); return; }
   const user = USER_DB.users.find((u: any) => u.email === email);
@@ -1187,7 +1209,7 @@ app.post("/api/auth/login", async (req: any, res: any) => {
 });
 
 // Verify 2FA
-app.post("/api/auth/verify-2fa", (req: any, res: any) => {
+app.post("/api/auth/verify-2fa", authRateLimit, (req: any, res: any) => {
   const { email, otp } = req.body;
   const user = USER_DB.users.find((u: any) => u.email === email);
   if (!user || !user.activationCode) { res.status(400).json({ error: "No pending OTP. Please log in again." }); return; }
@@ -1202,7 +1224,7 @@ app.post("/api/auth/verify-2fa", (req: any, res: any) => {
 });
 
 // Resend 2FA OTP
-app.post("/api/auth/resend-2fa", async (req: any, res: any) => {
+app.post("/api/auth/resend-2fa", authRateLimit, async (req: any, res: any) => {
   const { email } = req.body;
   const user = USER_DB.users.find((u: any) => u.email === email);
   if (!user) { res.status(404).json({ error: "User not found." }); return; }
@@ -1224,7 +1246,7 @@ app.post("/api/auth/toggle-2fa", authGuard, (req: any, res: any) => {
 });
 
 // Forgot password
-app.post("/api/auth/forgot-password", async (req: any, res: any) => {
+app.post("/api/auth/forgot-password", authRateLimit, async (req: any, res: any) => {
   const { email } = req.body;
   const user = USER_DB.users.find((u: any) => u.email === email);
   if (user) {
@@ -1248,7 +1270,7 @@ app.post("/api/auth/forgot-password", async (req: any, res: any) => {
 });
 
 // Reset password
-app.post("/api/auth/reset-password", (req: any, res: any) => {
+app.post("/api/auth/reset-password", authRateLimit, (req: any, res: any) => {
   const { email, code, newPassword } = req.body;
   const user = USER_DB.users.find((u: any) => u.email === email);
   if (!user || !user.resetCode) { res.status(400).json({ error: "Invalid or expired reset code." }); return; }
