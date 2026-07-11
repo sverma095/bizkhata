@@ -46,7 +46,7 @@ export default function TesterPanel(props: TesterPanelProps) {
   }, []);
 
   const getQuickLogins = () => [
-    { name: "Super Admin (Global Platform)", email: "superadmin@bizkhata.com", role: "Super Admin", org: "None" },
+    { name: "Super Admin (Global Platform)", email: "superadmin@bizkhata.app", role: "Super Admin", org: "None" },
     { name: "Apex Admin (Company A)", email: "admin@apex.com", role: "Admin", org: "Apex Industries" },
     { name: "Apex Manager (Company A)", email: "manager@apex.com", role: "Manager", org: "Apex Industries" },
     { name: "Apex Accountant (Company A)", email: "accountant@apex.com", role: "Accountant", org: "Apex Industries" },

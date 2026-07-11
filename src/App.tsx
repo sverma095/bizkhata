@@ -166,13 +166,18 @@ export default function App() {
       authFetch("/api/db").then(r => r.ok ? r.json() : null).then(data => {
         if (data) {
           setDb(data);
-          localStorage.setItem("bizkhata_cached_db", JSON.stringify(data));
+          setLoading(false);
+        } else {
+          setDbLoadFailed(true);
           setLoading(false);
         }
       }).catch(() => {
-        // Try loading from localStorage cache
-        const cached = localStorage.getItem("bizkhata_cached_db");
-        if (cached) { try { setDb(JSON.parse(cached)); setLoading(false); } catch {} }
+        // Do NOT fall back to a locally cached blob here — it may belong to a
+        // different account/organization on a shared device. Show an honest
+        // error with a retry option instead of risking showing someone else's
+        // (or stale) data.
+        setDbLoadFailed(true);
+        setLoading(false);
       });
     }, 100);
   };
@@ -180,6 +185,9 @@ export default function App() {
   const handleLogout = () => {
     setSession(null);
     localStorage.removeItem('bizkhata_session_token');
+    localStorage.removeItem('bizkhata_cached_db'); // legacy key, no longer written but clear just in case
+    setDb(null);
+    setDbLoadFailed(false);
     setPanelView('');
     setShowLoginFlag(null);
     setMarketingPath(null);
@@ -194,6 +202,7 @@ export default function App() {
 
   // ── Ledger DB state ───────────────────────────────────────────────────────
   const [db, setDb] = useState<DatabaseState | null>(null);
+  const [dbLoadFailed, setDbLoadFailed] = useState(false);
   const [activeTab, setActiveTab] = useState<"dashboard" | "items" | "sales" | "purchases" | "payments" | "accounting" | "reports" | "ai" | "settings" | "banking" | "timetracking" | "users" | "advanced">("dashboard");
   const [salesSubTab, setSalesSubTab] = useState<"tax" | "proforma" | "salesorders" | "notes" | "customers">("tax");
   const [salesExpanded, setSalesExpanded] = useState(true);
@@ -292,114 +301,22 @@ export default function App() {
     }
   };
 
-  const createClientFallbackState = (): DatabaseState => {
-    return {
-      company: {
-        name: "",
-        legalName: "",
-        gstin: "29AAAAA0000A1Z1", // Karnataka GSTIN
-        pan: "",
-        address: "102 tech Hub, Double Road, Indiranagar, Bengaluru",
-        state: "Karnataka",
-        currency: "INR",
-        financialYear: "2026-2027"
-      },
-      role: UserRole.Owner,
-      customers: [
-        {
-          id: "cust_1",
-          name: "Rajesh Khanna & Sons",
-          legalName: "Rajesh Khanna Enterprises Ltd",
-          gstin: "27BBBBB1111B1Z2", // Maharashtra GSTIN - Interstate
-          pan: "BBBBB1111B",
-          email: "finance@rajeshkhanna.com",
-          phone: "+91-9876543210",
-          billingAddress: "402 Marine Drive, Mumbai",
-          state: "Maharashtra",
-          paymentTerms: "Net 30",
-          openingBalance: 0
-        },
-        {
-          id: "cust_2",
-          name: "Zenith Software Hub",
-          legalName: "Zenith Tech Labs Karnataka Pvt Ltd",
-          gstin: "29CCCCC2222C1Z4", // Karnataka GSTIN - Intrastate
-          pan: "CCCCC2222C",
-          email: "accounts@zenithhub.co.in",
-          phone: "+91-9123456789",
-          billingAddress: "80 Feet Road, Koramangala, Bengaluru",
-          state: "Karnataka",
-          paymentTerms: "Due on Receipt",
-          openingBalance: 0
-        }
-      ],
-      vendors: [],
-      items: [],
-      accounts: [
-        { code: "bank_account", name: "Bank Account", type: "Asset", balance: 500000 },
-        { code: "capital", name: "Capital", type: "Equity", balance: 500000 }
-      ],
-      invoices: [],
-      creditNotes: [],
-      payments: [],
-      expenses: [],
-      bills: [],
-      journals: [
-        {
-          id: "j_init",
-          date: "2026-04-01",
-          reference: "Opening Balance",
-          description: "Initial capital contribution in bank account",
-          lines: [
-            { id: "line_init_1", accountCode: "bank_account", accountName: "Bank Account", debit: 500000, credit: 0 },
-            { id: "line_init_2", accountCode: "capital", accountName: "Capital", debit: 0, credit: 500000 }
-          ]
-        }
-      ],
-      auditLogs: [
-        { id: "audit_init", timestamp: new Date().toISOString(), user: "System", action: "DATABASE_INITIALIZATION", details: "Client-side fallback initialized safely" }
-      ],
-      users: [
-        { id: "usr_default_admin", name: "System Administrator", email: "admin@company.com", mobile: "", role: UserRole.Owner, password: "Admin@123" }
-      ],
-      userSeatsLimit: 5,
-      mailLogs: []
-    };
-  };
-
-  const loadClientFallback = () => {
-    try {
-      const cached = localStorage.getItem("bizkhata_cached_db");
-      if (cached) {
-        setDb(JSON.parse(cached));
-        console.log("Successfully loaded database state from offline client-side localStorage cache.");
-      } else {
-        const fallback = createClientFallbackState();
-        setDb(fallback);
-        localStorage.setItem("bizkhata_cached_db", JSON.stringify(fallback));
-        console.log("No offline client-side cache found. Initialized default fallback state.");
-      }
-    } catch (err) {
-      console.error("Critical fallback state failure:", err);
-    }
-  };
-
   const fetchDB = async () => {
     try {
       const r = await authFetch("/api/db");
       if (r.ok) {
         const data = await r.json();
         setDb(data);
-        localStorage.setItem("bizkhata_cached_db", JSON.stringify(data));
+        setDbLoadFailed(false);
         // After successful DB load, refresh supabase status
         fetchSupabaseStatus();
       } else {
-        console.warn("Backend API returned non-ok status. Attempting client-side local cache fallback...");
-        loadClientFallback();
+        console.error("Backend API returned non-ok status loading /api/db:", r.status);
+        setDbLoadFailed(true);
       }
     } catch (err) {
-      console.error("Failed to load Ledgerio parameters.", err);
-      loadClientFallback();
+      console.error("Failed to load Ledgerio data:", err);
+      setDbLoadFailed(true);
     } finally {
       setLoading(false);
     }
@@ -436,6 +353,18 @@ export default function App() {
   if (loading || !db) {
     // If we have a session but db is loading, show minimal loader not blank
     if (session) {
+      if (dbLoadFailed) {
+        return (
+          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-center text-xs text-slate-700 font-sans gap-3.5 select-none leading-relaxed px-6">
+            <div className="w-12 h-12 rounded-full bg-rose-50 border border-rose-200 flex items-center justify-center text-xl">⚠️</div>
+            <div className="max-w-sm">
+              <p className="font-bold text-sm text-slate-800">Couldn't load your data</p>
+              <p className="text-slate-500 mt-1">We weren't able to reach the server. Your data hasn't been lost — please try again.</p>
+            </div>
+            <button onClick={fetchDB} className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-5 py-2 rounded-lg text-xs transition">Retry</button>
+          </div>
+        );
+      }
       return (
         <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-xs text-slate-700 font-sans gap-3.5 select-none leading-relaxed">
           <div className="w-10 h-10 border-4 border-emerald-400 border-t-transparent rounded-full animate-spin" />
@@ -1575,7 +1504,7 @@ export default function App() {
             )}
 
             {/* double entry charts audits */}
-            {activeTab === "accounting" && accountingSubTab !== "opening" && accountingSubTab !== "fixedassets" && accountingSubTab !== "coa" && (
+            {activeTab === "accounting" && accountingSubTab !== "opening" && accountingSubTab !== "fixedassets" && accountingSubTab !== "coa" && accountingSubTab !== "accounts" && (
               <Accounting 
                 db={db} 
                 defaultTab={accountingSubTab}

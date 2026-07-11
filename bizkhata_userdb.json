@@ -1,0 +1,87 @@
+{
+  "organizations": [
+    {
+      "id": "org_verma_consultancy",
+      "name": "Verma Consultancy Services",
+      "gstNumber": "09AABFV1234A1Z5",
+      "status": "Active",
+      "allocatedSeats": 10,
+      "usedSeats": 1,
+      "createdAt": "2026-01-01T00:00:00Z",
+      "approvedAt": "2026-01-01T00:00:00Z",
+      "subscriptionExpiresAt": "2027-01-01T00:00:00Z",
+      "subscriptionMonths": 12
+    }
+  ],
+  "users": [
+    {
+      "id": "user_superadmin",
+      "organizationId": null,
+      "fullName": "Platform Owner",
+      "email": "owner@bizkhata.app",
+      "mobileNumber": "",
+      "role": "Super Admin",
+      "status": "Active",
+      "password": "scrypt:f197211bffc62fbc13e8e2f5062a5281:046a1fbc836969e3a63a12e083429db3e89c4f44e02739ebb8d842982d038cf92c650015f34ff0244cdded34b7b41855beb8fdcddeb08588ec5bed103e8300fc",
+      "permissions": [
+        "view_invoices",
+        "create_invoices",
+        "edit_invoices",
+        "delete_invoices",
+        "approve_payments",
+        "manage_customers",
+        "manage_vendors",
+        "view_reports",
+        "export_data",
+        "manage_users",
+        "view_journals",
+        "create_journals",
+        "manage_items",
+        "manage_billing",
+        "view_banking"
+      ],
+      "twoFactorEnabled": false,
+      "twoFactorVerified": false,
+      "createdAt": "2026-01-01T00:00:00Z",
+      "loginAttempts": 1
+    },
+    {
+      "id": "user_verma_owner",
+      "organizationId": "org_verma_consultancy",
+      "fullName": "Sunil Verma",
+      "email": "svtiger543939@gmail.com",
+      "mobileNumber": "+919876543210",
+      "department": "Management",
+      "designation": "Owner",
+      "role": "Admin",
+      "status": "Active",
+      "password": "scrypt:7fb5cf2dcdde5045a40f46bdf62fbdc9:8e605327ed80facf99f3e814ece8879093c9ed61a489e9da483285274e3a9fecbf54d3602a72aa111497a25c4fd2f9f10af50c592812ed06dc5fcaef2d23f25e",
+      "permissions": [
+        "view_invoices",
+        "create_invoices",
+        "edit_invoices",
+        "delete_invoices",
+        "approve_payments",
+        "manage_customers",
+        "manage_vendors",
+        "view_reports",
+        "export_data",
+        "manage_users",
+        "view_journals",
+        "create_journals",
+        "manage_items",
+        "manage_billing",
+        "view_banking"
+      ],
+      "twoFactorEnabled": false,
+      "twoFactorVerified": false,
+      "createdAt": "2026-01-01T00:00:00Z"
+    }
+  ],
+  "seatRequests": [],
+  "auditLogs": [],
+  "customRoles": [],
+  "registrationRequests": [],
+  "notifications": [],
+  "supportTickets": []
+}

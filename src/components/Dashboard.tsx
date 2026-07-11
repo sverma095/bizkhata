@@ -255,7 +255,7 @@ export default function Dashboard({ db, onNavigate, onTriggerAI, token }: Dashbo
             <div className="text-left md:text-right space-y-0.5">
               <div className="flex flex-wrap items-center gap-1.5 text-xs">
                 <span className="font-semibold text-slate-200">Ledgerio Support</span>
-                <span className="font-bold text-amber-400 font-mono text-sm">bizkhata.com</span>
+                <span className="font-bold text-amber-400 font-mono text-sm">bizkhata.app</span>
               </div>
               <p className="text-[10px] text-slate-400 font-medium">Mon - Fri • 9:00 AM - 7:00 PM • Toll Free</p>
             </div>
