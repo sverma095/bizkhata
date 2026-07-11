@@ -810,7 +810,7 @@ export default function OrgSettings({ db, onUpdateCompany, onUpdateRole, onReset
                 )}
                 {activeTab === "validation" && (
                   <MultiToggleSection sectionId={activeSection} category="validation" options={VALIDATION_OPTIONS}
-                    note="These rules are saved per document type, but are only enforced where the underlying form already checks for them — not yet wired into every save action." />
+                    note="Enforced on save for Invoices and Bills. Not yet wired into other document types (Estimates, Expenses, etc.)." />
                 )}
                 {activeTab === "buttons" && (
                   <MultiToggleSection sectionId={activeSection} category="buttons" options={BUTTON_OPTIONS} />

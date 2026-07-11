@@ -1096,6 +1096,13 @@ const rateLimit = (windowMs: number, max: number) => (req: any, res: any, next: 
 };
 const authRateLimit = rateLimit(10 * 60 * 1000, 5); // 5 per 10 min per IP per route
 
+// Validation Rules enforcement helper. Rules are toggled per document type in
+// Settings > Validation Rules and stored as `${sectionId}__validation__${ruleId}`
+// in db.enabledModules (see OrgSettings.tsx MultiToggleSection). Previously these
+// were saved but never read back anywhere — now actually enforced on invoice/bill save.
+const validationRuleEnabled = (db: any, sectionId: string, ruleId: string): boolean =>
+  (db.enabledModules || {})[`${sectionId}__validation__${ruleId}`] === true;
+
 // ── User Management API Routes ────────────────────────────────────────────────
 
 // Notifications
@@ -1887,6 +1894,23 @@ app.post("/api/invoices", authGuard, requirePermission("create_invoices"), async
   const db = await readDB(orgId);
   const user = req.body.authorUser || "User";
 
+  // Validation Rules enforcement (Settings > Validation Rules, sectionId "invoices")
+  if (validationRuleEnabled(db, "invoices", "require_line_item") && (!Array.isArray(invoiceData.items) || invoiceData.items.length === 0)) {
+    return res.status(400).json({ error: "This organization requires at least one line item on invoices.", validationRule: "require_line_item" });
+  }
+  if (validationRuleEnabled(db, "invoices", "no_negative_amounts") && Array.isArray(invoiceData.items) && invoiceData.items.some((it: any) => Number(it.amount) < 0 || Number(it.quantity) < 0 || Number(it.rate) < 0)) {
+    return res.status(400).json({ error: "Negative line-item amounts aren't allowed by this organization's validation rules.", validationRule: "no_negative_amounts" });
+  }
+  if (validationRuleEnabled(db, "invoices", "require_due_date") && !invoiceData.dueDate) {
+    return res.status(400).json({ error: "A due date is required by this organization's validation rules.", validationRule: "require_due_date" });
+  }
+  if (validationRuleEnabled(db, "invoices", "require_gstin")) {
+    const cust = db.customers.find((c: any) => c.id === invoiceData.customerId);
+    if (!cust?.gstin) {
+      return res.status(400).json({ error: "Customer GSTIN is required by this organization's validation rules before saving.", validationRule: "require_gstin" });
+    }
+  }
+
   // Auto invoicing sequence numbering
   if (!invoiceData.invoiceNumber) {
     const lastNum = db.invoices.length;
@@ -2231,6 +2255,23 @@ app.post("/api/bills", authGuard, requirePermission("manage_billing"), requireFe
   }
   const db = await readDB(orgId);
   const user = req.body.authorUser || "User";
+
+  // Validation Rules enforcement (Settings > Validation Rules, sectionId "bills")
+  if (validationRuleEnabled(db, "bills", "require_line_item") && (!Array.isArray(bill.items) || bill.items.length === 0)) {
+    return res.status(400).json({ error: "This organization requires at least one line item on bills.", validationRule: "require_line_item" });
+  }
+  if (validationRuleEnabled(db, "bills", "no_negative_amounts") && Array.isArray(bill.items) && bill.items.some((it: any) => Number(it.amount) < 0 || Number(it.quantity) < 0 || Number(it.rate) < 0)) {
+    return res.status(400).json({ error: "Negative line-item amounts aren't allowed by this organization's validation rules.", validationRule: "no_negative_amounts" });
+  }
+  if (validationRuleEnabled(db, "bills", "require_due_date") && !bill.dueDate) {
+    return res.status(400).json({ error: "A due date is required by this organization's validation rules.", validationRule: "require_due_date" });
+  }
+  if (validationRuleEnabled(db, "bills", "require_gstin")) {
+    const vend = db.vendors.find((v: any) => v.id === bill.vendorId);
+    if (!vend?.gstin) {
+      return res.status(400).json({ error: "Vendor GSTIN is required by this organization's validation rules before saving.", validationRule: "require_gstin" });
+    }
+  }
 
   const existingIndex = db.bills.findIndex(b => b.id === bill.id);
   const existingBill = existingIndex >= 0 ? db.bills[existingIndex] : null;
