@@ -64,7 +64,9 @@ export default function Payments({ db, onRecordPayment }: PaymentsProps) {
       referenceNumber,
       bankAccount,
       allocations: [
-        { invoiceId, amount: Number(amountReceived) + Number(tdsDeducted) }
+        // invoice.total is already net of TDS (TDS Receivable was booked separately
+        // at invoice time), so only the actual cash received settles it here.
+        { invoiceId, amount: Number(amountReceived) }
       ]
     };
 

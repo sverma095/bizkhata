@@ -2,14 +2,15 @@ import React, { useState } from "react";
 import { DatabaseState, FixedAsset } from "../types.js";
 import { Plus, X, Edit, TrendingDown } from "lucide-react";
 
-interface Props { db: DatabaseState; onSaveAsset: (a: any) => Promise<void>; }
+interface Props { db: DatabaseState; onSaveAsset: (a: any) => Promise<void>; onRunDepreciation?: () => Promise<{ posted: any[] }>; }
 
 const CATEGORIES = ["Plant & Machinery","Computer & Software","Furniture & Fixtures","Vehicles","Land & Building","Office Equipment","Other"];
 
-export default function FixedAssets({ db, onSaveAsset }: Props) {
+export default function FixedAssets({ db, onSaveAsset, onRunDepreciation }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<FixedAsset | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isRunningDep, setIsRunningDep] = useState(false);
   const [disposing, setDisposing] = useState<FixedAsset | null>(null);
   const [disposalProceeds, setDisposalProceeds] = useState(0);
   const [disposalDate, setDisposalDate] = useState(new Date().toISOString().split("T")[0]);
@@ -131,7 +132,23 @@ export default function FixedAssets({ db, onSaveAsset }: Props) {
     <div className="space-y-5 animate-fade-in">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div><h2 className="text-base font-bold text-slate-900">Fixed Assets Register</h2><p className="text-xs text-slate-500">Track capital assets, depreciation and current book value</p></div>
-        <button onClick={() => { resetForm(); setShowForm(true); }} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-lg"><Plus className="w-3.5 h-3.5" />Add Asset</button>
+        <div className="flex gap-2">
+          <button
+            onClick={async () => {
+              if (!onRunDepreciation) return;
+              setIsRunningDep(true);
+              try {
+                const result = await onRunDepreciation();
+                const count = result?.posted?.length || 0;
+                alert(count > 0 ? `Posted depreciation for ${count} asset(s) to the ledger.` : "Depreciation is already up to date — nothing to post.");
+              } catch (e: any) { alert(e.message); }
+              finally { setIsRunningDep(false); }
+            }}
+            disabled={isRunningDep}
+            className="flex items-center gap-2 bg-slate-700 hover:bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-lg disabled:opacity-60"
+          ><TrendingDown className="w-3.5 h-3.5" />{isRunningDep ? "Posting..." : "Run Depreciation"}</button>
+          <button onClick={() => { resetForm(); setShowForm(true); }} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-lg"><Plus className="w-3.5 h-3.5" />Add Asset</button>
+        </div>
       </div>
       <div className="grid grid-cols-3 gap-3">
         {[{label:"Total Assets",value:assets.length,mono:false},{label:"Gross Block",value:`₹${totalCost.toLocaleString("en-IN",{maximumFractionDigits:0})}`,mono:true},{label:"Net Block (WDV)",value:`₹${totalCurrentValue.toLocaleString("en-IN",{maximumFractionDigits:0})}`,mono:true}].map(s=>(

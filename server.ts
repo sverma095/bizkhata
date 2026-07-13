@@ -827,6 +827,8 @@ const DEFAULT_ACCOUNTS: Account[] = [
   { code: "accounts_receivable", name: "Accounts Receivable", type: "Asset", balance: 0 },
   { code: "tds_receivable", name: "TDS Receivable", type: "Asset", balance: 0 },
   { code: "input_gst", name: "Input GST", type: "Asset", balance: 0 },
+  { code: "fixed_assets", name: "Fixed Assets (Gross Block)", type: "Asset", balance: 0 },
+  { code: "accumulated_depreciation", name: "Accumulated Depreciation (Contra-Asset)", type: "Asset", balance: 0 },
   // Liabilities
   { code: "accounts_payable", name: "Accounts Payable", type: "Liability", balance: 0 },
   { code: "gst_payable", name: "GST Payable", type: "Liability", balance: 0 },
@@ -842,6 +844,7 @@ const DEFAULT_ACCOUNTS: Account[] = [
   { code: "software_subscription", name: "Software Subscription", type: "Expense", balance: 0 },
   { code: "professional_fees", name: "Professional Fees", type: "Expense", balance: 0 },
   { code: "bank_charges", name: "Bank Charges", type: "Expense", balance: 0 },
+  { code: "depreciation_expense", name: "Depreciation Expense", type: "Expense", balance: 0 },
   // Equity
   { code: "capital", name: "Capital", type: "Equity", balance: 0 },
   { code: "retained_earnings", name: "Retained Earnings", type: "Equity", balance: 0 }
@@ -1996,10 +1999,12 @@ app.post("/api/payments", authGuard, requirePermission("approve_payments"), asyn
   });
 
   // Write Double-Entry balanced journal line!
+  // TDS Receivable was already booked as an asset at invoice time (createInvoiceJournal),
+  // against an AR balance that is already net of TDS. So collecting payment is just:
   // Debit Bank_Account for amountReceived
-  // Debit Tds_Receivable for tdsDeducted
-  // Credit Accounts_Receivable for total (amountReceived + tdsDeducted)
-  const totalCredited = payment.amountReceived + payment.tdsDeducted;
+  // Credit Accounts_Receivable for amountReceived
+  // (previously this also re-debited TDS Receivable and over-credited AR by tdsDeducted,
+  // double-counting the TDS on every invoice that had it)
   const lines: JournalLine[] = [
     {
       id: uuid(),
@@ -2007,26 +2012,15 @@ app.post("/api/payments", authGuard, requirePermission("approve_payments"), asyn
       accountName: "Bank Account",
       debit: payment.amountReceived,
       credit: 0
+    },
+    {
+      id: uuid(),
+      accountCode: "accounts_receivable",
+      accountName: "Accounts Receivable",
+      debit: 0,
+      credit: payment.amountReceived
     }
   ];
-
-  if (payment.tdsDeducted > 0) {
-    lines.push({
-      id: uuid(),
-      accountCode: "tds_receivable",
-      accountName: "TDS Receivable",
-      debit: payment.tdsDeducted,
-      credit: 0
-    });
-  }
-
-  lines.push({
-    id: uuid(),
-    accountCode: "accounts_receivable",
-    accountName: "Accounts Receivable",
-    debit: 0,
-    credit: totalCredited
-  });
 
   const journalEntry: JournalEntry = {
     id: `j_pay_${payment.id}`,
@@ -3341,16 +3335,70 @@ app.post("/api/vendor-credits", authGuard, async (req: any, res: any) => {
   if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
   const db = await readDB(orgId);
     const payload = req.body;
+    const user = payload.authorUser || "User";
     if (!db.vendorCredits) db.vendorCredits = [];
+    let vc: any;
     if (payload.id) {
       const idx = db.vendorCredits.findIndex((v: any) => v.id === payload.id);
-      if (idx >= 0) { db.vendorCredits[idx] = { ...db.vendorCredits[idx], ...payload }; }
-      else { db.vendorCredits.push(payload); }
+      if (idx >= 0) { db.vendorCredits[idx] = { ...db.vendorCredits[idx], ...payload }; vc = db.vendorCredits[idx]; }
+      else { db.vendorCredits.push(payload); vc = payload; }
     } else {
       const vcCount = db.vendorCredits.length + 1;
       const vcNumber = `VC-${new Date().getFullYear()}-${String(vcCount).padStart(3, "0")}`;
-      db.vendorCredits.push({ ...payload, id: `vc_${Date.now()}`, vcNumber });
+      vc = { ...payload, id: `vc_${Date.now()}`, vcNumber };
+      db.vendorCredits.push(vc);
     }
+
+    // Adjust linked bill balance (mirrors Credit Note's invoice adjustment)
+    if (vc.billId) {
+      const bill = db.bills.find((b: any) => b.id === vc.billId);
+      if (bill) {
+        bill.total = Math.max(0, bill.total - vc.total);
+        if ((bill.paymentPaid || 0) >= bill.total) bill.status = "Paid";
+      }
+    }
+
+    // Post reversal journal — previously this endpoint saved the record only, so vendor
+    // credits never reduced AP or purchase expense and were invisible to Reports (which
+    // reads only from db.journals). Mirrors the Credit Note journal on the sales side.
+    // Debit Accounts Payable for total (reduces what we owe the vendor)
+    // Credit the expense/purchase account for subtotal (reverses the original expense)
+    // Credit GST liability for totalGst (reverses the input GST we'd claimed)
+    const lines: JournalLine[] = [
+      { id: uuid(), accountCode: "accounts_payable", accountName: "Accounts Payable (Reversed)", debit: vc.total, credit: 0 }
+    ];
+    lines.push({
+      id: uuid(),
+      accountCode: "purchases_expense",
+      accountName: "Purchases / Expense (Reversed)",
+      debit: 0,
+      credit: vc.subtotal
+    });
+    if (vc.totalGst > 0) {
+      lines.push({
+        id: uuid(),
+        accountCode: "input_gst",
+        accountName: "Input GST Asset (Reversed)",
+        debit: 0,
+        credit: vc.totalGst
+      });
+    }
+    db.journals.push({
+      id: `j_vc_${vc.id}`,
+      date: vc.date,
+      reference: `Vendor Credit ${vc.vcNumber}`,
+      description: `Purchase adjustment for ${vc.vendorName}${vc.billId ? ` (Bill ${db.bills.find((b: any) => b.id === vc.billId)?.billNumber || vc.billId})` : ""}: ${vc.reason || ""}`,
+      lines
+    });
+
+    db.auditLogs.unshift({
+      id: uuid(),
+      timestamp: new Date().toISOString(),
+      user,
+      action: "Issue Vendor Credit",
+      details: `Vendor credit ${vc.vcNumber} issued for ${vc.vendorName}, ₹${vc.total}`
+    });
+
     await writeDB(orgId, db);
     res.json({ success: true });
   } catch(e: any) { res.status(500).json({ error: e.message }); }
@@ -3433,13 +3481,42 @@ app.post("/api/bank-transactions/match", authGuard, requirePermission("view_bank
     const tx = txns.find((t: any) => t.id === txId);
     if (!tx) { res.status(404).json({ error: "Transaction not found" }); return; }
     tx.status = "Reconciled"; tx.matchedId = matchedId;
-    // Mark invoice/bill as paid
+    // Mark invoice/bill as paid AND post the matching journal entry — previously this
+    // only flipped status/paymentReceived without ever touching db.journals, so AR/AP
+    // and the bank account balance in Reports never reflected transactions reconciled
+    // from this screen (as opposed to the Payments / Bills-pay screens, which do post).
     if (matchedType === "invoice") {
       const inv = db.invoices.find((i: any) => i.id === matchedId);
-      if (inv) { inv.status = "Paid"; inv.paymentReceived = inv.total; }
+      if (inv) {
+        const settledAmount = tx.credit || inv.total;
+        inv.status = "Paid"; inv.paymentReceived = inv.total;
+        db.journals.push({
+          id: `j_bankmatch_${tx.id}`,
+          date: tx.date,
+          reference: `Bank Reconciliation - Invoice ${inv.invoiceNumber || inv.id}`,
+          description: `Invoice settled via bank statement match (${tx.description || tx.reference || tx.id})`,
+          lines: [
+            { id: uuid(), accountCode: "bank_account", accountName: "Bank Account", debit: settledAmount, credit: 0 },
+            { id: uuid(), accountCode: "accounts_receivable", accountName: "Accounts Receivable", debit: 0, credit: settledAmount }
+          ]
+        });
+      }
     } else if (matchedType === "bill") {
       const bill = db.bills.find((b: any) => b.id === matchedId);
-      if (bill) { bill.status = "Paid"; bill.paymentPaid = bill.total; }
+      if (bill) {
+        const settledAmount = tx.debit || bill.total;
+        bill.status = "Paid"; bill.paymentPaid = bill.total;
+        db.journals.push({
+          id: `j_bankmatch_${tx.id}`,
+          date: tx.date,
+          reference: `Bank Reconciliation - Bill ${bill.billNumber || bill.id}`,
+          description: `Bill settled via bank statement match (${tx.description || tx.reference || tx.id})`,
+          lines: [
+            { id: uuid(), accountCode: "accounts_payable", accountName: "Accounts Payable", debit: settledAmount, credit: 0 },
+            { id: uuid(), accountCode: "bank_account", accountName: "Bank Account", debit: 0, credit: settledAmount }
+          ]
+        });
+      }
     }
     await writeDB(orgId, db);
     res.json({ success: true });
@@ -3453,6 +3530,17 @@ app.post("/api/opening-balances", authGuard, async (req: any, res: any) => {
   if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
   const db = await readDB(orgId);
     const { entries, date } = req.body;
+    if (!Array.isArray(entries) || entries.length === 0) {
+      return res.status(400).json({ error: "At least one opening balance entry is required." });
+    }
+    // Validate balanced double entry — same check /api/journals already enforces for
+    // manual journals. Previously missing here, so an unbalanced opening trial balance
+    // could be posted with no error, silently corrupting the ledger from day one.
+    let obDebit = 0, obCredit = 0;
+    entries.forEach((e: any) => { obDebit += Number(e.debit || 0); obCredit += Number(e.credit || 0); });
+    if (Math.abs(obDebit - obCredit) > 0.01) {
+      return res.status(400).json({ error: `Opening balances must balance: Debits (₹${obDebit.toLocaleString()}) vs Credits (₹${obCredit.toLocaleString()}). Difference is ₹${Math.abs(obDebit - obCredit).toLocaleString()}` });
+    }
     // Update account balances
     entries.forEach((entry: any) => {
       const acc = db.accounts.find((a: any) => a.code === entry.accountCode);
@@ -3548,6 +3636,75 @@ app.post("/api/fixed-assets", authGuard, async (req: any, res: any) => {
     }
     await writeDB(orgId, db);
     res.json({ success: true });
+  } catch(e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// Mirrors the accumulated-depreciation formula already used for display in
+// FixedAssets.tsx (calcDepreciation), so the number posted to the ledger matches
+// what the Fixed Assets register shows.
+function calcAccumulatedDepreciation(asset: any): number {
+  if (asset.status === "CWIP") return 0;
+  const years = (new Date().getFullYear() - new Date(asset.purchaseDate).getFullYear()) + 1;
+  const usefulLife = asset.usefulLife || 1;
+  if (asset.depreciationMethod === "SLM") {
+    const annualDep = (asset.cost - asset.salvageValue) / usefulLife;
+    return Math.min(annualDep * Math.min(years, usefulLife), asset.cost - asset.salvageValue);
+  }
+  // WDV
+  let val = asset.cost;
+  const rate = asset.cost > 0 ? 1 - Math.pow((asset.salvageValue || 0) / asset.cost, 1 / usefulLife) : 0;
+  let acc = 0;
+  for (let i = 0; i < Math.min(years, usefulLife); i++) { const dep = val * rate; acc += dep; val -= dep; }
+  return acc;
+}
+
+// Run/catch-up depreciation posting. No background scheduler exists in this serverless
+// deployment (same constraint noted for the workflow engine), so this is triggered
+// on-demand from the Fixed Assets page. Previously accumulatedDepreciation/currentValue
+// were computed and stored on the asset record but NEVER posted as a journal entry —
+// meaning depreciation expense never hit the P&L and accumulated depreciation never hit
+// the Balance Sheet via Reports (which reads only from db.journals). This posts only the
+// incremental delta since the last run, so re-running it is safe and doesn't double-post.
+app.post("/api/fixed-assets/run-depreciation", authGuard, requirePermission("create_journals"), async (req: any, res: any) => {
+  try {
+    const orgId = req.user.organizationId;
+    if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
+    const db = await readDB(orgId);
+    const assets = (db as any).fixedAssets || [];
+    const today = new Date().toISOString().split("T")[0];
+    const posted: any[] = [];
+    for (const asset of assets) {
+      if (asset.status !== "Active") continue;
+      const newAccumulated = calcAccumulatedDepreciation(asset);
+      const alreadyPosted = asset.journalPostedAccumulated || 0;
+      const delta = Math.round((newAccumulated - alreadyPosted) * 100) / 100;
+      if (delta <= 0.01) continue;
+      db.journals.push({
+        id: `j_dep_${asset.id}_${Date.now()}`,
+        date: today,
+        reference: `Depreciation - ${asset.name}`,
+        description: `Depreciation catch-up for ${asset.name} (${asset.depreciationMethod})`,
+        lines: [
+          { id: uuid(), accountCode: "depreciation_expense", accountName: "Depreciation Expense", debit: delta, credit: 0 },
+          { id: uuid(), accountCode: "accumulated_depreciation", accountName: "Accumulated Depreciation (Contra-Asset)", debit: 0, credit: delta }
+        ]
+      });
+      asset.journalPostedAccumulated = newAccumulated;
+      asset.accumulatedDepreciation = newAccumulated;
+      asset.currentValue = Math.max(asset.cost - newAccumulated, asset.salvageValue || 0);
+      posted.push({ assetId: asset.id, name: asset.name, delta });
+    }
+    if (posted.length > 0) {
+      db.auditLogs.unshift({
+        id: uuid(),
+        timestamp: new Date().toISOString(),
+        user: req.body.authorUser || "User",
+        action: "Run Depreciation",
+        details: `Posted depreciation for ${posted.length} asset(s): ₹${posted.reduce((s, p) => s + p.delta, 0).toLocaleString("en-IN")}`
+      });
+      await writeDB(orgId, db);
+    }
+    res.json({ success: true, posted });
   } catch(e: any) { res.status(500).json({ error: e.message }); }
 });
 

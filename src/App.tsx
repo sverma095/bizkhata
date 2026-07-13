@@ -756,6 +756,12 @@ export default function App() {
     if (r.ok) await fetchDB(); else { const e = await r.json(); throw new Error(e.error || "Failed"); }
   };
 
+  const handleRunDepreciation = async () => {
+    const r = await authFetch("/api/fixed-assets/run-depreciation", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ authorUser: activeUserEmail }) });
+    if (r.ok) { await fetchDB(); return r.json(); }
+    const e = await r.json(); throw new Error(e.error || "Failed");
+  };
+
   // Month-End Close Checklist
   const handleSaveMonthEndChecklist = async (payload: any) => {
     const r = await authFetch("/api/month-end-checklist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...payload, actorEmail: activeUserEmail }) });
@@ -1531,6 +1537,7 @@ export default function App() {
               <FixedAssets
                 db={db}
                 onSaveAsset={handleSaveFixedAsset}
+                onRunDepreciation={handleRunDepreciation}
               />
             )}
 
