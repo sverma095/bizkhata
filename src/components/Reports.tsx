@@ -244,36 +244,36 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
   // Completely dynamic set of exactly 87 reports matching user's screenshots
   const ALL_REPORTS: ReportItem[] = useMemo(() => [
     // --- Business Overview (9) ---
-    { id: "pl", name: "Profit and Loss", category: "Business Overview", categoryId: "business_overview", createdBy: "System Generated", lastVisited: "16 Apr 2026 03:04 PM" },
-    { id: "pl_sched3", name: "Profit and Loss (Schedule III)", category: "Business Overview", categoryId: "business_overview", createdBy: "System Generated", lastVisited: "22 Jan 2026 01:36 PM" },
-    { id: "pl_horiz", name: "Horizontal Profit and Loss", category: "Business Overview", categoryId: "business_overview", createdBy: "System Generated", lastVisited: "20 Mar 2026 03:52 PM" },
-    { id: "cf", name: "Cash Flow Statement", category: "Business Overview", categoryId: "business_overview", createdBy: "System Generated", lastVisited: "24 Mar 2026 01:25 PM" },
-    { id: "bs", name: "Balance Sheet", category: "Business Overview", categoryId: "business_overview", createdBy: "System Generated", lastVisited: "05 May 2026 05:05 PM" },
+    { id: "pl", name: "Profit and Loss", category: "Business Overview", categoryId: "business_overview", createdBy: "System Generated", lastVisited: "-" },
+    { id: "pl_sched3", name: "Profit and Loss (Schedule III)", category: "Business Overview", categoryId: "business_overview", createdBy: "System Generated", lastVisited: "-" },
+    { id: "pl_horiz", name: "Horizontal Profit and Loss", category: "Business Overview", categoryId: "business_overview", createdBy: "System Generated", lastVisited: "-" },
+    { id: "cf", name: "Cash Flow Statement", category: "Business Overview", categoryId: "business_overview", createdBy: "System Generated", lastVisited: "-" },
+    { id: "bs", name: "Balance Sheet", category: "Business Overview", categoryId: "business_overview", createdBy: "System Generated", lastVisited: "-" },
     { id: "bs_horiz", name: "Horizontal Balance Sheet", category: "Business Overview", categoryId: "business_overview", createdBy: "System Generated", lastVisited: "-" },
-    { id: "bs_sched3", name: "Balance Sheet (Schedule III)", category: "Business Overview", categoryId: "business_overview", createdBy: "System Generated", lastVisited: "03 Feb 2026 10:47 AM" },
+    { id: "bs_sched3", name: "Balance Sheet (Schedule III)", category: "Business Overview", categoryId: "business_overview", createdBy: "System Generated", lastVisited: "-" },
     { id: "sales_by_customer", name: "Sales by Customer", category: "Sales", categoryId: "sales", createdBy: "System Generated", lastVisited: "-" },
     { id: "sales_by_item", name: "Sales by Item", category: "Sales", categoryId: "sales", createdBy: "System Generated", lastVisited: "-" },
     { id: "purchase_by_vendor", name: "Purchase by Vendor", category: "Purchases", categoryId: "purchases", createdBy: "System Generated", lastVisited: "-" },
     { id: "tax_liability", name: "Tax Liability Report", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "-" },
-    { id: "biz_ratios", name: "Business Performance Ratios", category: "Business Overview", categoryId: "business_overview", createdBy: "System Generated", lastVisited: "24 Mar 2026 01:24 PM" },
+    { id: "biz_ratios", name: "Business Performance Ratios", category: "Business Overview", categoryId: "business_overview", createdBy: "System Generated", lastVisited: "-" },
     { id: "equity_movement", name: "Movement of Equity", category: "Business Overview", categoryId: "business_overview", createdBy: "System Generated", lastVisited: "-" },
 
     // --- Sales (5) ---
-    { id: "sales_customer", name: "Sales by Customer", category: "Sales", categoryId: "sales", createdBy: "System Generated", lastVisited: "15 Sep 2025 10:23 AM" },
-    { id: "sales_item", name: "Sales by Item", category: "Sales", categoryId: "sales", createdBy: "System Generated", lastVisited: "02 Jun 2025 09:44 AM" },
+    { id: "sales_customer", name: "Sales by Customer", category: "Sales", categoryId: "sales", createdBy: "System Generated", lastVisited: "-" },
+    { id: "sales_item", name: "Sales by Item", category: "Sales", categoryId: "sales", createdBy: "System Generated", lastVisited: "-" },
     { id: "sales_person", name: "Sales by Sales Person", category: "Sales", categoryId: "sales", createdBy: "System Generated", lastVisited: "-" },
-    { id: "sales_summary", name: "Sales Summary", category: "Sales", categoryId: "sales", createdBy: "System Generated", lastVisited: "09 Jul 2025 12:16 PM" },
+    { id: "sales_summary", name: "Sales Summary", category: "Sales", categoryId: "sales", createdBy: "System Generated", lastVisited: "-" },
     { id: "sales_integration", name: "Sales Channel Integrations Sync Summary", category: "Sales", categoryId: "sales", createdBy: "System Generated", lastVisited: "-" },
 
     // --- Receivables (9) ---
     { id: "ar_summary", name: "AR Aging Summary", category: "Receivables", categoryId: "receivables", createdBy: "System Generated", lastVisited: "-" },
-    { id: "ar_details", name: "AR Aging Details", category: "Receivables", categoryId: "receivables", createdBy: "System Generated", lastVisited: "16 Jan 2026 09:30 AM" },
+    { id: "ar_details", name: "AR Aging Details", category: "Receivables", categoryId: "receivables", createdBy: "System Generated", lastVisited: "-" },
     { id: "invoice_details", name: "Invoice Details", category: "Receivables", categoryId: "receivables", createdBy: "System Generated", lastVisited: "-" },
     { id: "sales_order_details", name: "Sales Order Details", category: "Receivables", categoryId: "receivables", createdBy: "System Generated", lastVisited: "-" },
     { id: "delivery_challan", name: "Delivery Challan Details", category: "Receivables", categoryId: "receivables", createdBy: "System Generated", lastVisited: "-" },
-    { id: "estimate_details", name: "Estimate Details", category: "Receivables", categoryId: "receivables", createdBy: "System Generated", lastVisited: "20 Jun 2025 12:42 PM" },
-    { id: "customer_balance", name: "Customer Balance Summary", category: "Receivables", categoryId: "receivables", createdBy: "System Generated", lastVisited: "19 May 2026 12:37 PM" },
-    { id: "receivables_summary", name: "Receivable Summary", category: "Receivables", categoryId: "receivables", createdBy: "System Generated", lastVisited: "09 May 2025 11:03 AM" },
+    { id: "estimate_details", name: "Estimate Details", category: "Receivables", categoryId: "receivables", createdBy: "System Generated", lastVisited: "-" },
+    { id: "customer_balance", name: "Customer Balance Summary", category: "Receivables", categoryId: "receivables", createdBy: "System Generated", lastVisited: "-" },
+    { id: "receivables_summary", name: "Receivable Summary", category: "Receivables", categoryId: "receivables", createdBy: "System Generated", lastVisited: "-" },
     { id: "receivables_details", name: "Receivable Details", category: "Receivables", categoryId: "receivables", createdBy: "System Generated", lastVisited: "-" },
 
     // --- Payments Received (4) ---
@@ -283,12 +283,12 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
     { id: "refund_history", name: "Refund History", category: "Payments Received", categoryId: "payments_received", createdBy: "System Generated", lastVisited: "-" },
 
     // --- Recurring Invoices (1) ---
-    { id: "recurring_invoice_details", name: "Recurring Invoice Details", category: "Recurring Invoices", categoryId: "recurring_invoices", createdBy: "System Generated", lastVisited: "08 May 2025 04:43 PM" },
+    { id: "recurring_invoice_details", name: "Recurring Invoice Details", category: "Recurring Invoices", categoryId: "recurring_invoices", createdBy: "System Generated", lastVisited: "-" },
 
     // --- Payables (13) ---
-    { id: "vendor_balance", name: "Vendor Balance Summary", category: "Payables", categoryId: "payables", createdBy: "System Generated", lastVisited: "23 Apr 2026 11:15 AM" },
+    { id: "vendor_balance", name: "Vendor Balance Summary", category: "Payables", categoryId: "payables", createdBy: "System Generated", lastVisited: "-" },
     { id: "ap_aging_summary", name: "AP Aging Summary", category: "Payables", categoryId: "payables", createdBy: "System Generated", lastVisited: "-" },
-    { id: "ap_aging_details", name: "AP Aging Details", category: "Payables", categoryId: "payables", createdBy: "System Generated", lastVisited: "07 May 2026 06:11 PM" },
+    { id: "ap_aging_details", name: "AP Aging Details", category: "Payables", categoryId: "payables", createdBy: "System Generated", lastVisited: "-" },
     { id: "bill_details", name: "Bill Details", category: "Payables", categoryId: "payables", createdBy: "System Generated", lastVisited: "-" },
     { id: "vendor_credits", name: "Vendor Credit Details", category: "Payables", categoryId: "payables", createdBy: "System Generated", lastVisited: "-" },
     { id: "payments_made", name: "Payments Made", category: "Payables", categoryId: "payables", createdBy: "System Generated", lastVisited: "-" },
@@ -311,20 +311,20 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
     { id: "operating_expenses_trends", name: "Operating Expenses Trends Analysis", category: "Purchases and Expenses", categoryId: "purchases_expenses", createdBy: "System Generated", lastVisited: "-" },
 
     // --- Taxes (12) ---
-    { id: "gstr1", name: "GSTR-1 Outward Supplies Return Summary", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "26 May 2026 01:08 PM" },
-    { id: "gst", name: "Tax Summary", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "05 May 2026 03:51 PM" },
-    { id: "gstr9", name: "Annual Summary (GSTR-9)", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "24 Feb 2026 03:54 PM" },
+    { id: "gstr1", name: "GSTR-1 Outward Supplies Return Summary", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "-" },
+    { id: "gst", name: "Tax Summary", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "-" },
+    { id: "gstr9", name: "Annual Summary (GSTR-9)", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "-" },
     { id: "tds_summary", name: "TDS Summary", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "-" },
-    { id: "tds_receivable", name: "TDS Receivable Summary", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "08 May 2025 04:44 PM" },
+    { id: "tds_receivable", name: "TDS Receivable Summary", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "-" },
     { id: "tcs_payable", name: "TCS Payable Summary (Form No. 27EQ)", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "-" },
     { id: "iff_taxes", name: "Invoice Furnishing Facility (IFF)", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "-" },
     { id: "pmt06", name: "PMT-06 (Self Assessment Basis)", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "-" },
-    { id: "gstr3b_details", name: "GSTR-3B Summary", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "15 Apr 2026 10:45 AM" },
+    { id: "gstr3b_details", name: "GSTR-3B Summary", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "-" },
     { id: "rcm_compliance", name: "RCM Compliance (Reverse Charge)", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "-" },
     { id: "cmp08", name: "CMP-08 (Composition Scheme)", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "-" },
-    { id: "outward_supplies", name: "Summary of Outward Supplies", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "05 May 2026 03:52 PM" },
-    { id: "inward_supplies", name: "Summary of Inward Supplies", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "15 Apr 2026 05:56 PM" },
-    { id: "self_invoice", name: "Self Invoice Summary", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "06 Apr 2026 02:53 PM" },
+    { id: "outward_supplies", name: "Summary of Outward Supplies", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "-" },
+    { id: "inward_supplies", name: "Summary of Inward Supplies", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "-" },
+    { id: "self_invoice", name: "Self Invoice Summary", category: "Taxes", categoryId: "taxes", createdBy: "System Generated", lastVisited: "-" },
 
     // --- Banking (2) ---
     { id: "reconciliation_status", name: "Reconciliation Status", category: "Banking", categoryId: "banking", createdBy: "System Generated", lastVisited: "-" },
@@ -341,7 +341,7 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
     { id: "timesheet_unbilled", name: "Unbilled Hours Detail Analysis", category: "Projects and Timesheet", categoryId: "projects_timesheet", createdBy: "System Generated", lastVisited: "-" },
 
     // --- Accountant (8) ---
-    { id: "account_tx", name: "Account Transactions", category: "Accountant", categoryId: "accountant", createdBy: "System Generated", lastVisited: "25 May 2026 11:05 AM" },
+    { id: "account_tx", name: "Account Transactions", category: "Accountant", categoryId: "accountant", createdBy: "System Generated", lastVisited: "-" },
     { id: "account_type_sum", name: "Account Type Summary", category: "Accountant", categoryId: "accountant", createdBy: "System Generated", lastVisited: "-" },
     { id: "account_type_tx", name: "Account Type Transactions", category: "Accountant", categoryId: "accountant", createdBy: "System Generated", lastVisited: "-" },
     { id: "day_book", name: "Day Book", category: "Accountant", categoryId: "accountant", createdBy: "System Generated", lastVisited: "-" },
@@ -357,7 +357,7 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
     { id: "tb", name: "Trial Balance", category: "Accountant", categoryId: "accountant", createdBy: "System Generated", lastVisited: "-" },
 
     // --- Budgets (1) ---
-    { id: "budget_vs_actual", name: "Budget Vs Actuals", category: "Budgets", categoryId: "budgets", createdBy: "System Generated", lastVisited: "30 Jul 2025 11:09 AM" },
+    { id: "budget_vs_actual", name: "Budget Vs Actuals", category: "Budgets", categoryId: "budgets", createdBy: "System Generated", lastVisited: "-" },
 
     // --- Currency (2) ---
     { id: "realized_gain_loss", name: "Realized Gain or Loss", category: "Currency", categoryId: "currency", createdBy: "System Generated", lastVisited: "-" },
@@ -365,7 +365,7 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
 
     // --- Activity (6) ---
     { id: "system_mails", name: "System Mails", category: "Activity", categoryId: "activity", createdBy: "System Generated", lastVisited: "-" },
-    { id: "activity_logs", name: "Activity Logs & Audit Trail", category: "Activity", categoryId: "activity", createdBy: "System Generated", lastVisited: "08 Aug 2025 02:30 PM" },
+    { id: "activity_logs", name: "Activity Logs & Audit Trail", category: "Activity", categoryId: "activity", createdBy: "System Generated", lastVisited: "-" },
     { id: "exception_report", name: "Exception Report", category: "Activity", categoryId: "activity", createdBy: "System Generated", lastVisited: "-" },
     { id: "portal_activities", name: "Portal Activities", category: "Activity", categoryId: "activity", createdBy: "System Generated", lastVisited: "-" },
     { id: "customer_reviews", name: "Customer Reviews", category: "Activity", categoryId: "activity", createdBy: "System Generated", lastVisited: "-" },

@@ -3354,7 +3354,7 @@ app.post("/api/purchase-orders", authGuard, async (req: any, res: any) => {
 });
 
 // ── Vendor Credits API ──────────────────────────────────────────────────────
-app.post("/api/vendor-credits", authGuard, async (req: any, res: any) => {
+app.post("/api/vendor-credits", authGuard, requirePermission("manage_billing"), async (req: any, res: any) => {
   try {
     const orgId = req.user.organizationId;
   if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
@@ -3549,7 +3549,7 @@ app.post("/api/bank-transactions/match", authGuard, requirePermission("view_bank
 });
 
 // ── Opening Balances API ─────────────────────────────────────────────────────
-app.post("/api/opening-balances", authGuard, async (req: any, res: any) => {
+app.post("/api/opening-balances", authGuard, requirePermission("create_journals"), async (req: any, res: any) => {
   try {
     const orgId = req.user.organizationId;
   if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
@@ -3596,7 +3596,7 @@ app.post("/api/opening-balances", authGuard, async (req: any, res: any) => {
 });
 
 // ── Chart of Accounts CRUD ───────────────────────────────────────────────────
-app.post("/api/accounts", authGuard, async (req: any, res: any) => {
+app.post("/api/accounts", authGuard, requirePermission("create_journals"), async (req: any, res: any) => {
   try {
     const orgId = req.user.organizationId;
   if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
@@ -3614,7 +3614,7 @@ app.post("/api/accounts", authGuard, async (req: any, res: any) => {
   } catch(e: any) { res.status(500).json({ error: e.message }); }
 });
 
-app.delete("/api/accounts/:code", authGuard, async (req: any, res: any) => {
+app.delete("/api/accounts/:code", authGuard, requirePermission("create_journals"), async (req: any, res: any) => {
   try {
     const orgId = req.user.organizationId;
   if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
@@ -3645,7 +3645,7 @@ app.post("/api/month-end-checklist", authGuard, async (req: any, res: any) => {
   } catch(e: any) { res.status(500).json({ error: e.message }); }
 });
 
-app.post("/api/fixed-assets", authGuard, async (req: any, res: any) => {
+app.post("/api/fixed-assets", authGuard, requirePermission("create_journals"), async (req: any, res: any) => {
   try {
     const orgId = req.user.organizationId;
   if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
