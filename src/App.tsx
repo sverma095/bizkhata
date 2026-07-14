@@ -957,7 +957,7 @@ export default function App() {
     if (session.user.role === "Super Admin") {
       return (
         <div className="min-h-screen">
-          <SuperAdminDashboard token={session.token} activeUser={session.user} onLogout={handleLogout} onBackToDashboard={() => setActiveTab("dashboard")} />
+          <SuperAdminDashboard token={session.token} activeUser={session.user} onLogout={handleLogout} />
         </div>
       );
     }
@@ -978,7 +978,7 @@ export default function App() {
   if (session.user.role === "Super Admin") {
   return (
     <div className="min-h-screen">
-      <SuperAdminDashboard token={session.token} activeUser={session.user} onLogout={handleLogout} onBackToDashboard={() => setActiveTab("dashboard")} />
+      <SuperAdminDashboard token={session.token} activeUser={session.user} onLogout={handleLogout} />
     </div>
   );
 }
