@@ -980,6 +980,13 @@ export default function App() {
     );
   }
 
+  if (session.user.role === "Super Admin") {
+  return (
+    <div className="min-h-screen">
+      <SuperAdminDashboard token={session.token} activeUser={session.user} onLogout={handleLogout} onBackToDashboard={() => setActiveTab("dashboard")} />
+    </div>
+  );
+}
   return (
     <div id="bizkhata-main-container" className="h-screen flex flex-col overflow-hidden bg-slate-50 font-sans text-slate-700">
       <ToastContainer />
