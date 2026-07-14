@@ -939,6 +939,20 @@ async function supabaseREST(method: string, orgId: string, body?: any): Promise<
   }
 }
 
+function migrateMissingDefaultAccounts(state: DatabaseState): DatabaseState {
+  // One-time migration for existing orgs: add any DEFAULT_ACCOUNTS codes introduced after
+  // this org's data was first seeded (e.g. depreciation_expense, accumulated_depreciation),
+  // without touching accounts the org may have intentionally deleted or customized.
+  // Runs once per load (readDB), not on every write — see writeDB for why.
+  if (!state.accounts) { state.accounts = DEFAULT_ACCOUNTS; return state; }
+  const existingCodes = new Set(state.accounts.map((a: any) => a.code));
+  const missing = DEFAULT_ACCOUNTS.filter(a => !existingCodes.has(a.code));
+  if (missing.length > 0) {
+    state.accounts = [...state.accounts, ...missing];
+  }
+  return state;
+}
+
 async function readDB(orgId: string): Promise<DatabaseState> {
   try {
     if (cachedDbByOrg.has(orgId)) {
@@ -955,7 +969,7 @@ async function readDB(orgId: string): Promise<DatabaseState> {
           supabaseStatus.connected = true;
           supabaseStatus.error = null;
           console.log(`State loaded from Supabase for org ${orgId}.`);
-          return rows[0].state;
+          return migrateMissingDefaultAccounts(rows[0].state);
         } else {
           // Row exists but empty {} OR no row — seed with full initial state
           console.log(`Empty or missing state for org ${orgId} in Supabase. Seeding fresh initial state...`);
@@ -1008,7 +1022,7 @@ async function readDB(orgId: string): Promise<DatabaseState> {
       return init;
     }
     const raw = fs.readFileSync(dbFile, "utf8");
-    const parsed = JSON.parse(raw);
+    const parsed = migrateMissingDefaultAccounts(JSON.parse(raw));
     cachedDbByOrg.set(orgId, parsed);
     return parsed;
   } catch (err) {
@@ -1024,7 +1038,18 @@ async function writeDB(orgId: string, state: DatabaseState): Promise<void> {
     // Audit check: calculate accounts balances dynamically from journals as specified by rule!
     // "Rule: Reports must be generated from journal entries."
     // Let's recalculate general ledger account balances based purely on journal lines!
-    const updatedAccounts = DEFAULT_ACCOUNTS.map(acc => {
+    //
+    // IMPORTANT: base this on the org's *current* account list (state.accounts), not the
+    // static DEFAULT_ACCOUNTS template. Previously this always rebuilt from DEFAULT_ACCOUNTS,
+    // which meant any custom account added via Chart of Accounts CRUD (/api/accounts) was
+    // silently wiped out on the very next write — the balance recompute ran right after every
+    // save, including the save that added the account. New default accounts (e.g. added in a
+    // later release) are seeded once in readDB, not re-injected here, so an intentionally
+    // deleted default account doesn't get resurrected on every save.
+    const baseAccounts = (state.accounts && state.accounts.length > 0)
+      ? state.accounts
+      : DEFAULT_ACCOUNTS;
+    const updatedAccounts = baseAccounts.map((acc: any) => {
       let balance = 0;
       // Opening balance except for Bank and Capital which are handled in j_init code log
       // Let's sum debit and credit
