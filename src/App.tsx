@@ -161,25 +161,14 @@ export default function App() {
   const handleLoginSuccess = (newSession: SessionInfo) => {
     setSession(newSession);
     localStorage.setItem('bizkhata_session_token', newSession.token);
-    // Re-fetch DB after login - use timeout to ensure fetchDB is in scope
-    setTimeout(() => {
-      authFetch("/api/db").then(r => r.ok ? r.json() : null).then(data => {
-        if (data) {
-          setDb(data);
-          setLoading(false);
-        } else {
-          setDbLoadFailed(true);
-          setLoading(false);
-        }
-      }).catch(() => {
-        // Do NOT fall back to a locally cached blob here — it may belong to a
-        // different account/organization on a shared device. Show an honest
-        // error with a retry option instead of risking showing someone else's
-        // (or stale) data.
-        setDbLoadFailed(true);
-        setLoading(false);
-      });
-    }, 100);
+    // Data loading is handled by the useEffect below (depends on [session]), which
+    // correctly picks up the new session/token on next render. This used to also do
+    // its own setTimeout-based fetch here, but that closure captured the *old* (null)
+    // session from before setSession() took effect — so it always sent the request
+    // with no Authorization header, got a 401, and ~100ms later overwrote the
+    // useEffect's successful load with a false dbLoadFailed. That's what caused
+    // "login briefly works then flips to an error screen."
+    setLoading(true);
   };
 
   const handleLogout = () => {
@@ -323,9 +312,15 @@ export default function App() {
   };
 
   useEffect(() => {
-  if (session?.user?.role !== "Super Admin") {
+  if (session?.user?.role === "Super Admin") {
+    setLoading(false);
+  } else if (session) {
     fetchDB();
   } else {
+    // No session yet (either logged out, or auth restore from localStorage still
+    // in flight via authLoading) — nothing to fetch. Avoids an unauthenticated
+    // /api/db call that would always 401 and set dbLoadFailed before the person
+    // has even seen the login screen.
     setLoading(false);
   }
   fetchSupabaseStatus();
