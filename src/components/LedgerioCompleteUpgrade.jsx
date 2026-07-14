@@ -502,7 +502,7 @@ function MultiCurrency({ token }) {
             <div className="flex justify-between text-gray-500"><span>Exchange rate</span><span>1 {inv.cur} = ₹{sel?.rate}</span></div>
             <div className="flex justify-between font-semibold border-t border-gray-200 pt-1.5"><span>INR equivalent</span><span className="text-emerald-600">₹{inr.toLocaleString()}</span></div>
           </div>
-          <IBox>Forex Gain/Loss auto-posted when payment received at a different rate.</IBox>
+          <IBox>Reference only — this calculator doesn't post to invoices or the ledger. No forex gain/loss journal integration exists yet.</IBox>
         </Card>
       </div>
     </div>
@@ -554,30 +554,28 @@ function ReverseCharge({ db }) {
 }
 
 function DepreciationAuto({ token }) {
-  const { items: all, addItem, updateItem } = usePersisted("depreciation", token);
-  const assets = all.filter(i => i.kind !== "log");
-  const logs = all.filter(i => i.kind === "log");
-  const total = assets.filter(a => a.auto).reduce((s, a) => s + a.monthly, 0);
-  const addAsset = () => {
-    const name = prompt("Asset name:"); if (!name) return;
-    const wdv = +prompt("Current WDV (₹):", "0"); const rate = +prompt("WDV rate (%):", "15");
-    addItem({ name, wdv, rate, monthly: Math.round((wdv * rate / 100) / 12), auto: true, last: "—" });
-  };
-  const run = () => {
-    const today = new Date().toISOString().split("T")[0];
-    assets.filter(a => a.auto).forEach((a, i) => {
-      addItem({ kind: "log", asset: a.name, amt: a.monthly, date: today, jv: "JV-00" + (91 + i) });
-      updateItem(a.id, { wdv: Math.round(a.wdv - a.monthly), last: today });
-    });
-    alert("✅ Depreciation posted");
-  };
+  // This module previously tracked its own separate, fake asset schedule (usePersisted
+  // local storage only) and fabricated JV-00xx numbers on "Post This Month" — nothing
+  // was ever written to db.journals. It ran in parallel to, and completely disconnected
+  // from, the real Fixed Assets register and its "Run Depreciation" button (Accounting >
+  // Fixed Assets), which does post real Dr Depreciation Expense / Cr Accumulated
+  // Depreciation journals. Removed the fake tracker to avoid two conflicting sources of
+  // "depreciation posted" truth — this now just points to the real one.
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Depreciation Automation</h2><p className="text-xs text-gray-500">Auto-post monthly depreciation journals</p></div><div className="flex gap-2"><Badge c="blue">₹{total.toLocaleString()}/month</Badge><Btn onClick={addAsset}>+ Add Asset</Btn><Btn v="primary" onClick={run}>Post This Month</Btn></div></div>
-      <div className="grid grid-cols-2 gap-4">
-        <Card><p className="text-sm font-medium mb-2">Asset Schedule</p>{assets.map(a => <div key={a.id} className="py-2 border-b border-gray-50 last:border-0"><div className="flex justify-between items-center mb-1"><span className="font-medium text-sm">{a.name}</span><div className="flex items-center gap-2"><span className="text-xs text-gray-500">₹{a.monthly.toLocaleString()}/mo</span><Toggle value={a.auto} onChange={v => updateItem(a.id, { auto: v })} /></div></div><div className="flex justify-between text-xs text-gray-400"><span>WDV: ₹{a.wdv.toLocaleString()}</span><span>{a.rate}% WDV</span><span>Last: {a.last}</span></div></div>)}</Card>
-        <Card><p className="text-sm font-medium mb-2">Journal Log</p><Tbl headers={["Asset", "Amount", "Date", "JV #"]} rows={logs.map(l => [l.asset, "₹" + l.amt.toLocaleString(), l.date, l.jv])} /><IBox>Dr: Depreciation Expense → Cr: Accumulated Depreciation</IBox></Card>
-      </div>
+      <div><h2 className="text-base font-medium">Depreciation Automation</h2><p className="text-xs text-gray-500">Depreciation is tracked on the Fixed Assets register, not here</p></div>
+      <Card>
+        <p className="text-sm text-gray-600">
+          This tab previously ran its own separate asset list and displayed fabricated journal voucher numbers
+          without ever posting anything to the ledger. That's been removed.
+        </p>
+        <p className="text-sm text-gray-600 mt-2">
+          Real depreciation posting lives under <span className="font-medium">Accounting → Fixed Assets</span> —
+          add your assets there and use the <span className="font-medium">Run Depreciation</span> button, which
+          posts an actual Dr Depreciation Expense / Cr Accumulated Depreciation journal entry per asset and shows
+          up in Reports.
+        </p>
+      </Card>
     </div>
   );
 }
@@ -588,9 +586,9 @@ function RecurringTxns({ token }) {
   const colors = { Invoice: "green", Bill: "red", Journal: "blue", Expense: "amber" };
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Recurring Transactions</h2><p className="text-xs text-gray-500">Auto-generate invoices, bills, journals on schedule</p></div><Btn v="primary" onClick={() => { const n = prompt("Name:"); if (n) addItem({ type: "Invoice", name: n, amt: 15000, freq: "Monthly", next: "—", count: 0, on: true }); }}>+ New</Btn></div>
+      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Recurring Transactions</h2><p className="text-xs text-gray-500">Track recurring transaction schedules · Does not yet auto-generate real invoices, bills, or journals — generation must be done manually in those tabs</p></div><Btn v="primary" onClick={() => { const n = prompt("Name:"); if (n) addItem({ type: "Invoice", name: n, amt: 15000, freq: "Monthly", next: "—", count: 0, on: true }); }}>+ New</Btn></div>
       <Metrics items={[{ l: "Active", v: list.filter(r => r.on).length, c: "#0F6E56" }, { l: "Total Generated", v: list.reduce((s, r) => s + r.count, 0) }, { l: "Monthly Value", v: "₹" + list.filter(r => r.on && r.freq === "Monthly").reduce((s, r) => s + r.amt, 0).toLocaleString() }]} />
-      {list.map(r => <Card key={r.id}><div className="flex items-center justify-between"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-lg bg-gray-50 flex items-center justify-center text-lg">{icons[r.type]}</div><div><p className="font-medium text-sm">{r.name}</p><div className="flex items-center gap-2 mt-0.5"><Badge c="blue">{r.freq}</Badge><Badge c={colors[r.type] || "gray"}>{r.type}</Badge><span className="text-xs text-gray-400">Next: {r.next} · {r.count} generated</span></div></div></div><div className="flex items-center gap-3"><span className="font-medium text-sm">₹{r.amt.toLocaleString()}</span><Btn onClick={() => { updateItem(r.id, { count: r.count + 1 }); alert(r.type + " generated!"); }}>Now</Btn><Toggle value={r.on} onChange={v => updateItem(r.id, { on: v })} /></div></div></Card>)}
+      {list.map(r => <Card key={r.id}><div className="flex items-center justify-between"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-lg bg-gray-50 flex items-center justify-center text-lg">{icons[r.type]}</div><div><p className="font-medium text-sm">{r.name}</p><div className="flex items-center gap-2 mt-0.5"><Badge c="blue">{r.freq}</Badge><Badge c={colors[r.type] || "gray"}>{r.type}</Badge><span className="text-xs text-gray-400">Next: {r.next} · {r.count} generated</span></div></div></div><div className="flex items-center gap-3"><span className="font-medium text-sm">₹{r.amt.toLocaleString()}</span><Btn onClick={() => { if (window.confirm(`This won't create a real ${r.type.toLowerCase()} — it only marks this schedule as run and increments the counter. Create the actual ${r.type.toLowerCase()} manually in the ${r.type}s tab. Mark as run anyway?`)) updateItem(r.id, { count: r.count + 1 }); }}>Mark Run</Btn><Toggle value={r.on} onChange={v => updateItem(r.id, { on: v })} /></div></div></Card>)}
     </div>
   );
 }
