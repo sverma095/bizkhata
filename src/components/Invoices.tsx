@@ -1034,7 +1034,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
             <div className="border-t border-gray-200">
               <div className="px-6 py-3 flex items-center justify-between bg-gray-50 border-b border-gray-200">
                 <span className="text-sm font-semibold text-gray-700">Item Table</span>
-                <button type="button" className="text-xs text-blue-600 hover:underline">Bulk Actions</button>
+                <button type="button" onClick={() => alert("Bulk item actions (bulk delete/discount/HSN edit) aren't built yet — edit line items individually below.")} className="text-xs text-blue-600 hover:underline">Bulk Actions</button>
               </div>
               {/* Table header */}
               <div className="overflow-x-auto">
@@ -3038,11 +3038,13 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
 
             <div className="space-y-4 text-xs text-slate-350">
               <div className="bg-amber-950/20 border border-amber-900/60 p-3 rounded-xl text-[11px] text-amber-300/90 leading-relaxed">
-                Provide USB secure token pin to authorize signing for <span className="font-bold text-white">{signingInvoice.invoiceNumber}</span>.
+                ⚠️ Demo only — this does not perform a real cryptographic signature. There's no USB DSC token integration
+                here; any 4+ characters will "validate." Provide a real Class 3 DSC token via your CA/GSP for anything
+                that needs to be legally valid.
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] uppercase font-bold text-slate-450 tracking-wider">Select e-Token Certificate:</label>
+                <label className="text-[10px] uppercase font-bold text-slate-450 tracking-wider">Select e-Token Certificate (demo labels — not real certificates):</label>
                 <select 
                   value={dscCertType} 
                   onChange={(e) => setDscCertType(e.target.value)}
@@ -3068,14 +3070,14 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
 
               {/* Signature Card Visualization */}
               <div className="border border-indigo-900/60 bg-indigo-950/20 p-4 rounded-xl text-center space-y-1 relative overflow-hidden select-none">
-                <div className="absolute right-2 top-2 text-[8px] bg-indigo-950 text-indigo-400 border border-indigo-900 rounded px-1.5 py-0.5 uppercase tracking-wider font-extrabold font-mono text-[7px]" style={{ whiteSpace: 'nowrap' }}>
-                  CCA Certified
+                <div className="absolute right-2 top-2 text-[8px] bg-slate-800 text-slate-400 border border-slate-700 rounded px-1.5 py-0.5 uppercase tracking-wider font-extrabold font-mono text-[7px]" style={{ whiteSpace: 'nowrap' }}>
+                  Demo Only
                 </div>
                 <p className="text-[10px] text-indigo-400">Preview of signed metadata:</p>
                 <p className="font-mono text-[9px] text-indigo-500">{signingInvoice.invoiceNumber} | {db.company.gstin}</p>
                 {dscPin.length >= 4 ? (
                   <div className="pt-2 text-[11px] text-emerald-400 font-bold font-sans animate-fade-in flex items-center justify-center gap-1.5">
-                    <span>✓ Signature validated & certificate mapped!</span>
+                    <span>PIN entered (demo only — not a real signature check)</span>
                   </div>
                 ) : (
                   <div className="pt-2 font-serif italic text-slate-500 text-[10.5px]">Enter your Secure Token PIN above to unlock...</div>
@@ -3094,9 +3096,10 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                   type="button" 
                   disabled={dscPin.length < 4}
                   onClick={() => {
-                    onSaveInvoice({ ...signingInvoice, status: "Digitally Signed" });
+                    if (!window.confirm("This is a demo signature only - no real cryptographic signing happens here, and this is not a legally valid Digital Signature Certificate. The invoice will just be marked 'Digitally Signed (Demo)' for internal tracking. Continue?")) return;
+                    onSaveInvoice({ ...signingInvoice, status: "Digitally Signed (Demo)" });
                     setSigningInvoice(null);
-                    alert(`Successfully affixed DSC digital identity to tax invoicing of ${signingInvoice.invoiceNumber}`);
+                    alert(`Marked ${signingInvoice.invoiceNumber} as "Digitally Signed (Demo)" for internal tracking. No real DSC signature was applied.`);
                   }}
                   className={`px-5 py-2 rounded font-bold transition flex items-center gap-1.5 cursor-pointer select-none ${
                     dscPin.length >= 4 
@@ -3119,7 +3122,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
             <div className="flex justify-between items-center border-b border-slate-800 pb-2.5">
               <h4 className="font-bold text-slate-100 text-sm flex items-center gap-2">
                 <span>📨</span>
-                Dispatch Invoice to Client
+                Mark Invoice as Sent
               </h4>
               <button onClick={() => setSendingInvoice(null)} className="text-slate-400 hover:text-white">
                 <X className="w-4 h-4" />
@@ -3128,21 +3131,13 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
 
             <div className="space-y-3.5 text-xs text-slate-350">
               <p>
-                You are about to mark invoice <span className="font-mono text-indigo-400 font-bold">{sendingInvoice.invoiceNumber}</span> as officially dispatched and sent to customer <span className="font-semibold text-slate-200">{sendingInvoice.customerName}</span>.
+                This marks invoice <span className="font-mono text-indigo-400 font-bold">{sendingInvoice.invoiceNumber}</span> as sent to <span className="font-semibold text-slate-200">{sendingInvoice.customerName}</span> for your own tracking. <span className="text-amber-400">No email is actually sent</span> — you still need to send the invoice yourself (download the PDF and email it, or share the link).
               </p>
 
               <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Destination email:</span>
-                  <span className="text-slate-200 font-semibold">finance@customer.com</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">GST Invoice Status:</span>
-                  <span className="text-indigo-400 font-medium">E-Invoiced & Signed</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Accounting effect:</span>
-                  <span className="text-emerald-400 font-bold">Ledger posting verified</span>
+                  <span className="text-slate-500">Customer email on file:</span>
+                  <span className="text-slate-200 font-semibold">{db.customers.find(c => c.id === sendingInvoice.customerId)?.email || "Not on file"}</span>
                 </div>
               </div>
 
@@ -3159,7 +3154,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                   onClick={() => {
                     onSaveInvoice({ ...sendingInvoice, status: "Sent" });
                     setSendingInvoice(null);
-                    alert(`Invoice ${sendingInvoice.invoiceNumber} successfully dispatched and marked as sent!`);
+                    alert(`Invoice ${sendingInvoice.invoiceNumber} marked as Sent (for your tracking only — no email was actually sent).`);
                   }}
                   className="bg-emerald-600 hover:bg-emerald-500 px-5 py-2 rounded text-white font-bold cursor-pointer"
                 >

@@ -89,7 +89,7 @@ Grand Sum: 118000.00 INR`
 
   const handleApplyParsedDraft = () => {
     if (!parsedDraft) return;
-    alert(`Extracted draft parsed successfully! Auto filled into ledger fields. Ready to settle.`);
+    alert(`This doesn't auto-fill anywhere yet — the extraction above is real (from Gemini), but you still need to manually copy these details into a new Invoice or Bill.`);
     setParsedDraft(null);
     setRawInvoiceText("");
   };
@@ -296,7 +296,7 @@ Grand Sum: 118000.00 INR`
                     onClick={handleApplyParsedDraft}
                     className="w-full bg-[#5A5A40] hover:bg-[#4E4E37] text-white text-xs font-bold py-2.5 rounded-lg select-none cursor-pointer"
                   >
-                    Auto Fill Draft Billing registers
+                    Got it — I'll fill it in manually
                   </button>
                   <button
                     onClick={() => setParsedDraft(null)}

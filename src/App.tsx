@@ -889,7 +889,7 @@ export default function App() {
     setTimerSeconds(0);
     setTimerRunning(false);
     setTrackingNotes("");
-    alert("Timesheet successfully logged under Customer Registers!");
+    alert("Timesheet logged for this session only — it isn't saved to the backend or Customer Registers, and will be lost on page refresh.");
   };
 
   const activeRole = session?.user?.role ? (UserRole as any)[session.user.role] || UserRole.Owner : db?.role || UserRole.Owner;

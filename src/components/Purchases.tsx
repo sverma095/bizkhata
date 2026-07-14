@@ -509,7 +509,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                       <option value="professional_fees">Professional & Legal Fees</option>
                       <option value="bank_charges">Bank Fees</option>
                     </select>
-                    <button type="button" className="text-xs text-blue-600 hover:underline">Itemize</button>
+                    <button type="button" onClick={() => alert("Splitting this expense into multiple line items with different categories isn't built yet — log it as separate expenses for now if needed.")} className="text-xs text-blue-600 hover:underline">Itemize</button>
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs text-gray-500 font-medium">Amount <span className="text-red-500">*</span></label>
@@ -877,7 +877,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
             <div className="border-t border-gray-200">
               <div className="px-6 py-3 flex items-center justify-between bg-gray-50 border-b border-gray-200">
                 <span className="text-sm font-semibold text-gray-700">Item Table</span>
-                <button type="button" className="text-xs text-blue-600 hover:underline">Bulk Actions</button>
+                <button type="button" onClick={() => alert("Bulk item actions (bulk delete/discount/HSN edit) aren't built yet — edit line items individually below.")} className="text-xs text-blue-600 hover:underline">Bulk Actions</button>
               </div>
               <table className="w-full text-xs">
                 <thead>
