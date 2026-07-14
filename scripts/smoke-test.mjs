@@ -42,6 +42,24 @@ test("login rejects bad credentials without a 500", async () => {
   );
 });
 
+test("Owner login loads a full db with accounts populated", async () => {
+  // Regression test: the demo-org (org_verma_consultancy) cache pre-population used
+  // to call getInitialState() before DEFAULT_ACCOUNTS was declared (a module-load-order
+  // bug), which silently produced accounts: undefined - dropped entirely by
+  // JSON.stringify - and crashed Dashboard.tsx on db.accounts.find(...) for every
+  // Owner login. Caught by hand via browser reproduction; this locks it in going forward.
+  const loginRes = await post("/api/auth/login", {
+    email: "svtiger543939@gmail.com",
+    password: "Admin@123",
+  });
+  assert.equal(loginRes.status, 200, "expected Owner login to succeed");
+  const { token } = await loginRes.json();
+  const dbRes = await fetch(`${BASE_URL}/api/db`, { headers: { Authorization: `Bearer ${token}` } });
+  assert.equal(dbRes.status, 200, "expected /api/db to return 200 for a logged-in Owner");
+  const db = await dbRes.json();
+  assert.ok(Array.isArray(db.accounts) && db.accounts.length > 0, "expected db.accounts to be a non-empty array");
+});
+
 test("protected route refuses unauthenticated access", async () => {
   const res = await fetch(`${BASE_URL}/api/invoices`, {
     method: "POST",

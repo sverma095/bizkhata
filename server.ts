@@ -655,17 +655,6 @@ if (SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL !== "MY_SUPABASE_URL") {
 // which meant every signed-up organization read and wrote the exact same books.
 const cachedDbByOrg: Map<string, any> = new Map();
 
-// Pre-populate in-memory cache with clean state for Verma Consultancy org
-// so first login always shows zero balances, never stale Supabase demo data
-{
-  const vermaState = getInitialState();
-  vermaState.company.name = "Verma Consultancy Services";
-  vermaState.company.legalName = "Verma Consultancy Services";
-  vermaState.company.gstin = "09AABFV1234A1Z5";
-  vermaState.company.state = "Uttar Pradesh";
-  cachedDbByOrg.set("org_verma_consultancy", vermaState);
-}
-
 // CJS-safe __dirname (native in CJS; for ESM local dev tsx handles it natively too)
 const __server_dir = process.cwd();
 
@@ -903,6 +892,24 @@ function getInitialState(): DatabaseState {
   };
 }
 // State Database Reader/Writer API
+
+// Pre-populate in-memory cache with clean state for Verma Consultancy org so first
+// login always shows zero balances, never stale Supabase demo data. This MUST run
+// after getInitialState()/DEFAULT_ACCOUNTS are declared above — it used to sit much
+// earlier in the file (right after cachedDbByOrg was declared), which meant it called
+// getInitialState() before DEFAULT_ACCOUNTS existed yet. That silently produced
+// accounts: undefined (TDZ access, not a thrown error once bundled), which
+// JSON.stringify drops entirely from the API response — and Dashboard.tsx crashed on
+// db.accounts.find(...) for this specific org's cached state.
+{
+  const vermaState = getInitialState();
+  vermaState.company.name = "Verma Consultancy Services";
+  vermaState.company.legalName = "Verma Consultancy Services";
+  vermaState.company.gstin = "09AABFV1234A1Z5";
+  vermaState.company.state = "Uttar Pradesh";
+  cachedDbByOrg.set("org_verma_consultancy", vermaState);
+}
+
 function withTimeout(promise: Promise<any> | any, timeoutMs: number, errorMsg: string): Promise<any> {
   return Promise.race([
     promise,
