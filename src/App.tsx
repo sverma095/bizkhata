@@ -326,18 +326,12 @@ export default function App() {
   if (session?.user?.role !== "Super Admin") {
     fetchDB();
   } else {
-    setLoading(false); // Super Admin doesn't need org ledger data
+    setLoading(false);
   }
   fetchSupabaseStatus();
   const interval = setInterval(fetchSupabaseStatus, 30000);
   return () => clearInterval(interval);
 }, [session]);
-    fetchDB();
-    fetchSupabaseStatus();
-    // Re-check supabase status every 30s
-    const interval = setInterval(fetchSupabaseStatus, 30000);
-    return () => clearInterval(interval);
-  }, []);
 
   // Update localized seats slider threshold on fresh database load
   useEffect(() => {
