@@ -350,7 +350,7 @@ export default function App() {
     return () => clearInterval(interval);
   }, [timerRunning]);
 
-  if (loading || !db) {
+  if ((loading || !db) && (authLoading || session)) {
     // If we have a session but db is loading, show minimal loader not blank
     if (session) {
       if (dbLoadFailed) {
