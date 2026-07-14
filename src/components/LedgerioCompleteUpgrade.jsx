@@ -150,7 +150,8 @@ function TDSModule({ db }) {
       {tab === "form16a" && (
         <Card>
           <p className="text-sm font-medium mb-3">Form 16A — TDS Certificate</p>
-          <Tbl headers={["Vendor", "Section", "TDS", "Action"]} rows={txns.map(t => [t.ven, t.sec, "₹" + t.tds.toLocaleString(), <Btn onClick={() => alert("Form 16A for " + t.ven)}>PDF</Btn>])} />
+          <Tbl headers={["Vendor", "Section", "TDS", "Action"]} rows={txns.map(t => [t.ven, t.sec, "₹" + t.tds.toLocaleString(), <Btn onClick={() => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([`FORM 16A SUMMARY (not a government-format certificate)\nVendor: ${t.ven}\nSection: ${t.sec}\nTDS Deducted: ₹${t.tds}`])); a.download = `Form16A_${t.ven.replace(/\s+/g, "_")}.txt`; a.click(); }}>Download</Btn>])} />
+          <IBox>This is a plain-text summary for your records, not a TRACES-format Form 16A certificate. Generate the official certificate from the TRACES portal.</IBox>
         </Card>
       )}
     </div>
@@ -190,7 +191,7 @@ function EmailModule({ token }) {
   const setCfg = (next) => { if (cfgRecord) updateItem(cfgRecord.id, next); else addItem(next); };
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Email Configuration</h2><p className="text-xs text-gray-500">Real SMTP / SendGrid — replaces simulated email</p></div><Badge c={cfg.key ? "green" : "red"}>{cfg.key ? "✅ Connected" : "⚠ Not configured"}</Badge></div>
+      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Email Configuration (Reference Only)</h2><p className="text-xs text-gray-500">This panel doesn't connect to anything — the app's real email (OTPs, notifications) runs on Resend, configured via server environment variables, not here</p></div><Badge c="gray">Not wired to the live email system</Badge></div>
       <Tabs items={[["config", "SMTP Setup"], ["templates", "Templates"], ["logs", "Send Log"]]} active={tab} onChange={setTab} />
       {tab === "config" && (
         <div className="grid grid-cols-2 gap-4">
@@ -200,7 +201,7 @@ function EmailModule({ token }) {
             <Label>API Key</Label><Input type="password" value={cfg.key} onChange={e => setCfg({ ...cfg, key: e.target.value })} placeholder="SG.xxxxxxxxxxxxxxxx" />
             <Label>From Email</Label><Input value={cfg.from} onChange={e => setCfg({ ...cfg, from: e.target.value })} placeholder="invoices@yourcompany.com" />
             <Label>From Name</Label><Input value={cfg.name} onChange={e => setCfg({ ...cfg, name: e.target.value })} placeholder="Your Business Name" />
-            <div className="flex gap-2 mt-3"><Btn v="primary" onClick={() => alert("✅ Saved!")}>Save Config</Btn><Btn onClick={() => alert("Test email sent!")}>Send Test</Btn></div>
+            <div className="flex gap-2 mt-3"><Btn v="primary" onClick={() => { setCfg({ ...cfg }); alert("Saved locally for reference only — this doesn't configure a real email provider or affect the live app."); }}>Save (Reference Only)</Btn><Btn onClick={() => alert("This won't actually send anything — there's no real provider connected here. The live app sends real email via Resend, configured server-side.")}>Send Test</Btn></div>
           </Card>
           <Card>
             <p className="text-sm font-medium mb-2">Supabase Edge Function</p>
@@ -288,28 +289,26 @@ function PaymentReminders({ db }) {
     .sort((a, b) => b.days - a.days);
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Payment Reminders</h2><p className="text-xs text-gray-500">Auto-send escalating reminders for overdue invoices</p></div><Btn v="primary" onClick={() => alert("Running all reminders…")}>⚡ Run All Now</Btn></div>
+      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Payment Reminders</h2><p className="text-xs text-gray-500">Overdue invoice list is real. Sending isn't wired up here — use Workflow Rules (Settings) for real automated Payment Overdue emails.</p></div><Btn v="primary" onClick={() => alert("This button doesn't send anything. For real automated reminders, set up a 'Payment Overdue' rule under Settings > Workflow Rules — that one actually sends via Resend.")}>⚡ Run All Now</Btn></div>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-3">
           {overdue.map(r => (
             <Card key={r.inv} className={r.days > 15 ? "border-red-200" : r.days > 7 ? "border-amber-200" : ""}>
               <div className="flex items-start justify-between">
                 <div><div className="flex items-center gap-2 mb-1"><span className="font-medium text-sm">{r.inv}</span><Badge c={r.days > 15 ? "red" : "amber"}>{r.days} days overdue</Badge></div><p className="text-xs text-gray-500">{r.cust} · ₹{r.amt.toLocaleString()}</p><p className="text-xs text-gray-400">Last sent: {r.last}</p></div>
-                <div className="flex flex-col gap-1"><Btn v="primary" onClick={() => alert("Email queued for " + r.cust)}>Email</Btn><Btn onClick={() => alert("WhatsApp for " + r.cust)}>WhatsApp</Btn></div>
+                <div className="flex flex-col gap-1"><Btn v="primary" onClick={() => alert("Not connected here — set up a 'Payment Overdue' Workflow Rule (Settings) to actually email " + r.cust + ".")}>Email</Btn><Btn onClick={() => alert("WhatsApp isn't connected in this build (needs a WATI account). Nothing was sent to " + r.cust + ".")}>WhatsApp</Btn></div>
               </div>
             </Card>
           ))}
         </div>
         <Card>
-          <p className="text-sm font-medium mb-3">Escalation Schedule</p>
+          <p className="text-sm font-medium mb-3">Escalation Schedule (reference only — not enforced anywhere)</p>
           {[["3 days", "Gentle reminder", "green"], ["7 days", "Firm follow-up", "amber"], ["14 days", "Urgent notice", "red"], ["30 days", "Legal notice", "red"]].map(([d, t, c]) => (
             <div key={d} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg mb-2 text-xs">
               <div className="flex items-center gap-2"><Badge c={c}>{t}</Badge><span className="text-gray-500">after {d}</span></div>
-              <Toggle value={true} onChange={() => {}} />
+              <Toggle value={true} onChange={() => alert("This schedule is display-only right now — toggling it doesn't change any actual sending behavior.")} />
             </div>
           ))}
-          <label className="flex items-center gap-2 mt-2 text-xs cursor-pointer"><input type="checkbox" defaultChecked className="accent-emerald-600" /> Attach Statement of Account</label>
-          <label className="flex items-center gap-2 mt-2 text-xs cursor-pointer"><input type="checkbox" className="accent-emerald-600" /> Also send via WhatsApp</label>
         </Card>
       </div>
     </div>
@@ -371,7 +370,7 @@ function BankFeeds({ token }) {
   const cats = ["Sales Receipt", "Rent Expense", "Salaries", "Office Expenses", "Bank Charges", "Utilities", "Contractor Payment"];
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Bank Feeds & Auto-Categorization</h2><p className="text-xs text-gray-500">Rule-based categorization — connect a live feed to populate transactions</p></div><div className="flex gap-2"><Btn v="primary" onClick={() => { setFeeds(f => f.map(x => { for (const r of rules) if (r.on && x.desc.toLowerCase().includes(r.kw.toLowerCase())) return { ...x, cat: r.cat, ok: true }; return x; })); alert("Rules applied!"); }}>Apply Rules</Btn><Btn>Sync Feed</Btn></div></div>
+      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Bank Feeds & Auto-Categorization</h2><p className="text-xs text-gray-500">Rule-based categorization — connect a live feed to populate transactions</p></div><div className="flex gap-2"><Btn v="primary" onClick={() => { setFeeds(f => f.map(x => { for (const r of rules) if (r.on && x.desc.toLowerCase().includes(r.kw.toLowerCase())) return { ...x, cat: r.cat, ok: true }; return x; })); alert("Rules applied!"); }}>Apply Rules</Btn><Btn onClick={() => alert("No bank feed provider is connected in this build — see the Account Aggregator note below.")}>Sync Feed</Btn></div></div>
       <IBox>No live bank feed is connected yet — this needs an Account Aggregator (Finvu/Setu) integration. Auto-categorization rules below are saved for when a feed is connected.</IBox>
       <Metrics items={[{ l: "Total", v: feeds.length }, { l: "Categorized", v: feeds.filter(f => f.cat).length, c: "#0F6E56" }, { l: "Uncategorized", v: uncat, c: uncat ? "#A32D2D" : "#0F6E56" }, { l: "Reconciled", v: feeds.filter(f => f.ok).length }]} />
       <div className="grid grid-cols-3 gap-4">
@@ -528,8 +527,8 @@ function GRNModule({ token }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Goods Receipt Note (GRN)</h2><p className="text-xs text-gray-500">3-way match: PO → GRN → Bill</p></div><Btn v="primary" onClick={() => { const v = prompt("Vendor:"); if (v) addItem({ no: "GRN-00" + (grns.length + 13), ven: v, po: "PO-00" + (30 + grns.length), date: new Date().toISOString().split("T")[0], items: Math.floor(Math.random() * 5 + 1), status: "draft" }); }}>+ New GRN</Btn></div>
-      <Card><Tbl headers={["GRN #", "Vendor", "PO", "Date", "Items", "Status", "Action"]} rows={grns.map(g => [g.no, g.ven, g.po, g.date, g.items + " items", <Badge c={g.status === "received" ? "green" : "gray"}>{g.status}</Badge>, <Btn v="primary" onClick={() => alert("Converting " + g.no + " to Bill…")}>→ Bill</Btn>])} /></Card>
-      <IBox>3-way match: Bill auto-validated when PO qty = GRN qty = Bill qty. Prevents over-payment.</IBox>
+      <Card><Tbl headers={["GRN #", "Vendor", "PO", "Date", "Items", "Status", "Action"]} rows={grns.map(g => [g.no, g.ven, g.po, g.date, g.items + " items", <Badge c={g.status === "received" ? "green" : "gray"}>{g.status}</Badge>, <Btn v="primary" onClick={() => alert("This doesn't create a real bill yet — create it manually in the Bills tab, referencing " + g.no + ".")}>→ Bill</Btn>])} /></Card>
+      <IBox>GRN records are tracked here for reference. There's no automated 3-way PO/GRN/Bill quantity match yet — verify quantities manually before recording the bill.</IBox>
     </div>
   );
 }
@@ -622,9 +621,10 @@ function AdvancePayments({ token }) {
   const { items: advances, addItem } = usePersisted("advances", token);
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Advance Payments</h2><p className="text-xs text-gray-500">Record and apply customer/vendor advances to invoices</p></div><Btn v="primary" onClick={() => { const p = prompt("Party name:"); const type = (prompt("Type — customer or vendor:", "customer") || "customer").toLowerCase(); const amt = +prompt("Amount (₹):", "0"); const mode = prompt("Payment mode:", "NEFT"); if (p && amt) addItem({ party: p, type, amt, date: new Date().toISOString().split("T")[0], bal: amt, mode }); }}>+ Record Advance</Btn></div>
+      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Advance Payments</h2><p className="text-xs text-gray-500">Tracking only — doesn't post to the ledger or apply against real invoices yet</p></div><Btn v="primary" onClick={() => { const p = prompt("Party name:"); const type = (prompt("Type — customer or vendor:", "customer") || "customer").toLowerCase(); const amt = +prompt("Amount (₹):", "0"); const mode = prompt("Payment mode:", "NEFT"); if (p && amt) addItem({ party: p, type, amt, date: new Date().toISOString().split("T")[0], bal: amt, mode }); }}>+ Record Advance</Btn></div>
+      <IBox>This is a reference list only. To actually account for an advance, record it as a Payment/Bill Payment against the relevant customer/vendor so it hits the ledger.</IBox>
       <Metrics items={[{ l: "Customer Advances", v: "₹" + advances.filter(a => a.type === "customer").reduce((s, a) => s + a.bal, 0).toLocaleString(), c: "#0F6E56" }, { l: "Vendor Advances", v: "₹" + advances.filter(a => a.type === "vendor").reduce((s, a) => s + a.bal, 0).toLocaleString(), c: "#854F0B" }, { l: "Total Outstanding", v: "₹" + advances.reduce((s, a) => s + a.bal, 0).toLocaleString() }, { l: "Count", v: advances.length }]} />
-      <Card><Tbl headers={["Party", "Type", "Amount", "Date", "Balance", "Mode", "Action"]} rows={advances.map(a => [a.party, <Badge c={a.type === "customer" ? "green" : "amber"}>{a.type}</Badge>, "₹" + a.amt.toLocaleString(), a.date, <Badge c={a.bal > 0 ? "amber" : "green"}>₹{a.bal.toLocaleString()}</Badge>, a.mode, <Btn onClick={() => alert("Applying advance for " + a.party + "…")}>Apply</Btn>])} /></Card>
+      <Card><Tbl headers={["Party", "Type", "Amount", "Date", "Balance", "Mode", "Action"]} rows={advances.map(a => [a.party, <Badge c={a.type === "customer" ? "green" : "amber"}>{a.type}</Badge>, "₹" + a.amt.toLocaleString(), a.date, <Badge c={a.bal > 0 ? "amber" : "green"}>₹{a.bal.toLocaleString()}</Badge>, a.mode, <Btn onClick={() => alert("This doesn't actually apply anything to an invoice — it's not wired to real invoices/bills. Use the Payments or Bills screens to record the real transaction.")}>Apply</Btn>])} /></Card>
     </div>
   );
 }
@@ -634,9 +634,9 @@ function PartialInvoices({ token }) {
   const addOrder = () => { const so = prompt("Sales Order #:"); const cust = prompt("Customer:"); const total = +prompt("Total qty:", "100"); const amt = +prompt("Order value (₹):", "0"); if (so) addItem({ so, cust, total, amt, invoiced: 0, status: "open" }); };
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Partial Invoices</h2><p className="text-xs text-gray-500">Split a Sales Order across multiple invoices for partial dispatches</p></div><Btn v="primary" onClick={addOrder}>+ New Sales Order</Btn></div>
+      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Partial Invoices</h2><p className="text-xs text-gray-500">Tracks dispatch progress against a Sales Order — doesn't create real invoices</p></div><Btn v="primary" onClick={addOrder}>+ New Sales Order</Btn></div>
       <div className="grid grid-cols-2 gap-4">
-        <div>{orders.map(so => { const pct = so.total ? Math.round((so.invoiced / so.total) * 100) : 0; return (<Card key={so.id} className={so.status !== "fully_invoiced" ? "cursor-pointer hover:border-emerald-300" : "opacity-50"} onClick={() => { if (so.status === "fully_invoiced") return; const q = parseInt(prompt("Qty to invoice (max " + (so.total - so.invoiced) + "):")); if (!q || q < 1 || q > so.total - so.invoiced) return; const amt = Math.round((q / so.total) * so.amt); updateItem(so.id, { invoiced: so.invoiced + q, status: so.invoiced + q >= so.total ? "fully_invoiced" : "partial" }); alert("Invoice created for ₹" + amt.toLocaleString()); }}><div className="flex justify-between items-center mb-1"><span className="font-medium text-sm">{so.so}</span><Badge c={{ open: "blue", partial: "amber", fully_invoiced: "green" }[so.status]}>{so.status.replace("_", " ")}</Badge></div><p className="text-xs text-gray-500 mb-2">{so.cust} · ₹{so.amt.toLocaleString()}</p><div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-1"><div className="h-full bg-emerald-500 rounded-full" style={{ width: pct + "%" }} /></div><div className="flex justify-between text-xs text-gray-400"><span>Invoiced: {so.invoiced}</span><span>Remaining: {so.total - so.invoiced}</span></div></Card>); })}</div>
+        <div>{orders.map(so => { const pct = so.total ? Math.round((so.invoiced / so.total) * 100) : 0; return (<Card key={so.id} className={so.status !== "fully_invoiced" ? "cursor-pointer hover:border-emerald-300" : "opacity-50"} onClick={() => { if (so.status === "fully_invoiced") return; const q = parseInt(prompt("Qty to invoice (max " + (so.total - so.invoiced) + "):")); if (!q || q < 1 || q > so.total - so.invoiced) return; const amt = Math.round((q / so.total) * so.amt); updateItem(so.id, { invoiced: so.invoiced + q, status: so.invoiced + q >= so.total ? "fully_invoiced" : "partial" }); alert("Progress updated — this doesn't create a real invoice. Create it manually in the Invoices tab for ₹" + amt.toLocaleString() + "."); }}><div className="flex justify-between items-center mb-1"><span className="font-medium text-sm">{so.so}</span><Badge c={{ open: "blue", partial: "amber", fully_invoiced: "green" }[so.status]}>{so.status.replace("_", " ")}</Badge></div><p className="text-xs text-gray-500 mb-2">{so.cust} · ₹{so.amt.toLocaleString()}</p><div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-1"><div className="h-full bg-emerald-500 rounded-full" style={{ width: pct + "%" }} /></div><div className="flex justify-between text-xs text-gray-400"><span>Invoiced: {so.invoiced}</span><span>Remaining: {so.total - so.invoiced}</span></div></Card>); })}</div>
         <Card><p className="text-sm font-medium mb-3">How It Works</p>{[["1. Create Sales Order", "Full order qty + amount"], ["2. Dispatch Partially", "Ship 200 of 500 units"], ["3. Invoice Dispatched Qty", "Invoice ₹50K of ₹125K total"], ["4. Repeat Dispatches", "Invoice remaining qty later"], ["5. SO Closes at 100%", "Fully invoiced → SO closed"]].map(([t, d]) => <div key={t} className="py-2 border-b border-gray-50 last:border-0"><p className="font-medium text-xs">{t}</p><p className="text-xs text-gray-500">{d}</p></div>)}</Card>
       </div>
     </div>
@@ -649,9 +649,9 @@ function MilestoneBilling({ token }) {
   const addMs = () => { const proj = prompt("Project:"); const name = prompt("Milestone name:"); const amt = +prompt("Amount (₹):", "0"); const due = prompt("Due date:", new Date().toISOString().split("T")[0]); if (proj && name) addItem({ proj, name, amt, due, status: "pending" }); };
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Milestone Billing</h2><p className="text-xs text-gray-500">Invoice clients when project milestones are completed</p></div><Btn v="primary" onClick={addMs}>+ Add Milestone</Btn></div>
+      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Milestone Billing</h2><p className="text-xs text-gray-500">Track project milestones — doesn't create real invoices when marked billed</p></div><Btn v="primary" onClick={addMs}>+ Add Milestone</Btn></div>
       <Metrics items={[{ l: "Pending", v: ms.filter(m => m.status === "pending").length, c: "#854F0B" }, { l: "Ready to Invoice", v: ms.filter(m => m.status === "completed").length, c: "#0F6E56" }, { l: "Invoiced", v: ms.filter(m => m.status === "invoiced").length }, { l: "Total Value", v: "₹" + ms.reduce((s, m) => s + m.amt, 0).toLocaleString() }]} />
-      {projs.map(proj => <Card key={proj}><p className="text-sm font-medium mb-3">{proj}</p>{ms.filter(m => m.proj === proj).map(m => <div key={m.id} className="flex items-center gap-3 mb-2"><div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: { invoiced: "#1D9E75", completed: "#EF9F27", pending: "#D3D1C7" }[m.status] }} /><div className={"flex-1 p-2.5 rounded-lg border flex items-center justify-between " + (m.status === "invoiced" ? "border-emerald-100 bg-emerald-50" : m.status === "completed" ? "border-amber-100 bg-amber-50" : "border-gray-100")}><div><p className="font-medium text-xs">{m.name}</p><p className="text-xs text-gray-500">Due {m.due} · ₹{m.amt.toLocaleString()}</p></div><div className="flex items-center gap-2"><Badge c={{ invoiced: "green", completed: "amber", pending: "gray" }[m.status]}>{m.status}</Badge>{m.inv && <span className="text-xs text-blue-600">{m.inv}</span>}{m.status === "pending" && <Btn onClick={() => updateItem(m.id, { status: "completed" })}>Mark Done</Btn>}{m.status === "completed" && <Btn v="primary" onClick={() => { const inv = "INV-0" + (140 + Math.floor(Math.random()*100)); updateItem(m.id, { status: "invoiced", inv }); alert("Invoice " + inv + " created!"); }}>Invoice</Btn>}</div></div></div>)}</Card>)}
+      {projs.map(proj => <Card key={proj}><p className="text-sm font-medium mb-3">{proj}</p>{ms.filter(m => m.proj === proj).map(m => <div key={m.id} className="flex items-center gap-3 mb-2"><div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: { invoiced: "#1D9E75", completed: "#EF9F27", pending: "#D3D1C7" }[m.status] }} /><div className={"flex-1 p-2.5 rounded-lg border flex items-center justify-between " + (m.status === "invoiced" ? "border-emerald-100 bg-emerald-50" : m.status === "completed" ? "border-amber-100 bg-amber-50" : "border-gray-100")}><div><p className="font-medium text-xs">{m.name}</p><p className="text-xs text-gray-500">Due {m.due} · ₹{m.amt.toLocaleString()}</p></div><div className="flex items-center gap-2"><Badge c={{ invoiced: "green", completed: "amber", pending: "gray" }[m.status]}>{m.status}</Badge>{m.inv && <span className="text-xs text-blue-600">{m.inv}</span>}{m.status === "pending" && <Btn onClick={() => updateItem(m.id, { status: "completed" })}>Mark Done</Btn>}{m.status === "completed" && <Btn v="primary" onClick={() => { if (window.confirm("This won't create a real invoice — it just marks this milestone as billed for tracking. Create the actual invoice manually in the Invoices tab for ₹" + m.amt.toLocaleString() + ". Mark as billed anyway?")) updateItem(m.id, { status: "invoiced" }); }}>Mark Billed</Btn>}</div></div></div>)}</Card>)}
     </div>
   );
 }
@@ -817,8 +817,8 @@ function ReportScheduler({ token }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Report Scheduler</h2><p className="text-xs text-gray-500">Auto-email financial reports to stakeholders on schedule</p></div><Btn v="primary" onClick={() => { const rep = prompt("Report name:"); const to = prompt("Recipient email:"); if (rep && to) addItem({ rep, freq: "Monthly", to, next: "—", on: true }); }}>+ Schedule</Btn></div>
-      <IBox>Schedules are saved for real. Actual emailing needs the Email module's SMTP config connected.</IBox>
-      <Card><Tbl headers={["Report", "Frequency", "Recipients", "Next Send", "Active", "Action"]} rows={schedules.map(s => [s.rep, <Badge c="blue">{s.freq}</Badge>, s.to, s.next, <Toggle value={s.on} onChange={v => updateItem(s.id, { on: v })} />, <Btn onClick={() => alert("Sending " + s.rep + "…")}>Send Now</Btn>])} /></Card>
+      <IBox>Schedules are saved for reference, but nothing actually sends — there's no real scheduled-report emailing built yet.</IBox>
+      <Card><Tbl headers={["Report", "Frequency", "Recipients", "Next Send", "Active", "Action"]} rows={schedules.map(s => [s.rep, <Badge c="blue">{s.freq}</Badge>, s.to, s.next, <Toggle value={s.on} onChange={v => updateItem(s.id, { on: v })} />, <Btn onClick={() => alert("Nothing was actually sent to " + s.to + " — scheduled report emailing isn't built yet. Export the report manually from Reports and send it yourself for now.")}>Send Now</Btn>])} /></Card>
     </div>
   );
 }
