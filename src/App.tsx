@@ -323,6 +323,15 @@ export default function App() {
   };
 
   useEffect(() => {
+  if (session?.user?.role !== "Super Admin") {
+    fetchDB();
+  } else {
+    setLoading(false); // Super Admin doesn't need org ledger data
+  }
+  fetchSupabaseStatus();
+  const interval = setInterval(fetchSupabaseStatus, 30000);
+  return () => clearInterval(interval);
+}, [session]);
     fetchDB();
     fetchSupabaseStatus();
     // Re-check supabase status every 30s
@@ -350,7 +359,7 @@ export default function App() {
     return () => clearInterval(interval);
   }, [timerRunning]);
 
-  if ((loading || !db) && (authLoading || session)) {
+  if ((loading || !db) && (authLoading || session) && session?.user?.role !== "Super Admin") {
     // If we have a session but db is loading, show minimal loader not blank
     if (session) {
       if (dbLoadFailed) {
