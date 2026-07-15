@@ -493,10 +493,16 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
   const sumDebits = trialEntries.reduce((acc, curr) => acc + curr.debit, 0);
   const sumCredits = trialEntries.reduce((acc, curr) => acc + curr.credit, 0);
 
-  // Cash flow metrics
-  const cashInflowPayments = db.payments.reduce((acc, curr) => acc + curr.amountReceived, 0);
-  const cashOutflowExpenses = db.expenses.filter(e => e.status === "Approved").reduce((acc, curr) => acc + curr.total, 0);
-  const cashOutflowBillsPaid = db.bills.reduce((acc, curr) => acc + (curr.paymentPaid || 0), 0);
+  // Cash flow metrics — derived from actual bank_account journal movements, the same
+  // source of truth Trial Balance/Balance Sheet already use. The previous version summed
+  // db.payments/db.expenses/db.bills directly, which completely bypassed db.journals -
+  // so Bank Reconciliation matches (which post real Dr Bank/Cr AR or Dr AP/Cr Bank
+  // journals), opening balances, and any other bank-touching entry never appeared here,
+  // even though they're real ledger movements.
+  const bankLines = db.journals.flatMap(j => j.lines.filter(l => l.accountCode === "bank_account").map(l => ({ ...l, reference: j.reference || "" })));
+  const cashInflowPayments = bankLines.filter(l => l.debit > 0).reduce((acc, l) => acc + l.debit, 0);
+  const cashOutflowExpenses = bankLines.filter(l => l.credit > 0 && /expense/i.test(l.reference)).reduce((acc, l) => acc + l.credit, 0);
+  const cashOutflowBillsPaid = bankLines.filter(l => l.credit > 0 && !/expense/i.test(l.reference)).reduce((acc, l) => acc + l.credit, 0);
   const netCashFlowChange = cashInflowPayments - (cashOutflowExpenses + cashOutflowBillsPaid);
 
   // Receivables & Payables Trade details

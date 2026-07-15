@@ -715,6 +715,8 @@ app.use(async (req: any, res: any, next: any) => {
 
 // Raw Supabase connectivity test
 app.get("/api/test-supabase", async (req: any, res: any) => {
+  const user = verifyTokenAndGetUser(req);
+  if (user?.role !== "Super Admin") return res.status(401).json({ error: "Unauthorized." });
   const url = `${SUPABASE_URL}/rest/v1/bizkhata_state?id=eq.default_ledger&select=id`;
   const key = SUPABASE_ANON_KEY;
   if (!url || !key) return res.json({ error: "not configured" });
@@ -730,8 +732,19 @@ app.get("/api/test-supabase", async (req: any, res: any) => {
   }
 });
 
-// Diagnostic health check
+// Diagnostic health check. Detailed diagnostics (email provider, Supabase connection
+// details, from-address) require Super Admin auth — previously this entire payload was
+// public with zero authentication, leaking the configured email provider, the exact
+// EMAIL_FROM address, and a partial Supabase URL to any anonymous visitor. Uptime
+// monitors that don't send an auth header still get a minimal 200 OK.
 app.get("/api/health", async (req: any, res: any) => {
+  const user = verifyTokenAndGetUser(req);
+  const isSuperAdmin = user?.role === "Super Admin";
+
+  if (!isSuperAdmin) {
+    return res.json({ server: "ok" });
+  }
+
   const checks: any = {
     server: "ok",
     supabaseConfigured: !!supabase,
