@@ -9,3 +9,4 @@ coverage/
 bizkhata_db.json
 bizkhata_superadmin.json
 bizkhata_userdb.json
+bizkhata_db_*.json
