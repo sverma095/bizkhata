@@ -768,24 +768,28 @@ app.get("/api/health", async (req: any, res: any) => {
       checks.supabaseError = e.message;
     }
 
-    // Check the superadmin_state row used for USER_DB persistence (registration
-    // approvals, seat requests, etc.). This is what confirms the registration-
-    // approval persistence fix is actually wired up correctly in this deployment.
-    try {
-      const url = `${SUPABASE_URL}/rest/v1/bizkhata_state?id=eq.superadmin_state&select=id`;
-      const r = await fetch(url, {
-        headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
-        signal: AbortSignal.timeout(6000)
-      });
-      const rows2 = r.ok ? await r.json() : null;
-      checks.superAdminStateReachable = r.ok;
-      checks.superAdminStateRowExists = Array.isArray(rows2) && rows2.length > 0;
-      checks.superAdminStateHttpStatus = r.status;
-      if (!r.ok) checks.superAdminStateError = await r.text();
-    } catch (e: any) {
-      checks.superAdminStateReachable = false;
-      checks.superAdminStateError = e.message;
+    // Check the real tables USER_DB persistence uses (bk_registrations, bk_users,
+    // bk_organizations) - registrations/approvals live here, NOT in bizkhata_state
+    // (that table is for per-org accounting ledgers only). Previously this checked
+    // bizkhata_state?id=eq.superadmin_state, an unrelated/legacy check that gave a
+    // false "everything's fine" reading even when these tables didn't exist yet
+    // (e.g. Init DB Tables never successfully ran).
+    for (const table of ["bk_registrations", "bk_users", "bk_organizations"]) {
+      try {
+        const url = `${SUPABASE_URL}/rest/v1/${table}?select=id&limit=1`;
+        const r = await fetch(url, {
+          headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
+          signal: AbortSignal.timeout(6000)
+        });
+        checks[`${table}Reachable`] = r.ok;
+        checks[`${table}HttpStatus`] = r.status;
+        if (!r.ok) checks[`${table}Error`] = (await r.text()).slice(0, 300);
+      } catch (e: any) {
+        checks[`${table}Reachable`] = false;
+        checks[`${table}Error`] = e.message;
+      }
     }
+    checks.superAdminStateReachable = checks.bk_registrationsReachable && checks.bk_usersReachable && checks.bk_organizationsReachable;
   } else {
     checks.superAdminStateReachable = false;
     checks.superAdminStateError = "Supabase not configured — registrations will not survive cold starts";
