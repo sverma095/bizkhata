@@ -1117,10 +1117,9 @@ async function writeDB(orgId: string, state: DatabaseState): Promise<void> {
 
 // REST Api Endpoints
 // ── Auth rate limiting ─────────────────────────────────────────────────────
-// In-memory per-IP sliding window, consistent with the existing `global`-cache
-// pattern used elsewhere (e.g. __regOtps). Resets on cold start, which is
-// acceptable here: the goal is to blunt scripted abuse, not provide hard
-// guarantees across instances.
+// In-memory per-IP sliding window. Resets on cold start, which is acceptable
+// here: the goal is to blunt scripted abuse, not provide hard guarantees
+// across instances.
 const rateLimit = (windowMs: number, max: number) => (req: any, res: any, next: any) => {
   const ip = (req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "unknown").toString().split(",")[0].trim();
   const key = `${req.path}:${ip}`;
@@ -1137,6 +1136,32 @@ const rateLimit = (windowMs: number, max: number) => (req: any, res: any, next: 
   next();
 };
 const authRateLimit = rateLimit(10 * 60 * 1000, 5); // 5 per 10 min per IP per route
+
+// ── Registration email OTP (stateless) ──────────────────────────────────────
+// Previously stored in global.__regOtps, an in-memory object. That does NOT survive
+// across separate serverless function instances on Vercel — send-reg-otp and
+// verify-reg-otp/register-request can easily land on different cold-started
+// instances, each with their own empty __regOtps, making the OTP look "wrong" even
+// when the person typed exactly what was emailed to them. This is the same class of
+// bug already fixed for USER_DB (which moved to real Supabase persistence) - OTPs
+// just don't have a dedicated table, so instead of storing state at all, the OTP is
+// derived deterministically per (email, 10-minute time window) via HMAC. Any
+// instance can independently recompute and verify it with no shared memory needed.
+const OTP_WINDOW_MS = 10 * 60 * 1000;
+function deriveOtp(email: string, windowIndex: number): string {
+  const h = crypto.createHmac("sha256", SESSION_SECRET).update(`reg-otp:${email.toLowerCase().trim()}:${windowIndex}`).digest();
+  const num = h.readUInt32BE(0) % 900000 + 100000;
+  return String(num);
+}
+// Verifies against the current window and the previous one, so a code emailed right
+// before a window boundary doesn't expire early from the person's perspective —
+// giving an effective validity of 10-20 minutes depending on when it was requested.
+function verifyOtp(email: string, submitted: string): boolean {
+  const now = Date.now();
+  const currentWindow = Math.floor(now / OTP_WINDOW_MS);
+  const submittedTrimmed = String(submitted || "").trim();
+  return submittedTrimmed === deriveOtp(email, currentWindow) || submittedTrimmed === deriveOtp(email, currentWindow - 1);
+}
 
 // Validation Rules enforcement helper. Rules are toggled per document type in
 // Settings > Validation Rules and stored as `${sectionId}__validation__${ruleId}`
@@ -1162,9 +1187,7 @@ app.post("/api/auth/send-reg-otp", authRateLimit, async (req: any, res: any) => 
       USER_DB.registrationRequests.some((r: any) => r.email === email && r.status !== "Rejected")) {
     return res.status(400).json({ error: "An account with this email already exists or is pending." });
   }
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  if (!(global as any).__regOtps) (global as any).__regOtps = {};
-  (global as any).__regOtps[email] = { otp, expiry: Date.now() + 10 * 60 * 1000 };
+  const otp = deriveOtp(email, Math.floor(Date.now() / OTP_WINDOW_MS));
   const emailResult = await sendEmail(email, "Verify your email — Ledgerio",
     `<p style="font-family:sans-serif">Your email verification code for Ledgerio registration is:</p>
      <h2 style="font-family:monospace;letter-spacing:6px;color:#1e40af">${otp}</h2>
@@ -1178,11 +1201,8 @@ app.post("/api/auth/send-reg-otp", authRateLimit, async (req: any, res: any) => 
 // Verify-only check (doesn't consume the OTP — final register-request still validates it)
 app.post("/api/auth/verify-reg-otp", authRateLimit, (req: any, res: any) => {
   const { email, otp } = req.body;
-  const otpStore = (global as any).__regOtps || {};
-  const record = otpStore[email];
-  if (!record) return res.status(400).json({ error: "Please request a new code." });
-  if (Date.now() > record.expiry) { delete otpStore[email]; return res.status(400).json({ error: "Code expired. Please request a new one." }); }
-  if (record.otp !== String(otp || "").trim()) return res.status(400).json({ error: "Incorrect code. Please check and try again." });
+  if (!email || !otp) return res.status(400).json({ error: "Email and code are required." });
+  if (!verifyOtp(email, otp)) return res.status(400).json({ error: "Incorrect or expired code. Please check and try again, or request a new one." });
   res.json({ verified: true });
 });
 
@@ -1191,13 +1211,8 @@ app.post("/api/auth/register-request", authRateLimit, (req: any, res: any) => {
   if (!companyName || !adminName || !email || !mobileNumber || !password || !numberOfRequiredSeats) {
     res.status(400).json({ error: "Company name, admin name, email, mobile, password and seats are required." }); return;
   }
-  // Verify email OTP
-  const otpStore = (global as any).__regOtps || {};
-  const record = otpStore[email];
-  if (!record) { res.status(400).json({ error: "Please verify your email first — click 'Send OTP'." }); return; }
-  if (Date.now() > record.expiry) { delete otpStore[email]; res.status(400).json({ error: "OTP expired. Please request a new one." }); return; }
-  if (record.otp !== String(emailOtp || "").trim()) { res.status(400).json({ error: "Invalid OTP. Please check the code sent to your email." }); return; }
-  delete otpStore[email];
+  // Verify email OTP (stateless - see verifyOtp for why)
+  if (!verifyOtp(email, emailOtp)) { res.status(400).json({ error: "Invalid or expired OTP. Please check the code sent to your email, or request a new one." }); return; }
   const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
   if (!passwordRegex.test(password)) { res.status(400).json({ error: "Password must be 8+ chars with upper, lower, number and special character." }); return; }
   if (USER_DB.users.some((u: any) => u.email === email) || USER_DB.registrationRequests.some((r: any) => r.email === email && r.status !== "Rejected")) {
