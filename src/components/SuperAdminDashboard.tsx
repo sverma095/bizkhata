@@ -79,7 +79,19 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
       // transient hiccup on /api/users) must not hide data from the others that
       // succeeded, like pending registrations.
       if (oRes.ok) setOrganizations(await oRes.json()); else console.error("Failed to load organizations:", oRes.status);
-      if (rRes.ok) setRegistrations(await rRes.json()); else console.error("Failed to load registrations:", rRes.status);
+      if (rRes.ok) {
+        const freshRegs = await rRes.json();
+        setRegistrations(freshRegs);
+        // If the confirm panel is open for a registration that no longer exists
+        // in the freshly polled list (already resolved elsewhere, or stale local
+        // state from a race with a prior poll), close it instead of leaving it
+        // stuck pointing at a dead ID.
+        setPendingActionReg(cur =>
+          cur && !freshRegs.some((r: RegistrationRequest) => r.id === cur.id) ? null : cur
+        );
+      } else {
+        console.error("Failed to load registrations:", rRes.status);
+      }
       if (sRes.ok) setSeatRequests(await sRes.json()); else console.error("Failed to load seat requests:", sRes.status);
       if (lRes.ok) setAuditLogs(await lRes.json()); else console.error("Failed to load audit logs:", lRes.status);
       if (uRes.ok) setUsers(await uRes.json()); else console.error("Failed to load users:", uRes.status);
@@ -187,6 +199,16 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
 
       if (!res.ok) {
         const data = await res.json();
+        if (res.status === 404) {
+          // Registration was already resolved (e.g. approved from another
+          // session, or this panel was stale). Don't leave the user stuck
+          // retrying against a dead ID — close the panel and resync the list.
+          setPendingActionReg(null);
+          setActionFeedback('');
+          loadAllData();
+          showFeedback('This registration was already processed. Refreshing list.', true);
+          return;
+        }
         throw new Error(data.error || 'Action failed.');
       }
 
