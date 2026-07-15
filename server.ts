@@ -1431,6 +1431,54 @@ app.post("/api/superadmin/registrations/:id/action", authGuard, superAdminGuard,
   res.json({ success: true, reg });
 });
 
+// Recovery for registrations stuck in "Approved" status with no matching org/user -
+// the exact failure mode of the fire-and-forget persistence bug fixed earlier this
+// session (approvals that appeared to work but never reached Supabase). Rather than
+// ask the applicant to re-register (their registration record is already marked
+// Approved, so re-approving is a no-op), this lets a Super Admin re-run provisioning
+// for a specific stuck registration once it's safe to check for.
+app.get("/api/superadmin/registrations/:id/provision-status", authGuard, superAdminGuard, (req: any, res: any) => {
+  const reg = USER_DB.registrationRequests.find((r: any) => r.id === req.params.id);
+  if (!reg) return res.status(404).json({ error: "Registration not found." });
+  const org = USER_DB.organizations.find((o: any) => o.name === reg.companyName);
+  const user = USER_DB.users.find((u: any) => u.email === reg.email);
+  res.json({
+    status: reg.status,
+    orgExists: !!org,
+    userExists: !!user,
+    stuck: reg.status === "Approved" && (!org || !user),
+  });
+});
+
+app.post("/api/superadmin/registrations/:id/reprovision", authGuard, superAdminGuard, async (req: any, res: any) => {
+  const reg = USER_DB.registrationRequests.find((r: any) => r.id === req.params.id);
+  if (!reg) return res.status(404).json({ error: "Registration not found." });
+  if (reg.status !== "Approved") return res.status(400).json({ error: "Only already-approved registrations can be re-provisioned. Use Approve for a pending one." });
+
+  let org = USER_DB.organizations.find((o: any) => o.name === reg.companyName);
+  let user = USER_DB.users.find((u: any) => u.email === reg.email);
+  if (org && user) return res.json({ success: true, alreadyProvisioned: true });
+
+  const months = 12;
+  if (!org) {
+    org = { id: generateId("org"), name: reg.companyName, gstNumber: reg.gstNumber, status: "Active", allocatedSeats: reg.numberOfRequiredSeats, usedSeats: 1, plan: reg.requestedPlan || "starter", createdAt: reg.createdAt, approvedAt: new Date().toISOString(), subscriptionExpiresAt: new Date(Date.now() + months * 30 * 24 * 60 * 60 * 1000).toISOString(), subscriptionMonths: months };
+    USER_DB.organizations.push(org);
+  }
+  if (!user) {
+    user = { id: generateId("user"), organizationId: org.id, fullName: reg.adminName, email: reg.email, mobileNumber: reg.mobileNumber, role: "Admin", status: "Active", password: hashPassword(reg.password || "Admin@123"), permissions: ALL_PERMISSIONS_LIST.map((p: any) => p.id), twoFactorEnabled: false, createdAt: new Date().toISOString() };
+    USER_DB.users.push(user);
+  }
+  const cleanState = getInitialState();
+  cleanState.company.name = reg.companyName;
+  cachedDbByOrg.set(org.id, cleanState);
+  if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+    await supabaseREST("POST", org.id, { state: cleanState }).catch(() => supabaseREST("PATCH" as any, org.id, { state: cleanState }).catch(() => {}));
+  }
+  addAuditLog(null, req.user.fullName, req.user.role, "Re-provision Registration", `Recovered missing org/user for '${reg.companyName}' (${reg.email}).`);
+  await saveUserDB();
+  res.json({ success: true, alreadyProvisioned: false, orgId: org.id });
+});
+
 // Super Admin - Organizations
 // Generic persistence for the 21 "Advanced Modules" (Workflow, GSTR-2B, Bank Feeds, etc.).
 // Each module's data lives under db.advancedModules[key] in the same per-org store as the

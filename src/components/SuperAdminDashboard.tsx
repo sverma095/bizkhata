@@ -856,6 +856,30 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                             </button>
                           </div>
                         )}
+
+                        {reg.status === 'Approved' && (
+                          <div className="self-end md:self-center">
+                            <button
+                              id={`btn-reg-recover-${reg.id}`}
+                              onClick={async () => {
+                                const statusRes = await fetch(`/api/superadmin/registrations/${reg.id}/provision-status`, { headers: { Authorization: `Bearer ${token}` } });
+                                const statusData = await statusRes.json();
+                                if (!statusData.stuck) {
+                                  alert(`${reg.companyName} is fine — the organization and user account both exist.`);
+                                  return;
+                                }
+                                if (!confirm(`${reg.companyName} was approved but its organization/user account is missing (likely lost to the persistence bug fixed earlier). Recreate it now with the original sign-up details?`)) return;
+                                const r = await fetch(`/api/superadmin/registrations/${reg.id}/reprovision`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+                                const data = await r.json();
+                                if (r.ok) { loadAllData(); setMessage({ text: `✓ Recovered account for ${reg.companyName}`, isError: false }); }
+                                else setMessage({ text: data.error || `Failed to recover ${reg.companyName}`, isError: true });
+                              }}
+                              className="px-3 py-1 border border-slate-300 hover:bg-slate-50 text-slate-600 font-bold text-xs uppercase tracking-wider rounded transition"
+                            >
+                              Check / Fix Account
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))
