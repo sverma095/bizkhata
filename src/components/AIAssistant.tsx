@@ -278,16 +278,16 @@ Grand Sum: 118000.00 INR`
                     </div>
                     <div>
                       <span className="text-[10px] text-[#8C867A] font-sans block">Document Date:</span>
-                      <span className="text-[#2C2C24] font-medium">{parsedDraft.date || "2026-05-24"}</span>
+                      <span className="text-[#2C2C24] font-medium">{parsedDraft.date || "Not detected"}</span>
                     </div>
                     <div>
                       <span className="text-[10px] text-[#8C867A] font-sans block">Invoice/Ref ID Number:</span>
-                      <span className="text-[#2C2C24]/80">{parsedDraft.invoiceNumber || "BILL-AWS-901"}</span>
+                      <span className="text-[#2C2C24]/80">{parsedDraft.invoiceNumber || "Not detected"}</span>
                     </div>
                   </div>
 
                   <p className="text-[10.5px] text-[#8C867A] leading-relaxed font-sans">
-                    Ledgerio detected items, including a calculated total amount of <span className="text-[#5A5A40] font-bold font-mono">₹{parsedDraft.total?.toLocaleString() || "1,18,000"}</span>.
+                    Ledgerio detected items, including a calculated total amount of <span className="text-[#5A5A40] font-bold font-mono">{parsedDraft.total ? `₹${parsedDraft.total.toLocaleString()}` : "not detected"}</span>.
                   </p>
                 </div>
 

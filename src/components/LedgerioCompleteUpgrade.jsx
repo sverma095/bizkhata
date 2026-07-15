@@ -281,22 +281,52 @@ function GSTR2B({ token }) {
 }
 
 // ── MODULE 5: PAYMENT REMINDERS ─────────────────────────────────
-function PaymentReminders({ db }) {
+function PaymentReminders({ db, token }) {
+  const [sendingId, setSendingId] = useState(null);
+  const [runningAll, setRunningAll] = useState(false);
   const today = new Date();
   const overdue = (db?.invoices || [])
     .filter(i => !i.isProforma && i.status !== "Paid" && i.dueDate && new Date(i.dueDate) < today)
-    .map(i => ({ inv: i.invoiceNumber, cust: i.customerName, amt: i.total, days: Math.floor((today - new Date(i.dueDate)) / 86400000), last: "—" }))
+    .map(i => ({ id: i.id, inv: i.invoiceNumber, cust: i.customerName, amt: i.total, days: Math.floor((today - new Date(i.dueDate)) / 86400000), last: i.emailSentAt ? new Date(i.emailSentAt).toLocaleDateString("en-IN") : "—" }))
     .sort((a, b) => b.days - a.days);
+
+  const sendOne = async (invId, custName) => {
+    setSendingId(invId);
+    try {
+      const r = await fetch(`/api/invoices/${invId}/send-email`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({}) });
+      const data = await r.json();
+      if (r.ok && data.emailSent) alert(`Reminder sent to ${custName} (${data.to}).`);
+      else alert(data.error || "Couldn't send the reminder — check your email provider configuration.");
+    } catch (e) { alert("Couldn't send the reminder: " + e.message); }
+    setSendingId(null);
+  };
+
+  const runAll = async () => {
+    if (overdue.length === 0) { alert("No overdue invoices to remind."); return; }
+    if (!window.confirm(`Send a reminder email for all ${overdue.length} overdue invoice(s)?`)) return;
+    setRunningAll(true);
+    let sent = 0, failed = 0;
+    for (const r of overdue) {
+      try {
+        const res = await fetch(`/api/invoices/${r.id}/send-email`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({}) });
+        const data = await res.json();
+        if (res.ok && data.emailSent) sent++; else failed++;
+      } catch { failed++; }
+    }
+    setRunningAll(false);
+    alert(`Sent ${sent} reminder(s)${failed ? `, ${failed} failed (no email on file or provider not configured)` : ""}.`);
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Payment Reminders</h2><p className="text-xs text-gray-500">Overdue invoice list is real. Sending isn't wired up here — use Workflow Rules (Settings) for real automated Payment Overdue emails.</p></div><Btn v="primary" onClick={() => alert("This button doesn't send anything. For real automated reminders, set up a 'Payment Overdue' rule under Settings > Workflow Rules — that one actually sends via Resend.")}>⚡ Run All Now</Btn></div>
+      <div className="flex items-center justify-between"><div><h2 className="text-base font-medium">Payment Reminders</h2><p className="text-xs text-gray-500">Sends a real email per overdue invoice via your configured email provider</p></div><Btn v="primary" onClick={runAll} disabled={runningAll}>{runningAll ? "Sending..." : "⚡ Run All Now"}</Btn></div>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-3">
           {overdue.map(r => (
             <Card key={r.inv} className={r.days > 15 ? "border-red-200" : r.days > 7 ? "border-amber-200" : ""}>
               <div className="flex items-start justify-between">
                 <div><div className="flex items-center gap-2 mb-1"><span className="font-medium text-sm">{r.inv}</span><Badge c={r.days > 15 ? "red" : "amber"}>{r.days} days overdue</Badge></div><p className="text-xs text-gray-500">{r.cust} · ₹{r.amt.toLocaleString()}</p><p className="text-xs text-gray-400">Last sent: {r.last}</p></div>
-                <div className="flex flex-col gap-1"><Btn v="primary" onClick={() => alert("Not connected here — set up a 'Payment Overdue' Workflow Rule (Settings) to actually email " + r.cust + ".")}>Email</Btn><Btn onClick={() => alert("WhatsApp isn't connected in this build (needs a WATI account). Nothing was sent to " + r.cust + ".")}>WhatsApp</Btn></div>
+                <div className="flex flex-col gap-1"><Btn v="primary" disabled={sendingId === r.id} onClick={() => sendOne(r.id, r.cust)}>{sendingId === r.id ? "Sending..." : "Email"}</Btn><Btn onClick={() => alert("WhatsApp isn't connected in this build (needs a WATI account). Nothing was sent to " + r.cust + ".")}>WhatsApp</Btn></div>
               </div>
             </Card>
           ))}
