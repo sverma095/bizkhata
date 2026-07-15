@@ -435,7 +435,7 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
             <button
               onClick={async () => {
                 if (!confirm("Create/verify Supabase tables (bk_organizations, bk_users, etc.)? Safe to run multiple times.")) return;
-                const r = await fetch("/api/superadmin/init-db", { method: "POST", headers: { Authorization: `Bearer ${localStorage.getItem("bk_token")}` } });
+                const r = await fetch("/api/superadmin/init-db", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
                 const d = await r.json();
                 setMessage({ text: d.success ? `✓ ${d.message}` : (d.error || "Failed"), isError: !d.success });
               }}
@@ -446,7 +446,7 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
             <button
               onClick={async () => {
                 if (!confirm("⚠ This will wipe all stale logins and re-seed only the canonical accounts (superadmin + svtiger). Continue?")) return;
-                const r = await fetch("/api/superadmin/reset-userdb", { method: "POST", headers: { Authorization: `Bearer ${localStorage.getItem("bk_token")}` } });
+                const r = await fetch("/api/superadmin/reset-userdb", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
                 const d = await r.json();
                 if (d.success) { setMessage({ text: `✓ USER_DB reset. ${d.users.length} canonical users restored.`, isError: false }); loadAllData(); }
                 else setMessage({ text: d.error || "Reset failed", isError: true });
@@ -724,7 +724,7 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                             method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
                             body: JSON.stringify({ plan, months: editingOrg.subscriptionMonths || 12 })
                           });
-                          if (r.ok) { loadAllData(); setMessage({ text: `✓ Plan updated to ${plan}`, isError: false }); }
+                          if (r.ok) { loadAllData(); setMessage({ text: `✓ Plan updated to ${plan}`, isError: false }); } else { setMessage({ text: `Failed to update plan (${r.status})`, isError: true }); }
                         }}
                       >
                         <option value="free">Free — ₹0 / 1 seat</option>
@@ -1145,10 +1145,10 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                                       <button onClick={async () => {
                                         const r = await fetch(`/api/users/${u.id}`, {
                                           method: 'PUT',
-                                          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('bk_token')}` },
+                                          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                                           body: JSON.stringify({ role: editingUserRole })
                                         });
-                                        if (r.ok) { setEditingUserId(null); loadAllData(); setMessage({ text: `✓ Role updated for ${u.fullName}`, isError: false }); }
+                                        if (r.ok) { setEditingUserId(null); loadAllData(); setMessage({ text: `✓ Role updated for ${u.fullName}`, isError: false }); } else { setMessage({ text: `Failed to update role for ${u.fullName} (${r.status})`, isError: true }); }
                                       }} className="bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold px-2.5 py-1 rounded cursor-pointer">Save</button>
                                       <button onClick={() => setEditingUserId(null)} className="border border-slate-300 text-slate-600 text-[10px] px-2.5 py-1 rounded cursor-pointer">Cancel</button>
                                     </>
@@ -1164,10 +1164,10 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                                         const newStatus = u.status === 'Active' ? 'Disabled' : 'Active';
                                         const r = await fetch(`/api/users/${u.id}`, {
                                           method: 'PUT',
-                                          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('bk_token')}` },
+                                          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                                           body: JSON.stringify({ status: newStatus })
                                         });
-                                        if (r.ok) { loadAllData(); setMessage({ text: `✓ ${u.fullName} ${newStatus === 'Disabled' ? 'put on hold' : 'activated'}`, isError: false }); }
+                                        if (r.ok) { loadAllData(); setMessage({ text: `✓ ${u.fullName} ${newStatus === 'Disabled' ? 'put on hold' : 'activated'}`, isError: false }); } else { setMessage({ text: `Failed to update status for ${u.fullName} (${r.status})`, isError: true }); }
                                       }} className={`text-[10px] font-semibold px-2.5 py-1 rounded cursor-pointer border ${
                                         u.status === 'Active'
                                           ? 'border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-700'
@@ -1180,10 +1180,10 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                                         <button onClick={async () => {
                                           const r = await fetch(`/api/users/${u.id}`, {
                                             method: 'PUT',
-                                            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('bk_token')}` },
+                                            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                                             body: JSON.stringify({ role: 'Manager' })
                                           });
-                                          if (r.ok) { loadAllData(); setMessage({ text: `✓ ${u.fullName} promoted to Manager`, isError: false }); }
+                                          if (r.ok) { loadAllData(); setMessage({ text: `✓ ${u.fullName} promoted to Manager`, isError: false }); } else { setMessage({ text: `Failed to promote ${u.fullName} (${r.status})`, isError: true }); }
                                         }} className="border border-purple-300 bg-purple-50 hover:bg-purple-100 text-purple-700 text-[10px] font-semibold px-2.5 py-1 rounded cursor-pointer">
                                           Make Manager
                                         </button>
@@ -1193,10 +1193,10 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                                         if (!confirm(`Delete ${u.fullName} (${u.email})? This cannot be undone.`)) return;
                                         const r = await fetch('/api/users/remove', {
                                           method: 'POST',
-                                          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('bk_token')}` },
+                                          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                                           body: JSON.stringify({ userId: u.id })
                                         });
-                                        if (r.ok) { loadAllData(); setMessage({ text: `✓ User ${u.fullName} deleted`, isError: false }); }
+                                        if (r.ok) { loadAllData(); setMessage({ text: `✓ User ${u.fullName} deleted`, isError: false }); } else { setMessage({ text: `Failed to delete ${u.fullName} (${r.status})`, isError: true }); }
                                       }} className="border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-[10px] font-semibold px-2.5 py-1 rounded cursor-pointer">
                                         Delete
                                       </button>
