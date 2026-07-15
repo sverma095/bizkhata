@@ -221,14 +221,14 @@ async function loadUserDB(): Promise<void> {
   saveUserDB().catch(() => {});
 }
 
-async function saveUserDB(): Promise<void> {
+async function saveUserDB(): Promise<boolean> {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     // Local-dev fallback
     try {
       const f = process.env.VERCEL === "1" ? "/tmp/bizkhata_userdb.json" : path.join(process.cwd(), "bizkhata_userdb.json");
       fs.writeFileSync(f, JSON.stringify(USER_DB, null, 2), "utf8");
-    } catch { }
-    return;
+      return true;
+    } catch { return false; }
   }
   // Write each table independently — non-blocking, parallel
   const writes: Promise<boolean>[] = [];
@@ -241,7 +241,8 @@ async function saveUserDB(): Promise<void> {
   if (USER_DB.seatRequests.length) writes.push(sbUpsert("bk_seat_requests", USER_DB.seatRequests));
   if (USER_DB.supportTickets?.length) writes.push(sbUpsert("bk_support_tickets", USER_DB.supportTickets));
   if (USER_DB.notifications.length) writes.push(sbUpsert("bk_notifications", USER_DB.notifications.slice(0, 100)));
-  await Promise.allSettled(writes);
+  const results = await Promise.allSettled(writes);
+  return results.every(r => r.status === "fulfilled" && r.value === true);
 }
 
 const addAuditLog = (orgId: string | null, userName: string, role: string, action: string, details?: string, ip?: string) => {
@@ -1277,7 +1278,10 @@ app.post("/api/auth/register-request", authRateLimit, async (req: any, res: any)
   // moments after signup (served by the same still-warm instance) but then 404'ing as
   // "Registration not found" when a Super Admin approves it from a different instance
   // that loads fresh from Supabase and finds no row there.
-  await saveUserDB();
+  const saveOk = await saveUserDB();
+  if (!saveOk) {
+    console.error(`register-request: saveUserDB reported failure for ${email} — registration may not have persisted. Check sbUpsert(bk_registrations) error logged just above.`);
+  }
   res.status(201).json({ ...newReg, password: undefined });
 });
 
@@ -2739,7 +2743,8 @@ app.post("/api/superadmin/init-db", authGuard, superAdminGuard, async (req: any,
   const sql = `
     create table if not exists bk_organizations (id text primary key, name text, "gstNumber" text, status text, "allocatedSeats" int, "usedSeats" int, "createdAt" text, "approvedAt" text, "subscriptionExpiresAt" text, "subscriptionMonths" int, data jsonb default '{}');
     create table if not exists bk_users (id text primary key, organizationid text, "fullName" text, email text unique, "mobileNumber" text, role text, status text, password text, permissions jsonb, "twoFactorEnabled" bool default false, "twoFactorVerified" bool default false, "createdAt" text, data jsonb default '{}');
-    create table if not exists bk_registrations (id text primary key, "companyName" text, "gstNumber" text, "adminName" text, email text, "mobileNumber" text, password text, "numberOfRequiredSeats" int, status text, "emailVerified" bool, "createdAt" text);
+    create table if not exists bk_registrations (id text primary key, "companyName" text, "gstNumber" text, "adminName" text, email text, "mobileNumber" text, password text, "numberOfRequiredSeats" int, "requestedPlan" text default 'starter', status text, "emailVerified" bool, "createdAt" text);
+    alter table if exists bk_registrations add column if not exists "requestedPlan" text default 'starter';
     create table if not exists bk_seat_requests (id text primary key, "organizationId" text, "requestedBy" text, "currentSeatCount" int, "additionalSeatsRequested" int, reason text, status text, "createdAt" text);
     create table if not exists bk_support_tickets (id text primary key, "organizationId" text, "orgName" text, "raisedBy" text, "raisedByEmail" text, subject text, description text, priority text, status text, messages jsonb, "createdAt" text, "updatedAt" text);
     create table if not exists bk_notifications (id text primary key, "to" text, subject text, body text, type text, timestamp text, code text);
