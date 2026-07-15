@@ -1421,8 +1421,23 @@ app.post("/api/auth/terminate-sessions", authGuard, (req: any, res: any) => {
 });
 
 // Super Admin - Registrations
-app.get("/api/superadmin/registrations", authGuard, superAdminGuard, (req: any, res: any) => res.json(USER_DB.registrationRequests.map((r: any) => ({ ...r, password: undefined }))));
+// Always re-read from Supabase directly rather than trusting USER_DB.registrationRequests:
+// loadUserDB() only loads once per warm serverless instance (guarded by userDbLoaded), so a
+// long-lived warm instance serving this route would otherwise keep returning the same stale
+// in-memory snapshot forever, never picking up new registrations written by other instances
+// (e.g. the instance that handled the public /api/auth/register-request call).
+app.get("/api/superadmin/registrations", authGuard, superAdminGuard, async (req: any, res: any) => {
+  if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+    const fresh = await sbSelect("bk_registrations", "order=createdAt.desc");
+    USER_DB.registrationRequests = fresh;
+    return res.json(fresh.map((r: any) => ({ ...r, password: undefined })));
+  }
+  res.json(USER_DB.registrationRequests.map((r: any) => ({ ...r, password: undefined })));
+});
 app.post("/api/superadmin/registrations/:id/action", authGuard, superAdminGuard, async (req: any, res: any) => {
+  if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+    USER_DB.registrationRequests = await sbSelect("bk_registrations");
+  }
   const reg = USER_DB.registrationRequests.find((r: any) => r.id === req.params.id);
   if (!reg) { res.status(404).json({ error: "Registration not found." }); return; }
   const { action, feedback, subscriptionMonths } = req.body;
