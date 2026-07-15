@@ -1,0 +1,236 @@
+{
+  "company": {
+    "name": "Verma Consultancy Services",
+    "legalName": "Verma Consultancy Services",
+    "gstin": "09AABFV1234A1Z5",
+    "pan": "",
+    "address": "",
+    "state": "Uttar Pradesh",
+    "currency": "INR",
+    "financialYear": "2026-2027"
+  },
+  "role": "Owner",
+  "customers": [
+    {
+      "id": "cust_jbm4eti6c",
+      "name": "Test Customer",
+      "email": "customer@example.com",
+      "gstin": "",
+      "state": "Karnataka"
+    }
+  ],
+  "vendors": [],
+  "items": [],
+  "accounts": [
+    {
+      "code": "bank_account",
+      "name": "Bank Account",
+      "type": "Asset",
+      "balance": 0
+    },
+    {
+      "code": "cash",
+      "name": "Cash",
+      "type": "Asset",
+      "balance": 0
+    },
+    {
+      "code": "accounts_receivable",
+      "name": "Accounts Receivable",
+      "type": "Asset",
+      "balance": 10000
+    },
+    {
+      "code": "tds_receivable",
+      "name": "TDS Receivable",
+      "type": "Asset",
+      "balance": 0
+    },
+    {
+      "code": "input_gst",
+      "name": "Input GST",
+      "type": "Asset",
+      "balance": 0
+    },
+    {
+      "code": "fixed_assets",
+      "name": "Fixed Assets (Gross Block)",
+      "type": "Asset",
+      "balance": 0
+    },
+    {
+      "code": "accumulated_depreciation",
+      "name": "Accumulated Depreciation (Contra-Asset)",
+      "type": "Asset",
+      "balance": 0
+    },
+    {
+      "code": "accounts_payable",
+      "name": "Accounts Payable",
+      "type": "Liability",
+      "balance": 0
+    },
+    {
+      "code": "gst_payable",
+      "name": "GST Payable",
+      "type": "Liability",
+      "balance": 0
+    },
+    {
+      "code": "tds_payable",
+      "name": "TDS Payable",
+      "type": "Liability",
+      "balance": 0
+    },
+    {
+      "code": "sales_income",
+      "name": "Sales Income",
+      "type": "Income",
+      "balance": 10000
+    },
+    {
+      "code": "service_income",
+      "name": "Service Income",
+      "type": "Income",
+      "balance": 0
+    },
+    {
+      "code": "salary_expense",
+      "name": "Salary Expense",
+      "type": "Expense",
+      "balance": 0
+    },
+    {
+      "code": "purchases_expense",
+      "name": "Purchases / Cost of Goods & Services",
+      "type": "Expense",
+      "balance": 0
+    },
+    {
+      "code": "contractor_expense",
+      "name": "Contractor Expense",
+      "type": "Expense",
+      "balance": 0
+    },
+    {
+      "code": "rent",
+      "name": "Rent",
+      "type": "Expense",
+      "balance": 0
+    },
+    {
+      "code": "software_subscription",
+      "name": "Software Subscription",
+      "type": "Expense",
+      "balance": 0
+    },
+    {
+      "code": "professional_fees",
+      "name": "Professional Fees",
+      "type": "Expense",
+      "balance": 0
+    },
+    {
+      "code": "bank_charges",
+      "name": "Bank Charges",
+      "type": "Expense",
+      "balance": 0
+    },
+    {
+      "code": "depreciation_expense",
+      "name": "Depreciation Expense",
+      "type": "Expense",
+      "balance": 0
+    },
+    {
+      "code": "capital",
+      "name": "Capital",
+      "type": "Equity",
+      "balance": 0
+    },
+    {
+      "code": "retained_earnings",
+      "name": "Retained Earnings",
+      "type": "Equity",
+      "balance": 0
+    }
+  ],
+  "invoices": [
+    {
+      "customerId": "cust_jbm4eti6c",
+      "customerName": "Test Customer",
+      "items": [
+        {
+          "name": "Consulting",
+          "quantity": 1,
+          "rate": 10000,
+          "amount": 10000
+        }
+      ],
+      "subtotal": 10000,
+      "totalGst": 0,
+      "total": 10000,
+      "date": "2026-07-15",
+      "invoiceNumber": "INV-2026-001",
+      "id": "inv_rin0ew41l"
+    }
+  ],
+  "creditNotes": [],
+  "payments": [],
+  "expenses": [],
+  "bills": [],
+  "journals": [
+    {
+      "id": "j_inv_inv_rin0ew41l",
+      "date": "2026-07-15",
+      "reference": "Invoice INV-2026-001",
+      "description": "Revenue booked from sales invoice INV-2026-001",
+      "lines": [
+        {
+          "id": "408rao1sp",
+          "accountCode": "accounts_receivable",
+          "accountName": "Accounts Receivable",
+          "debit": 10000,
+          "credit": 0
+        },
+        {
+          "id": "o6cdp3knh",
+          "accountCode": "sales_income",
+          "accountName": "Sales Income",
+          "debit": 0,
+          "credit": 10000
+        }
+      ]
+    }
+  ],
+  "advancedModules": {},
+  "enabledModules": {},
+  "auditLogs": [
+    {
+      "id": "rcwfy6l5r",
+      "timestamp": "2026-07-15T05:51:54.490Z",
+      "user": "User",
+      "action": "Create Tax Invoice",
+      "details": "Generated standard billing number INV-2026-001 for client ₹10000"
+    },
+    {
+      "id": "m5hml1xwo",
+      "timestamp": "2026-07-15T05:51:54.430Z",
+      "user": "User",
+      "action": "Add Customer",
+      "details": "Created customer master record for Test Customer"
+    },
+    {
+      "id": "audit_init",
+      "timestamp": "2026-07-15T05:51:48.532Z",
+      "action": "System Init",
+      "details": "Ledgerio default ledger initialized successfully with secure role access management.",
+      "userId": "system",
+      "userName": "System"
+    }
+  ],
+  "users": [],
+  "userSeatsLimit": 10,
+  "mailLogs": [],
+  "organizations": []
+}

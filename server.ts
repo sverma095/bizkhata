@@ -2047,7 +2047,49 @@ app.post("/api/invoices", authGuard, requirePermission("create_invoices"), async
   res.json({ success: true, db });
 });
 
-// Payments Recorder Double-Entry
+// Real invoice email sending — the "Mark as Sent" flow used to only flip status with
+// an honest disclaimer that no email was actually sent. This makes that real, using the
+// same sendEmail() (Resend/Gmail/SMTP) infrastructure already used for OTPs.
+app.post("/api/invoices/:id/send-email", authGuard, requirePermission("view_invoices"), async (req: any, res: any) => {
+  const orgId = req.user.organizationId;
+  if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
+  const db = await readDB(orgId);
+  const invoice = db.invoices.find((i: any) => i.id === req.params.id);
+  if (!invoice) return res.status(404).json({ error: "Invoice not found." });
+  const customer = db.customers.find((c: any) => c.id === invoice.customerId);
+  const to = req.body.email || customer?.email;
+  if (!to) return res.status(400).json({ error: "No email on file for this customer. Add one to the customer record first." });
+
+  const companyName = db.company?.name || "Ledgerio";
+  const itemsHtml = (invoice.items || []).map((it: any) =>
+    `<tr><td style="padding:6px 10px;border-bottom:1px solid #eee">${it.name || it.description || "Item"}</td><td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right">${it.quantity || 1}</td><td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right">₹${Number(it.rate || it.amount || 0).toLocaleString("en-IN")}</td></tr>`
+  ).join("");
+  const html = `
+    <div style="font-family:sans-serif;max-width:600px;margin:0 auto">
+      <h2 style="color:#1e293b">Invoice ${invoice.invoiceNumber} from ${companyName}</h2>
+      <p>Dear ${invoice.customerName || "Customer"},</p>
+      <p>Please find your invoice details below.</p>
+      <table style="width:100%;border-collapse:collapse;margin:16px 0">
+        <thead><tr style="background:#f8fafc"><th style="padding:6px 10px;text-align:left">Item</th><th style="padding:6px 10px;text-align:right">Qty</th><th style="padding:6px 10px;text-align:right">Rate</th></tr></thead>
+        <tbody>${itemsHtml}</tbody>
+      </table>
+      <p style="font-size:16px"><strong>Total: ₹${Number(invoice.total || 0).toLocaleString("en-IN")}</strong></p>
+      ${invoice.dueDate ? `<p>Due date: ${invoice.dueDate}</p>` : ""}
+      <p style="color:#64748b;font-size:12px;margin-top:24px">Sent via Ledgerio on behalf of ${companyName}.</p>
+    </div>`;
+
+  const result = await sendEmail(to, `Invoice ${invoice.invoiceNumber} from ${companyName}`, html);
+  if (!result.sent) {
+    return res.status(502).json({ error: result.reason || "Email provider not configured. Set RESEND_API_KEY (or another supported provider) in your environment.", emailSent: false });
+  }
+
+  invoice.status = invoice.status === "Draft" ? "Sent" : invoice.status;
+  invoice.emailSentTo = to;
+  invoice.emailSentAt = new Date().toISOString();
+  db.auditLogs.unshift({ id: uuid(), timestamp: new Date().toISOString(), user: req.body.authorUser || "User", action: "Send Invoice Email", details: `Invoice ${invoice.invoiceNumber} emailed to ${to}` });
+  await writeDB(orgId, db);
+  res.json({ success: true, emailSent: true, to });
+});
 app.post("/api/payments", authGuard, requirePermission("approve_payments"), async (req: any, res: any) => {
   const orgId = req.user.organizationId;
   if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }

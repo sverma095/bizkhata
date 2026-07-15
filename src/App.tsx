@@ -540,6 +540,17 @@ export default function App() {
     }
   };
 
+  const handleSendInvoiceEmail = async (invoiceId: string) => {
+    const r = await authFetch(`/api/invoices/${invoiceId}/send-email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ authorUser: activeUserEmail })
+    });
+    const data = await r.json().catch(() => ({}));
+    if (r.ok) await fetchDB();
+    return { success: r.ok, emailSent: data.emailSent, to: data.to, error: data.error };
+  };
+
   const handleSaveInvoice = async (invoicePayload: any) => {
     try {
       const r = await authFetch("/api/invoices", {
@@ -1462,6 +1473,7 @@ export default function App() {
                 onIssueCreditNote={handleIssueCreditNote}
                 onAddCustomer={handleAddCustomer}
                 onTriggerAI={handleUniversalAITrigger}
+                onSendInvoiceEmail={handleSendInvoiceEmail}
                 userRole={activeRole}
                 defaultTab={saleSubTab}
               />

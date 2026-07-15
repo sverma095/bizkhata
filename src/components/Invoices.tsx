@@ -37,11 +37,12 @@ interface InvoicesProps {
   onIssueCreditNote: (creditNote: any) => Promise<void>;
   onAddCustomer?: (customer: any) => Promise<void>;
   onTriggerAI: (feature: string, payload?: any) => void;
+  onSendInvoiceEmail?: (invoiceId: string) => Promise<{ success: boolean; emailSent?: boolean; to?: string; error?: string }>;
   userRole: string;
   defaultTab?: "tax" | "proforma" | "notes" | "customers";
 }
 
-export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCustomer, onTriggerAI, userRole, defaultTab }: InvoicesProps) {
+export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCustomer, onTriggerAI, onSendInvoiceEmail, userRole, defaultTab }: InvoicesProps) {
   // Organisation's GST registration status — when false, GST/tax is not applicable
   const orgIsGstRegistered = db.company.isGstRegistered !== false;
   const [activeTab, setActiveTab] = useState<"tax" | "proforma" | "notes" | "customers">(defaultTab || "tax");
@@ -173,6 +174,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
   const [pushingEInvoiceId, setPushingEInvoiceId] = useState<string | null>(null);
   const [signingInvoice, setSigningInvoice] = useState<Invoice | null>(null);
   const [sendingInvoice, setSendingInvoice] = useState<Invoice | null>(null);
+  const [sendingEmailNow, setSendingEmailNow] = useState(false);
   const [dscPin, setDscPin] = useState("");
   const [dscCertType, setDscCertType] = useState("Corporate Authorized Signatory (Class 3 DSC USB Token)");
   const [isSignDone, setIsSignDone] = useState(false);
@@ -3122,7 +3124,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
             <div className="flex justify-between items-center border-b border-slate-800 pb-2.5">
               <h4 className="font-bold text-slate-100 text-sm flex items-center gap-2">
                 <span>📨</span>
-                Mark Invoice as Sent
+                {onSendInvoiceEmail ? "Email Invoice to Customer" : "Mark Invoice as Sent"}
               </h4>
               <button onClick={() => setSendingInvoice(null)} className="text-slate-400 hover:text-white">
                 <X className="w-4 h-4" />
@@ -3130,9 +3132,15 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
             </div>
 
             <div className="space-y-3.5 text-xs text-slate-350">
-              <p>
-                This marks invoice <span className="font-mono text-indigo-400 font-bold">{sendingInvoice.invoiceNumber}</span> as sent to <span className="font-semibold text-slate-200">{sendingInvoice.customerName}</span> for your own tracking. <span className="text-amber-400">No email is actually sent</span> — you still need to send the invoice yourself (download the PDF and email it, or share the link).
-              </p>
+              {onSendInvoiceEmail ? (
+                <p>
+                  This sends a real email with invoice <span className="font-mono text-indigo-400 font-bold">{sendingInvoice.invoiceNumber}</span> to <span className="font-semibold text-slate-200">{sendingInvoice.customerName}</span> and marks it as Sent.
+                </p>
+              ) : (
+                <p>
+                  This marks invoice <span className="font-mono text-indigo-400 font-bold">{sendingInvoice.invoiceNumber}</span> as sent to <span className="font-semibold text-slate-200">{sendingInvoice.customerName}</span> for your own tracking. <span className="text-amber-400">No email is actually sent</span> — you still need to send the invoice yourself (download the PDF and email it, or share the link).
+                </p>
+              )}
 
               <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
                 <div className="flex justify-between">
@@ -3151,14 +3159,32 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                 </button>
                 <button 
                   type="button" 
-                  onClick={() => {
-                    onSaveInvoice({ ...sendingInvoice, status: "Sent" });
-                    setSendingInvoice(null);
-                    alert(`Invoice ${sendingInvoice.invoiceNumber} marked as Sent (for your tracking only — no email was actually sent).`);
+                  disabled={sendingEmailNow}
+                  onClick={async () => {
+                    if (onSendInvoiceEmail) {
+                      setSendingEmailNow(true);
+                      try {
+                        const result = await onSendInvoiceEmail(sendingInvoice.id);
+                        if (result.emailSent) {
+                          alert(`Invoice ${sendingInvoice.invoiceNumber} emailed to ${result.to}.`);
+                          setSendingInvoice(null);
+                        } else {
+                          alert(result.error || "Couldn't send the email. Check your email provider configuration.");
+                        }
+                      } catch (e: any) {
+                        alert(e.message || "Couldn't send the email.");
+                      } finally {
+                        setSendingEmailNow(false);
+                      }
+                    } else {
+                      onSaveInvoice({ ...sendingInvoice, status: "Sent" });
+                      setSendingInvoice(null);
+                      alert(`Invoice ${sendingInvoice.invoiceNumber} marked as Sent (for your tracking only — no email was actually sent).`);
+                    }
                   }}
-                  className="bg-emerald-600 hover:bg-emerald-500 px-5 py-2 rounded text-white font-bold cursor-pointer"
+                  className="bg-emerald-600 hover:bg-emerald-500 px-5 py-2 rounded text-white font-bold cursor-pointer disabled:opacity-60"
                 >
-                  Confirm Dispatch & Settle
+                  {sendingEmailNow ? "Sending..." : onSendInvoiceEmail ? "Send Email" : "Confirm Dispatch & Settle"}
                 </button>
               </div>
             </div>
