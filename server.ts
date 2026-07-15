@@ -1401,6 +1401,16 @@ app.post("/api/superadmin/registrations/:id/action", authGuard, superAdminGuard,
   if (!reg) { res.status(404).json({ error: "Registration not found." }); return; }
   const { action, feedback, subscriptionMonths } = req.body;
   if (action === "Approve") {
+    // Idempotency guard: if this registration was already approved and a matching
+    // org/user already exist, don't create a duplicate organization. A stale cached
+    // frontend, a double-click, or a retried request could otherwise call Approve
+    // again on an already-Approved registration and silently double up the org.
+    const existingOrg = USER_DB.organizations.find((o: any) => o.name === reg.companyName);
+    const existingUser = USER_DB.users.find((u: any) => u.email === reg.email);
+    if (reg.status === "Approved" && existingOrg && existingUser) {
+      res.json({ success: true, reg, alreadyApproved: true });
+      return;
+    }
     reg.status = "Approved";
     const orgId = generateId("org");
     const approvedAt = new Date().toISOString();
