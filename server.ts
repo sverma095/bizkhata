@@ -83,8 +83,18 @@ async function sbUpsert(table: string, data: any | any[]): Promise<boolean> {
       body: JSON.stringify(Array.isArray(data) ? data : [data]),
       signal: AbortSignal.timeout(8000)
     });
+    if (!r.ok && r.status !== 204) {
+      // Previously silent - a failed upsert here (e.g. missing unique constraint on
+      // `id` needed for resolution=merge-duplicates, RLS rejection, schema mismatch)
+      // meant data just silently never reached Supabase with zero trace in logs.
+      const body = await r.text().catch(() => "");
+      console.error(`sbUpsert(${table}) failed: ${r.status} ${body.slice(0, 300)}`);
+    }
     return r.ok || r.status === 204;
-  } catch { return false; }
+  } catch (err) {
+    console.error(`sbUpsert(${table}) threw:`, err);
+    return false;
+  }
 }
 
 async function sbDelete(table: string, filter: string): Promise<boolean> {
@@ -1206,7 +1216,7 @@ app.post("/api/auth/verify-reg-otp", authRateLimit, (req: any, res: any) => {
   res.json({ verified: true });
 });
 
-app.post("/api/auth/register-request", authRateLimit, (req: any, res: any) => {
+app.post("/api/auth/register-request", authRateLimit, async (req: any, res: any) => {
   const { companyName, gstNumber, adminName, email, mobileNumber, password, numberOfRequiredSeats, requestedPlan, emailOtp } = req.body;
   if (!companyName || !adminName || !email || !mobileNumber || !password || !numberOfRequiredSeats) {
     res.status(400).json({ error: "Company name, admin name, email, mobile, password and seats are required." }); return;
@@ -1222,7 +1232,13 @@ app.post("/api/auth/register-request", authRateLimit, (req: any, res: any) => {
   USER_DB.registrationRequests.unshift(newReg);
   const saEmail = USER_DB.users.find((u: any) => u.role === "Super Admin")?.email || "owner@bizkhata.app";
   USER_DB.notifications.unshift({ id: generateId("notif"), to: saEmail, subject: "New Registration Request", body: `Company '${companyName}' (${email}) registered by '${adminName}'. GSTIN: ${gstNumber || "Not provided"}.`, type: "Email", timestamp: new Date().toISOString() });
-  saveUserDB().catch(() => {});
+  // Awaited (not fire-and-forget) — in Vercel's serverless model, the function can be
+  // frozen/killed immediately after res.json() is sent, silently dropping an in-flight
+  // write. That's the most likely explanation for a registration appearing in the list
+  // moments after signup (served by the same still-warm instance) but then 404'ing as
+  // "Registration not found" when a Super Admin approves it from a different instance
+  // that loads fresh from Supabase and finds no row there.
+  await saveUserDB();
   res.status(201).json({ ...newReg, password: undefined });
 });
 
@@ -1367,7 +1383,7 @@ app.post("/api/auth/terminate-sessions", authGuard, (req: any, res: any) => {
 
 // Super Admin - Registrations
 app.get("/api/superadmin/registrations", authGuard, superAdminGuard, (req: any, res: any) => res.json(USER_DB.registrationRequests.map((r: any) => ({ ...r, password: undefined }))));
-app.post("/api/superadmin/registrations/:id/action", authGuard, superAdminGuard, (req: any, res: any) => {
+app.post("/api/superadmin/registrations/:id/action", authGuard, superAdminGuard, async (req: any, res: any) => {
   const reg = USER_DB.registrationRequests.find((r: any) => r.id === req.params.id);
   if (!reg) { res.status(404).json({ error: "Registration not found." }); return; }
   const { action, feedback, subscriptionMonths } = req.body;
@@ -1394,6 +1410,11 @@ app.post("/api/superadmin/registrations/:id/action", authGuard, superAdminGuard,
     reg.status = "Rejected";
     addAuditLog(null, req.user.fullName, req.user.role, "Reject Registration", `Rejected '${reg.companyName}'. Reason: ${feedback}`);
   }
+  // Previously missing entirely - approving/rejecting only mutated in-memory USER_DB,
+  // so a successful approval (new org + new user created) could silently vanish on the
+  // next cold start if this instance froze/recycled before another write happened to
+  // flush it incidentally.
+  await saveUserDB();
   res.json({ success: true, reg });
 });
 

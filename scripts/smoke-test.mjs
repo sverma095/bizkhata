@@ -60,6 +60,48 @@ test("Owner login loads a full db with accounts populated", async () => {
   assert.ok(Array.isArray(db.accounts) && db.accounts.length > 0, "expected db.accounts to be a non-empty array");
 });
 
+test("registration survives to the approval queue and can be approved", async () => {
+  // Regression test: register-request and the approve/reject action handler both used
+  // to mutate USER_DB without reliably persisting it (register-request was
+  // fire-and-forget; approve/reject didn't call saveUserDB at all). On Vercel this could
+  // mean a registration looked fine in the list (served by the instance that created it)
+  // but 404'd as "Registration not found" the moment a different instance tried to
+  // approve it, because the write never actually reached Supabase. This test exercises
+  // the same in-process path (send OTP -> register -> approve) end-to-end.
+  const superAdminLogin = await post("/api/auth/login", { email: "owner@bizkhata.app", password: "Admin@123" });
+  assert.equal(superAdminLogin.status, 200);
+  const { token } = await superAdminLogin.json();
+
+  const email = `regtest-${Date.now()}@example.com`;
+  await post("/api/auth/send-reg-otp", { email });
+  const notifRes = await fetch(`${BASE_URL}/api/notifications`, { headers: { Authorization: `Bearer ${token}` } });
+  const notifs = await notifRes.json();
+  const match = notifs.find((n) => n.body.includes(email));
+  assert.ok(match, "expected an OTP notification for the test email");
+  const otp = match.body.match(/: (\d{6})/)[1];
+
+  const regRes = await post("/api/auth/register-request", {
+    companyName: "Smoke Test Co",
+    adminName: "Smoke Tester",
+    email,
+    mobileNumber: "9000000000",
+    password: "Test@1234",
+    numberOfRequiredSeats: 3,
+    emailOtp: otp,
+  });
+  assert.equal(regRes.status, 201, "expected registration to succeed");
+  const reg = await regRes.json();
+
+  const approveRes = await fetch(`${BASE_URL}/api/superadmin/registrations/${reg.id}/action`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ action: "Approve", subscriptionMonths: 12 }),
+  });
+  assert.equal(approveRes.status, 200, "expected the just-created registration to be found and approvable, not 404");
+  const approveBody = await approveRes.json();
+  assert.equal(approveBody.reg.status, "Approved");
+});
+
 test("protected route refuses unauthenticated access", async () => {
   const res = await fetch(`${BASE_URL}/api/invoices`, {
     method: "POST",
