@@ -790,6 +790,28 @@ app.get("/api/health", async (req: any, res: any) => {
       }
     }
     checks.superAdminStateReachable = checks.bk_registrationsReachable && checks.bk_usersReachable && checks.bk_organizationsReachable;
+
+    // A successful GET above only proves SELECT works - RLS can allow reads while
+    // silently blocking writes, which would explain registrations appearing to
+    // succeed (register-request doesn't check saveUserDB's result before responding)
+    // but never actually landing, with zero visible error anywhere. This writes a
+    // real throwaway row and immediately deletes it to test actual write permission.
+    try {
+      const testId = `__write_test_${Date.now()}__`;
+      const writeOk = await sbUpsert("bk_registrations", { id: testId, companyName: "__health_check__", status: "Pending", createdAt: new Date().toISOString() });
+      checks.bk_registrationsWritable = writeOk;
+      if (writeOk) {
+        await fetch(`${SUPABASE_URL}/rest/v1/bk_registrations?id=eq.${testId}`, {
+          method: "DELETE",
+          headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` }
+        }).catch(() => {});
+      } else {
+        checks.bk_registrationsWritableNote = "Write failed - check Vercel logs for the sbUpsert error just above this health check request, or check RLS policies on bk_registrations for the anon role.";
+      }
+    } catch (e: any) {
+      checks.bk_registrationsWritable = false;
+      checks.bk_registrationsWritableNote = e.message;
+    }
   } else {
     checks.superAdminStateReachable = false;
     checks.superAdminStateError = "Supabase not configured — registrations will not survive cold starts";
