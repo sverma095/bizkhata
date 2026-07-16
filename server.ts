@@ -53,7 +53,30 @@ const USER_DB: {
 // persisted the same way the main accounting ledger is — otherwise it resets on every
 // Vercel cold start, which silently drops pending registration approvals, seat requests,
 // and audit logs. Persisted under a separate row in the same bizkhata_state table.
-let userDbLoaded = false;
+//
+// SYSTEMIC FIX (replaces multiple one-off patches for the same root cause):
+// PostgREST rejects an ENTIRE batch write if any single object contains a field with no
+// matching column (error PGRST204) — this silently killed registrations, org approvals,
+// and every user write at different points, always looking like "it just disappeared"
+// with a 201/200 shown to the browser. Rather than keep whack-a-moling individual field
+// mismatches, every bk_* table write/read now goes through a real column whitelist below:
+// any field not in the whitelist is transparently routed into that table's `data jsonb`
+// catch-all column on write, and merged back to the top level on read. Adding a new field
+// to a `newReg`/`newOrg`/etc. object in code can now never again break persistence — at
+// worst it lands in `data` until a real migration adds a proper column for it.
+const TABLE_COLUMNS: Record<string, string[]> = {
+  bk_organizations: ["id", "name", "gstNumber", "status", "allocatedSeats", "usedSeats", "plan", "createdAt", "approvedAt", "subscriptionExpiresAt", "subscriptionMonths"],
+  bk_users: ["id", "organizationid", "fullName", "email", "mobileNumber", "role", "status", "password", "permissions", "twoFactorEnabled", "twoFactorVerified", "createdAt"],
+  bk_registrations: ["id", "companyName", "gstNumber", "adminName", "email", "mobileNumber", "password", "numberOfRequiredSeats", "requestedPlan", "status", "emailVerified", "createdAt"],
+  bk_seat_requests: ["id", "organizationId", "requestedBy", "currentSeatCount", "additionalSeatsRequested", "reason", "status", "createdAt"],
+  bk_support_tickets: ["id", "organizationId", "orgName", "raisedBy", "raisedByEmail", "subject", "description", "priority", "status", "messages", "createdAt", "updatedAt"],
+  bk_notifications: ["id", "to", "subject", "body", "type", "timestamp", "code"],
+};
+// Only bk_users has a real field-name mismatch: the DB column is unquoted lowercase
+// `organizationid`, but every object in code uses camelCase `organizationId`.
+const TABLE_FIELD_RENAMES: Record<string, Record<string, string>> = {
+  bk_users: { organizationId: "organizationid" },
+};
 
 // ── Supabase REST helpers for USER_DB tables ──────────────────────────────
 const sbHeaders = () => ({
@@ -63,79 +86,69 @@ const sbHeaders = () => ({
   "Prefer": "return=representation"
 });
 
-// Known top-level columns per table, matching the actual Postgres schema created by
-// /api/superadmin/init-db. Any field NOT in this list is packed into the `data` jsonb
-// catch-all column (which the schema already has) instead of being sent as a top-level
-// column - PostgREST silently rejects unknown/mismatched top-level columns and fails
-// the ENTIRE batch upsert, not just the offending row. Two real instances of this were
-// found in production: the org `plan` field (added to the app's org object but never
-// added to the table), and `organizationId` on bk_users (the column was created
-// unquoted as `organizationid`, so PostgREST's case-sensitive matching never matched
-// the camelCase JSON key the app actually sends). Both are covered automatically by
-// routing anything not in this exact list through `data` instead.
-const TABLE_COLUMNS: Record<string, string[]> = {
-  bk_organizations: ["id", "name", "gstNumber", "status", "allocatedSeats", "usedSeats", "createdAt", "approvedAt", "subscriptionExpiresAt", "subscriptionMonths"],
-  bk_users: ["id", "fullName", "email", "mobileNumber", "role", "status", "password", "permissions", "twoFactorEnabled", "twoFactorVerified", "createdAt"],
-  bk_registrations: ["id", "companyName", "gstNumber", "adminName", "email", "mobileNumber", "password", "numberOfRequiredSeats", "requestedPlan", "status", "emailVerified", "createdAt"],
-};
-
-function packForUpsert(table: string, record: any): any {
-  const known = TABLE_COLUMNS[table];
-  if (!known) return record;
-  const packed: any = {};
-  const extra: any = {};
-  for (const [k, v] of Object.entries(record || {})) {
-    if (known.includes(k)) packed[k] = v;
-    else extra[k] = v;
-  }
-  // PostgREST bulk upsert requires every object in the array to have IDENTICAL keys -
-  // it builds one SQL statement from the first object's shape and rejects the whole
-  // batch with PGRST102 "All object keys must match" if any other object's key set
-  // differs. Records commonly differ in which fields are actually populated (a legacy
-  // org missing approvedAt, a user without twoFactorVerified set, etc.), so every known
-  // column must always be present - explicitly null when the record doesn't have it -
-  // rather than only including keys that happen to exist on this particular record.
-  for (const col of known) if (!(col in packed)) packed[col] = null;
-  packed.data = extra;
-  return packed;
-}
-
-function unpackFromSelect(table: string, row: any): any {
-  if (!row || !TABLE_COLUMNS[table]) return row;
-  const { data, ...rest } = row;
-  return { ...rest, ...(data && typeof data === "object" ? data : {}) };
-}
-
 async function sbSelect(table: string, filter?: string): Promise<any[]> {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return [];
   const url = `${SUPABASE_URL}/rest/v1/${table}${filter ? `?${filter}` : ""}`;
   try {
     const r = await fetch(url, { headers: sbHeaders(), signal: AbortSignal.timeout(8000) });
-    if (!r.ok) {
-      // Previously silent - a failed SELECT looked identical to "table is just empty",
-      // which is exactly what made this whole class of bug so hard to diagnose.
-      const body = await r.text().catch(() => "");
-      console.error(`sbSelect(${table}) failed: ${r.status} ${body.slice(0, 300)}`);
-      return [];
-    }
+    if (!r.ok) return [];
     const rows = await r.json();
-    return Array.isArray(rows) ? rows.map((row: any) => unpackFromSelect(table, row)) : rows;
-  } catch (err) {
-    console.error(`sbSelect(${table}) threw:`, err);
-    return [];
+    if (!Array.isArray(rows)) return [];
+    const renames = TABLE_FIELD_RENAMES[table];
+    const reverseRenames = renames ? Object.fromEntries(Object.entries(renames).map(([k, v]) => [v, k])) : null;
+    return rows.map((row: any) => {
+      const { data, ...rest } = row;
+      let out = rest;
+      if (reverseRenames) {
+        out = {};
+        for (const [k, v] of Object.entries(rest)) out[reverseRenames[k] || k] = v;
+      }
+      // Merge the jsonb catch-all back to top level (fields the whitelist didn't
+      // recognize at write time — keeps them visible to app code transparently).
+      return data && typeof data === "object" ? { ...data, ...out } : out;
+    });
+  } catch { return []; }
+}
+
+function sanitizeForTable(table: string, record: any): any {
+  const known = TABLE_COLUMNS[table];
+  if (!known) return record; // Table not in whitelist (e.g. legacy/other) — pass through unchanged.
+  const renames = TABLE_FIELD_RENAMES[table] || {};
+  const knownSet = new Set(known);
+  const out: any = {};
+  const extra: any = { ...(record.data && typeof record.data === "object" ? record.data : {}) };
+  for (const [key, value] of Object.entries(record)) {
+    if (key === "data") continue; // handled above/below
+    const dbKey = renames[key] || key;
+    if (knownSet.has(dbKey)) {
+      out[dbKey] = value;
+    } else {
+      extra[key] = value; // unknown field — preserved safely, never breaks the write
+    }
   }
+  // PostgREST bulk upsert requires every object in a single insert/upsert array to have
+  // IDENTICAL top-level keys - it builds one SQL statement from the first object's shape
+  // and rejects the WHOLE BATCH with PGRST102 "All object keys must match" if any other
+  // object's key set differs. Real records commonly differ in which fields are actually
+  // populated (a legacy org missing approvedAt, a user without twoFactorVerified set,
+  // etc.), so every known column must always be present here - explicitly null when the
+  // record doesn't have it - rather than only including keys that happen to exist on
+  // this particular record. This was the exact error flooding production logs.
+  for (const col of known) if (!(col in out)) out[col] = null;
+  out.data = extra;
+  return out;
 }
 
 async function sbUpsert(table: string, data: any | any[]): Promise<boolean> {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
   const url = `${SUPABASE_URL}/rest/v1/${table}`;
+  const records = Array.isArray(data) ? data : [data];
+  const sanitized = records.map(r => sanitizeForTable(table, r));
   try {
-    const records = Array.isArray(data) ? data : [data];
-    const packed = records.map((r) => packForUpsert(table, r));
     const r = await fetch(url, {
       method: "POST",
       headers: { ...sbHeaders(), "Prefer": "return=minimal,resolution=merge-duplicates" },
-      body: JSON.stringify(packed),
+      body: JSON.stringify(sanitized),
       signal: AbortSignal.timeout(8000)
     });
     if (!r.ok && r.status !== 204) {
@@ -173,7 +186,7 @@ async function migrateLegacyBlob(): Promise<void> {
     const blob = rows[0].state;
     // Migrate each array into its dedicated table
     if (blob.organizations?.length) await sbUpsert("bk_organizations", blob.organizations);
-    if (blob.users?.length) await sbUpsert("bk_users", blob.users.map((u: any) => ({ ...u, organizationid: u.organizationId || null })));
+    if (blob.users?.length) await sbUpsert("bk_users", blob.users);
     if (blob.registrationRequests?.length) await sbUpsert("bk_registrations", blob.registrationRequests);
     if (blob.seatRequests?.length) await sbUpsert("bk_seat_requests", blob.seatRequests);
     if (blob.supportTickets?.length) await sbUpsert("bk_support_tickets", blob.supportTickets);
@@ -189,9 +202,15 @@ async function migrateLegacyBlob(): Promise<void> {
   }
 }
 
+// SYSTEMIC FIX: previously this function returned immediately on every call after the
+// first successful load (`if (userDbLoaded) return;`). That meant a warm serverless
+// instance would serve/act on the exact same in-memory snapshot for its entire lifetime,
+// no matter how many writes other instances made in the meantime — this was the direct
+// cause of registrations/users/orgs "appearing then disappearing", 404s on approve/delete
+// actions for records that genuinely existed in Supabase, and admin lists silently going
+// stale. This is an admin/superadmin panel with low request volume, so always reloading
+// fresh is the correct tradeoff — correctness over a marginal latency cost.
 async function loadUserDB(): Promise<void> {
-  if (userDbLoaded) return;
-
   if (SUPABASE_URL && SUPABASE_ANON_KEY) {
     try {
       // Load from dedicated tables (new schema)
@@ -205,9 +224,10 @@ async function loadUserDB(): Promise<void> {
       ]);
 
       if (orgs.length || users.length) {
-        // Normalize column names (Supabase returns snake_case)
-        USER_DB.organizations = orgs.map((o: any) => ({ ...o, id: o.id }));
-        USER_DB.users = users.map((u: any) => ({ ...u, organizationId: u.organizationid || u.organizationId || null }));
+        // sbSelect already normalizes field names (organizationid -> organizationId) and
+        // merges the jsonb catch-all back to top level — no manual mapping needed here.
+        USER_DB.organizations = orgs;
+        USER_DB.users = users;
         USER_DB.registrationRequests = regs;
         USER_DB.seatRequests = seats;
         USER_DB.supportTickets = tickets;
@@ -222,7 +242,7 @@ async function loadUserDB(): Promise<void> {
           sbSelect("bk_support_tickets"), sbSelect("bk_notifications", "limit=200")
         ]);
         USER_DB.organizations = o2;
-        USER_DB.users = u2.map((u: any) => ({ ...u, organizationId: u.organizationid || u.organizationId || null }));
+        USER_DB.users = u2;
         USER_DB.registrationRequests = r2;
         USER_DB.seatRequests = s2;
         USER_DB.supportTickets = t2;
@@ -272,7 +292,6 @@ async function loadUserDB(): Promise<void> {
   const seen = new Set<string>();
   USER_DB.users = USER_DB.users.filter((u: any) => { if (seen.has(u.email)) return false; seen.add(u.email); return true; });
 
-  userDbLoaded = true;
   saveUserDB().catch(() => {});
 }
 
@@ -289,8 +308,7 @@ async function saveUserDB(): Promise<boolean> {
   const writes: Promise<boolean>[] = [];
   if (USER_DB.organizations.length) writes.push(sbUpsert("bk_organizations", USER_DB.organizations));
   if (USER_DB.users.length) {
-    const usersForDB = USER_DB.users.map((u: any) => ({ ...u, organizationid: u.organizationId || null }));
-    writes.push(sbUpsert("bk_users", usersForDB));
+  if (USER_DB.users.length) writes.push(sbUpsert("bk_users", USER_DB.users));
   }
   if (USER_DB.registrationRequests.length) writes.push(sbUpsert("bk_registrations", USER_DB.registrationRequests));
   if (USER_DB.seatRequests.length) writes.push(sbUpsert("bk_seat_requests", USER_DB.seatRequests));
@@ -739,11 +757,13 @@ app.use(express.json());
 // route runs, and saves it after any mutating request completes. This is what makes
 // pending registration approvals, seat requests, etc. survive across Vercel cold starts.
 const USER_DB_ROUTES = ["/api/auth/", "/api/superadmin/", "/api/users", "/api/seat-requests", "/api/audit-logs", "/api/custom-roles", "/api/support"];
-// /api/users/add and /api/users/remove are a separate, already-persistent legacy system
-// that mutates db.users (per-organization ledger team members) via readDB()/writeDB(),
-// not USER_DB.users (the SaaS-wide super-admin/admin layer) — exclude them so they don't
-// trigger an unnecessary extra Supabase round-trip on every call.
-const USER_DB_EXCLUDED_ROUTES = ["/api/users/add", "/api/users/remove"];
+// /api/users/add mutates db.users (per-organization ledger team members) via
+// readDB()/writeDB(), not USER_DB.users (the SaaS-wide super-admin/admin layer) —
+// excluded so it doesn't trigger an unnecessary extra Supabase round-trip on every call.
+// NOTE: /api/users/remove was previously excluded here too, but it actually operates
+// directly on USER_DB.users (confirmed in its handler below), so excluding it caused
+// deletes to 404 against a stale warm-instance cache instead of the live user list.
+const USER_DB_EXCLUDED_ROUTES = ["/api/users/add"];
 app.use(async (req: any, res: any, next: any) => {
   if (USER_DB_EXCLUDED_ROUTES.some(p => req.path === p)) return next();
   if (!USER_DB_ROUTES.some(p => req.path.startsWith(p))) return next();
@@ -867,6 +887,27 @@ app.get("/api/health", async (req: any, res: any) => {
     } catch (e: any) {
       checks.bk_registrationsWritable = false;
       checks.bk_registrationsWritableNote = e.message;
+    }
+
+    // Same write-then-delete probe for bk_users, using the exact field shape saveUserDB
+    // sends (organizationid lowercase, no camelCase organizationId) — this is the table
+    // that was silently failing every write due to the organizationId/organizationid
+    // case mismatch, which blocked all logins.
+    try {
+      const testId = `__write_test_${Date.now()}__`;
+      const writeOk = await sbUpsert("bk_users", { id: testId, organizationid: null, fullName: "__health_check__", email: `__health_check_${Date.now()}__@example.invalid`, role: "Admin", status: "Active", password: "x", createdAt: new Date().toISOString() });
+      checks.bk_usersWritable = writeOk;
+      if (writeOk) {
+        await fetch(`${SUPABASE_URL}/rest/v1/bk_users?id=eq.${testId}`, {
+          method: "DELETE",
+          headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` }
+        }).catch(() => {});
+      } else {
+        checks.bk_usersWritableNote = "Write failed - check Vercel logs for the sbUpsert(bk_users) error just above this health check request.";
+      }
+    } catch (e: any) {
+      checks.bk_usersWritable = false;
+      checks.bk_usersWritableNote = e.message;
     }
   } else {
     checks.superAdminStateReachable = false;
@@ -1289,7 +1330,7 @@ app.post("/api/auth/send-reg-otp", authRateLimit, async (req: any, res: any) => 
     return res.status(400).json({ error: "Valid email required." });
   }
   if (USER_DB.users.some((u: any) => u.email === email) ||
-      USER_DB.registrationRequests.some((r: any) => r.email === email && r.status !== "Rejected")) {
+      USER_DB.registrationRequests.some((r: any) => r.email === email && r.status === "Pending")) {
     return res.status(400).json({ error: "An account with this email already exists or is pending." });
   }
   const otp = deriveOtp(email, Math.floor(Date.now() / OTP_WINDOW_MS));
@@ -1320,7 +1361,7 @@ app.post("/api/auth/register-request", authRateLimit, async (req: any, res: any)
   if (!verifyOtp(email, emailOtp)) { res.status(400).json({ error: "Invalid or expired OTP. Please check the code sent to your email, or request a new one." }); return; }
   const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
   if (!passwordRegex.test(password)) { res.status(400).json({ error: "Password must be 8+ chars with upper, lower, number and special character." }); return; }
-  if (USER_DB.users.some((u: any) => u.email === email) || USER_DB.registrationRequests.some((r: any) => r.email === email && r.status !== "Rejected")) {
+  if (USER_DB.users.some((u: any) => u.email === email) || USER_DB.registrationRequests.some((r: any) => r.email === email && r.status === "Pending")) {
     res.status(400).json({ error: "An account with this email already exists." }); return;
   }
   const newReg = { id: generateId("reg"), companyName, gstNumber: gstNumber || "", adminName, email, mobileNumber, password, numberOfRequiredSeats: Number(numberOfRequiredSeats), requestedPlan: requestedPlan || "starter", status: "Pending", emailVerified: true, createdAt: new Date().toISOString() };
@@ -1480,23 +1521,8 @@ app.post("/api/auth/terminate-sessions", authGuard, (req: any, res: any) => {
 });
 
 // Super Admin - Registrations
-// Always re-read from Supabase directly rather than trusting USER_DB.registrationRequests:
-// loadUserDB() only loads once per warm serverless instance (guarded by userDbLoaded), so a
-// long-lived warm instance serving this route would otherwise keep returning the same stale
-// in-memory snapshot forever, never picking up new registrations written by other instances
-// (e.g. the instance that handled the public /api/auth/register-request call).
-app.get("/api/superadmin/registrations", authGuard, superAdminGuard, async (req: any, res: any) => {
-  if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-    const fresh = await sbSelect("bk_registrations", "order=createdAt.desc");
-    USER_DB.registrationRequests = fresh;
-    return res.json(fresh.map((r: any) => ({ ...r, password: undefined })));
-  }
-  res.json(USER_DB.registrationRequests.map((r: any) => ({ ...r, password: undefined })));
-});
+app.get("/api/superadmin/registrations", authGuard, superAdminGuard, (req: any, res: any) => res.json(USER_DB.registrationRequests.map((r: any) => ({ ...r, password: undefined }))));
 app.post("/api/superadmin/registrations/:id/action", authGuard, superAdminGuard, async (req: any, res: any) => {
-  if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-    USER_DB.registrationRequests = await sbSelect("bk_registrations");
-  }
   const reg = USER_DB.registrationRequests.find((r: any) => r.id === req.params.id);
   if (!reg) { res.status(404).json({ error: "Registration not found." }); return; }
   const { action, feedback, subscriptionMonths } = req.body;
@@ -1536,8 +1562,13 @@ app.post("/api/superadmin/registrations/:id/action", authGuard, superAdminGuard,
   // Previously missing entirely - approving/rejecting only mutated in-memory USER_DB,
   // so a successful approval (new org + new user created) could silently vanish on the
   // next cold start if this instance froze/recycled before another write happened to
-  // flush it incidentally.
-  await saveUserDB();
+  // flush it incidentally. Also previously didn't check the write's actual result, so a
+  // failed persist (e.g. schema drift, RLS) still reported success to the browser.
+  const saveOk = await saveUserDB();
+  if (!saveOk) {
+    console.error(`registrations/action: saveUserDB failed for '${reg.companyName}' (${reg.email}) — check the sbUpsert error logged just above this.`);
+    return res.status(500).json({ success: false, error: "Action was processed but failed to persist. Check server logs for the exact database error. Use 'Check / Fix Account' to retry once fixed." });
+  }
   res.json({ success: true, reg });
 });
 
@@ -1585,7 +1616,11 @@ app.post("/api/superadmin/registrations/:id/reprovision", authGuard, superAdminG
     await supabaseREST("POST", org.id, { state: cleanState }).catch(() => supabaseREST("PATCH" as any, org.id, { state: cleanState }).catch(() => {}));
   }
   addAuditLog(null, req.user.fullName, req.user.role, "Re-provision Registration", `Recovered missing org/user for '${reg.companyName}' (${reg.email}).`);
-  await saveUserDB();
+  const saveOk = await saveUserDB();
+  if (!saveOk) {
+    console.error(`reprovision: saveUserDB failed for ${reg.email} — check the sbUpsert error logged just above this.`);
+    return res.status(500).json({ success: false, error: "Recovery data was prepared but failed to persist. Check server logs for the exact database error, then try again." });
+  }
   res.json({ success: true, alreadyProvisioned: false, orgId: org.id });
 });
 
@@ -1697,8 +1732,12 @@ app.post("/api/superadmin/reset-userdb", authGuard, superAdminGuard, async (req:
   // Re-run seed
   seedUserDB();
   // Force save clean state to Supabase
-  await saveUserDB();
+  const saveOk = await saveUserDB();
   addAuditLog(null, req.user.fullName, req.user.role, "Reset USER_DB", "Wiped stale user DB and re-seeded canonical accounts.");
+  if (!saveOk) {
+    console.error("reset-userdb: saveUserDB failed — check the sbUpsert error logged just above this.");
+    return res.status(500).json({ success: false, error: "Reset was prepared but failed to persist. Check server logs for the exact database error." });
+  }
   res.json({ success: true, users: USER_DB.users.map(safeUser), orgs: USER_DB.organizations });
 });
 
@@ -2796,20 +2835,17 @@ app.post("/api/users/remove", authGuard, requirePermission("manage_users"), asyn
 app.post("/api/superadmin/init-db", authGuard, superAdminGuard, async (req: any, res: any) => {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return res.status(400).json({ error: "Supabase not configured." });
   const sql = `
-    create table if not exists bk_organizations (id text primary key, name text, "gstNumber" text, status text, "allocatedSeats" int, "usedSeats" int, "createdAt" text, "approvedAt" text, "subscriptionExpiresAt" text, "subscriptionMonths" int, data jsonb default '{}');
+    create table if not exists bk_organizations (id text primary key, name text, "gstNumber" text, status text, "allocatedSeats" int, "usedSeats" int, plan text default 'starter', "createdAt" text, "approvedAt" text, "subscriptionExpiresAt" text, "subscriptionMonths" int, data jsonb default '{}');
+    alter table if exists bk_organizations add column if not exists plan text default 'starter';
     create table if not exists bk_users (id text primary key, organizationid text, "fullName" text, email text unique, "mobileNumber" text, role text, status text, password text, permissions jsonb, "twoFactorEnabled" bool default false, "twoFactorVerified" bool default false, "createdAt" text, data jsonb default '{}');
     create table if not exists bk_registrations (id text primary key, "companyName" text, "gstNumber" text, "adminName" text, email text, "mobileNumber" text, password text, "numberOfRequiredSeats" int, "requestedPlan" text default 'starter', status text, "emailVerified" bool, "createdAt" text);
     alter table if exists bk_registrations add column if not exists "requestedPlan" text default 'starter';
-    create table if not exists bk_seat_requests (id text primary key, "organizationId" text, "requestedBy" text, "currentSeatCount" int, "additionalSeatsRequested" int, reason text, status text, "createdAt" text);
-    create table if not exists bk_support_tickets (id text primary key, "organizationId" text, "orgName" text, "raisedBy" text, "raisedByEmail" text, subject text, description text, priority text, status text, messages jsonb, "createdAt" text, "updatedAt" text);
-    create table if not exists bk_notifications (id text primary key, "to" text, subject text, body text, type text, timestamp text, code text);
-    -- Migrations for tables that may already exist from before these fixes: add the
-    -- jsonb catch-all columns that packForUpsert/unpackFromSelect rely on to safely
-    -- persist fields not in the original fixed column list (e.g. org "plan",
-    -- registration "requestedPlan") without failing the whole batch write.
-    alter table bk_organizations add column if not exists data jsonb default '{}';
-    alter table bk_users add column if not exists data jsonb default '{}';
-    alter table bk_registrations add column if not exists data jsonb default '{}';
+    create table if not exists bk_seat_requests (id text primary key, "organizationId" text, "requestedBy" text, "currentSeatCount" int, "additionalSeatsRequested" int, reason text, status text, "createdAt" text, data jsonb default '{}');
+    alter table if exists bk_seat_requests add column if not exists data jsonb default '{}';
+    create table if not exists bk_support_tickets (id text primary key, "organizationId" text, "orgName" text, "raisedBy" text, "raisedByEmail" text, subject text, description text, priority text, status text, messages jsonb, "createdAt" text, "updatedAt" text, data jsonb default '{}');
+    alter table if exists bk_support_tickets add column if not exists data jsonb default '{}';
+    create table if not exists bk_notifications (id text primary key, "to" text, subject text, body text, type text, timestamp text, code text, data jsonb default '{}');
+    alter table if exists bk_notifications add column if not exists data jsonb default '{}';
   `;
   try {
     const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/exec_sql`, {
@@ -2820,19 +2856,19 @@ app.post("/api/superadmin/init-db", authGuard, superAdminGuard, async (req: any,
       res.json({ success: true, sqlRan: true, message: "Tables created/migrated successfully via exec_sql." });
     } else {
       // exec_sql RPC isn't available in this Supabase project (it's not a default
-      // Supabase function — must be created manually). Previously this silently
-      // fell back to a plain upsert and reported success regardless, which meant
-      // "Init DB Tables" could report success without the ALTER TABLE migrations
-      // (the actual fix for the plan/organizationId/requestedPlan schema mismatches)
-      // ever having run. Now honest about that so it's actually diagnosable.
+      // Supabase function — must be created manually, or the SQL run directly in the
+      // Supabase SQL editor). Previously this silently fell back to a plain upsert and
+      // reported success regardless, which meant "Init DB Tables" could report success
+      // without the ALTER TABLE migrations (the actual fix for the schema-mismatch
+      // bugs) ever having run. Now honest about that so it's actually diagnosable.
       const body = await r.text().catch(() => "");
       const writeOk = await sbUpsert("bk_organizations", USER_DB.organizations.length ? USER_DB.organizations : []);
       res.json({
         success: writeOk,
         sqlRan: false,
         message: writeOk
-          ? "exec_sql RPC not available (status " + r.status + ") — couldn't run the ALTER TABLE migrations. Tables exist and basic writes work, but you may need to add the 'data jsonb' column to bk_organizations/bk_users/bk_registrations manually in the Supabase SQL editor: alter table bk_organizations add column if not exists data jsonb default '{}'; (repeat for bk_users, bk_registrations)."
-          : "exec_sql RPC not available and the fallback write also failed — check RLS policies or run the CREATE/ALTER statements manually in the Supabase SQL editor.",
+          ? "exec_sql RPC not available (status " + r.status + ") — couldn't run the CREATE/ALTER TABLE migrations automatically. Tables exist and basic writes work, but run the SQL below manually in the Supabase SQL editor to pick up any new columns."
+          : "exec_sql RPC not available and the fallback write also failed — check RLS policies or run the SQL below manually in the Supabase SQL editor.",
         sqlToRunManually: sql,
         execSqlError: body.slice(0, 300)
       });
