@@ -1553,8 +1553,13 @@ app.post("/api/superadmin/registrations/:id/action", authGuard, superAdminGuard,
   // Previously missing entirely - approving/rejecting only mutated in-memory USER_DB,
   // so a successful approval (new org + new user created) could silently vanish on the
   // next cold start if this instance froze/recycled before another write happened to
-  // flush it incidentally.
-  await saveUserDB();
+  // flush it incidentally. Also previously didn't check the write's actual result, so a
+  // failed persist (e.g. schema drift, RLS) still reported success to the browser.
+  const saveOk = await saveUserDB();
+  if (!saveOk) {
+    console.error(`registrations/action: saveUserDB failed for '${reg.companyName}' (${reg.email}) — check the sbUpsert error logged just above this.`);
+    return res.status(500).json({ success: false, error: "Action was processed but failed to persist. Check server logs for the exact database error. Use 'Check / Fix Account' to retry once fixed." });
+  }
   res.json({ success: true, reg });
 });
 
@@ -1602,7 +1607,11 @@ app.post("/api/superadmin/registrations/:id/reprovision", authGuard, superAdminG
     await supabaseREST("POST", org.id, { state: cleanState }).catch(() => supabaseREST("PATCH" as any, org.id, { state: cleanState }).catch(() => {}));
   }
   addAuditLog(null, req.user.fullName, req.user.role, "Re-provision Registration", `Recovered missing org/user for '${reg.companyName}' (${reg.email}).`);
-  await saveUserDB();
+  const saveOk = await saveUserDB();
+  if (!saveOk) {
+    console.error(`reprovision: saveUserDB failed for ${reg.email} — check the sbUpsert error logged just above this.`);
+    return res.status(500).json({ success: false, error: "Recovery data was prepared but failed to persist. Check server logs for the exact database error, then try again." });
+  }
   res.json({ success: true, alreadyProvisioned: false, orgId: org.id });
 });
 
@@ -1714,8 +1723,12 @@ app.post("/api/superadmin/reset-userdb", authGuard, superAdminGuard, async (req:
   // Re-run seed
   seedUserDB();
   // Force save clean state to Supabase
-  await saveUserDB();
+  const saveOk = await saveUserDB();
   addAuditLog(null, req.user.fullName, req.user.role, "Reset USER_DB", "Wiped stale user DB and re-seeded canonical accounts.");
+  if (!saveOk) {
+    console.error("reset-userdb: saveUserDB failed — check the sbUpsert error logged just above this.");
+    return res.status(500).json({ success: false, error: "Reset was prepared but failed to persist. Check server logs for the exact database error." });
+  }
   res.json({ success: true, users: USER_DB.users.map(safeUser), orgs: USER_DB.organizations });
 });
 
