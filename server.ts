@@ -636,13 +636,32 @@ const seedUserDB = () => {
 
 seedUserDB();
 
-const verifyTokenAndGetUser = (req: any): any | null => {
+const verifyTokenAndGetUser = async (req: any): Promise<any | null> => {
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
-  const token = authHeader.replace("Bearer ", "");
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  if (!token) return null;
   const email = verifySessionToken(token);
   if (!email) return null;
-  const user = USER_DB.users.find((u: any) => u.email === email);
+  let user = USER_DB.users.find((u: any) => u.email === email);
+  if (!user && SUPABASE_URL && SUPABASE_ANON_KEY) {
+    // Real bug this fixes: USER_DB.users is only populated by loadUserDB(), which
+    // previously only ran for a narrow path-prefix list (/api/auth/, /api/superadmin/,
+    // etc.) - every other authenticated route (/api/db, /api/invoices, /api/payments,
+    // and the rest of the actual accounting app) never triggered it. On a cold
+    // serverless instance, any real customer (not one of the two hardcoded seed
+    // accounts) hitting one of those routes first would get a false 401 despite having
+    // a perfectly valid session token, because their user record simply wasn't loaded
+    // into memory yet. Widening the full loadUserDB() (6 parallel table scans) to run
+    // on every single authenticated request would fix this but at a real performance
+    // cost for actual app traffic - so instead, only do a targeted single-row lookup
+    // for this specific email when they're not already in memory, and cache the result
+    // so subsequent requests on this warm instance don't repeat the fetch.
+    const rows = await sbSelect("bk_users", `email=eq.${encodeURIComponent(email)}`);
+    if (rows.length > 0) {
+      user = rows[0];
+      USER_DB.users.push(user);
+    }
+  }
   if (!user) return null;
   // Auto-heal: Admin/Staff without organizationId — re-link to correct org
   if (!user.organizationId && user.role !== "Super Admin") {
@@ -651,9 +670,17 @@ const verifyTokenAndGetUser = (req: any): any | null => {
       user.organizationId = "org_verma_consultancy";
     } else {
       // For other users, find the org where they were originally registered
-      const reg = USER_DB.registrationRequests.find((r: any) => r.email === email && r.status === "Approved");
+      let reg = USER_DB.registrationRequests.find((r: any) => r.email === email && r.status === "Approved");
+      if (!reg && SUPABASE_URL && SUPABASE_ANON_KEY) {
+        const regRows = await sbSelect("bk_registrations", `email=eq.${encodeURIComponent(email)}&status=eq.Approved`);
+        if (regRows.length > 0) { reg = regRows[0]; USER_DB.registrationRequests.push(reg); }
+      }
       if (reg) {
-        const org = USER_DB.organizations.find((o: any) => o.name === reg.companyName);
+        let org = USER_DB.organizations.find((o: any) => o.name === reg.companyName);
+        if (!org && SUPABASE_URL && SUPABASE_ANON_KEY) {
+          const orgRows = await sbSelect("bk_organizations", `name=eq.${encodeURIComponent(reg.companyName)}`);
+          if (orgRows.length > 0) { org = orgRows[0]; USER_DB.organizations.push(org); }
+        }
         if (org) user.organizationId = org.id;
       }
     }
@@ -662,8 +689,8 @@ const verifyTokenAndGetUser = (req: any): any | null => {
   return user;
 };
 
-const authGuard = (req: any, res: any, next: any) => {
-  const user = verifyTokenAndGetUser(req);
+const authGuard = async (req: any, res: any, next: any) => {
+  const user = await verifyTokenAndGetUser(req);
   if (!user) { res.status(401).json({ error: "Unauthorized. Invalid session token." }); return; }
   req.user = user;
   next();
@@ -791,7 +818,7 @@ app.use(async (req: any, res: any, next: any) => {
 
 // Raw Supabase connectivity test
 app.get("/api/test-supabase", async (req: any, res: any) => {
-  const user = verifyTokenAndGetUser(req);
+  const user = await verifyTokenAndGetUser(req);
   if (user?.role !== "Super Admin") return res.status(401).json({ error: "Unauthorized." });
   const url = `${SUPABASE_URL}/rest/v1/bizkhata_state?id=eq.default_ledger&select=id`;
   const key = SUPABASE_ANON_KEY;
@@ -814,7 +841,7 @@ app.get("/api/test-supabase", async (req: any, res: any) => {
 // EMAIL_FROM address, and a partial Supabase URL to any anonymous visitor. Uptime
 // monitors that don't send an auth header still get a minimal 200 OK.
 app.get("/api/health", async (req: any, res: any) => {
-  const user = verifyTokenAndGetUser(req);
+  const user = await verifyTokenAndGetUser(req);
   const isSuperAdmin = user?.role === "Super Admin";
 
   if (!isSuperAdmin) {
@@ -1505,8 +1532,8 @@ app.post("/api/auth/reset-password", authRateLimit, (req: any, res: any) => {
 });
 
 // Get me
-app.get("/api/auth/me", (req: any, res: any) => {
-  const user = verifyTokenAndGetUser(req);
+app.get("/api/auth/me", async (req: any, res: any) => {
+  const user = await verifyTokenAndGetUser(req);
   if (!user) { res.status(401).json({ error: "Unauthorized." }); return; }
   const org = user.organizationId ? USER_DB.organizations.find((o: any) => o.id === user.organizationId) || null : null;
   const planFeatures = user.role === "Super Admin" ? PLAN_FEATURES.enterprise : (PLAN_FEATURES[orgPlan(org)] || []);
@@ -1622,6 +1649,27 @@ app.post("/api/superadmin/registrations/:id/reprovision", authGuard, superAdminG
     return res.status(500).json({ success: false, error: "Recovery data was prepared but failed to persist. Check server logs for the exact database error, then try again." });
   }
   res.json({ success: true, alreadyProvisioned: false, orgId: org.id });
+});
+
+// Super Admin: directly set a specific user's password. For resolving login-access
+// issues on a stuck/recovered account without needing to know or guess what password
+// the person originally set — e.g. an account recovered via reprovision may have
+// fallen back to a default password if the original registration's password field
+// wasn't available, and there was previously no way to find out or fix that other
+// than guessing.
+app.post("/api/superadmin/users/:id/set-password", authGuard, superAdminGuard, async (req: any, res: any) => {
+  const { newPassword } = req.body;
+  if (!newPassword || newPassword.length < 8) return res.status(400).json({ error: "New password must be at least 8 characters." });
+  const user = USER_DB.users.find((u: any) => u.id === req.params.id);
+  if (!user) return res.status(404).json({ error: "User not found." });
+  user.password = hashPassword(newPassword);
+  addAuditLog(null, req.user.fullName, req.user.role, "Set User Password", `Manually set password for ${user.email}.`);
+  const saveOk = await saveUserDB();
+  if (!saveOk) {
+    console.error(`set-password: saveUserDB failed for ${user.email} — check the sbUpsert error logged just above this.`);
+    return res.status(500).json({ success: false, error: "Password was changed but failed to persist. Check server logs, then try again." });
+  }
+  res.json({ success: true, email: user.email });
 });
 
 // Super Admin - Organizations

@@ -467,15 +467,16 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
             </button>
             <button
               onClick={async () => {
-                if (!confirm("⚠ This will wipe all stale logins and re-seed only the canonical accounts (superadmin + svtiger). Continue?")) return;
+                const typed = prompt("⚠️ DESTRUCTIVE ACTION ⚠️\n\nThis permanently deletes ALL organizations, users, registrations, seat requests, and notifications except the two canonical seed accounts (Super Admin + Verma Consultancy). This is NOT a password reset - every other customer's account and data will be gone.\n\nType DELETE ALL to confirm:");
+                if (typed !== "DELETE ALL") return;
                 const r = await fetch("/api/superadmin/reset-userdb", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
                 const d = await r.json();
-                if (d.success) { setMessage({ text: `✓ USER_DB reset. ${d.users.length} canonical users restored.`, isError: false }); loadAllData(); }
+                if (d.success) { setMessage({ text: `✓ USER_DB wiped. ${d.users.length} canonical users restored.`, isError: false }); loadAllData(); }
                 else setMessage({ text: d.error || "Reset failed", isError: true });
               }}
               className="text-xs font-bold px-4 py-2 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 transition cursor-pointer"
             >
-              🔄 Reset Logins
+              ⚠️ Wipe All Data (Danger)
             </button>
             <button
               id="su-btn-refresh"
@@ -1200,6 +1201,21 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                                     </>
                                   ) : (
                                     <>
+                                      {/* Set Password */}
+                                      <button onClick={async () => {
+                                        const newPw = prompt(`Set a new password for ${u.email}:\n(at least 8 characters — tell them this new password so they can log in)`);
+                                        if (!newPw) return;
+                                        const r = await fetch(`/api/superadmin/users/${u.id}/set-password`, {
+                                          method: 'POST',
+                                          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                          body: JSON.stringify({ newPassword: newPw })
+                                        });
+                                        const d = await r.json();
+                                        if (r.ok) setMessage({ text: `✓ Password set for ${u.email}. Share the new password with them directly.`, isError: false });
+                                        else setMessage({ text: d.error || `Failed to set password for ${u.fullName}`, isError: true });
+                                      }} className="border border-slate-300 hover:bg-slate-50 text-slate-600 text-[10px] font-semibold px-2.5 py-1 rounded cursor-pointer">
+                                        Set Password
+                                      </button>
                                       {/* Edit Role */}
                                       <button onClick={() => { setEditingUserId(u.id); setEditingUserRole(u.role); }}
                                         className="border border-slate-300 hover:bg-slate-50 text-slate-600 text-[10px] font-semibold px-2.5 py-1 rounded cursor-pointer">
