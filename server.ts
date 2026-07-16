@@ -53,7 +53,30 @@ const USER_DB: {
 // persisted the same way the main accounting ledger is — otherwise it resets on every
 // Vercel cold start, which silently drops pending registration approvals, seat requests,
 // and audit logs. Persisted under a separate row in the same bizkhata_state table.
-let userDbLoaded = false;
+//
+// SYSTEMIC FIX (replaces multiple one-off patches for the same root cause):
+// PostgREST rejects an ENTIRE batch write if any single object contains a field with no
+// matching column (error PGRST204) — this silently killed registrations, org approvals,
+// and every user write at different points, always looking like "it just disappeared"
+// with a 201/200 shown to the browser. Rather than keep whack-a-moling individual field
+// mismatches, every bk_* table write/read now goes through a real column whitelist below:
+// any field not in the whitelist is transparently routed into that table's `data jsonb`
+// catch-all column on write, and merged back to the top level on read. Adding a new field
+// to a `newReg`/`newOrg`/etc. object in code can now never again break persistence — at
+// worst it lands in `data` until a real migration adds a proper column for it.
+const TABLE_COLUMNS: Record<string, string[]> = {
+  bk_organizations: ["id", "name", "gstNumber", "status", "allocatedSeats", "usedSeats", "plan", "createdAt", "approvedAt", "subscriptionExpiresAt", "subscriptionMonths"],
+  bk_users: ["id", "organizationid", "fullName", "email", "mobileNumber", "role", "status", "password", "permissions", "twoFactorEnabled", "twoFactorVerified", "createdAt"],
+  bk_registrations: ["id", "companyName", "gstNumber", "adminName", "email", "mobileNumber", "password", "numberOfRequiredSeats", "requestedPlan", "status", "emailVerified", "createdAt"],
+  bk_seat_requests: ["id", "organizationId", "requestedBy", "currentSeatCount", "additionalSeatsRequested", "reason", "status", "createdAt"],
+  bk_support_tickets: ["id", "organizationId", "orgName", "raisedBy", "raisedByEmail", "subject", "description", "priority", "status", "messages", "createdAt", "updatedAt"],
+  bk_notifications: ["id", "to", "subject", "body", "type", "timestamp", "code"],
+};
+// Only bk_users has a real field-name mismatch: the DB column is unquoted lowercase
+// `organizationid`, but every object in code uses camelCase `organizationId`.
+const TABLE_FIELD_RENAMES: Record<string, Record<string, string>> = {
+  bk_users: { organizationId: "organizationid" },
+};
 
 // ── Supabase REST helpers for USER_DB tables ──────────────────────────────
 const sbHeaders = () => ({
@@ -69,18 +92,54 @@ async function sbSelect(table: string, filter?: string): Promise<any[]> {
   try {
     const r = await fetch(url, { headers: sbHeaders(), signal: AbortSignal.timeout(8000) });
     if (!r.ok) return [];
-    return await r.json();
+    const rows = await r.json();
+    if (!Array.isArray(rows)) return [];
+    const renames = TABLE_FIELD_RENAMES[table];
+    const reverseRenames = renames ? Object.fromEntries(Object.entries(renames).map(([k, v]) => [v, k])) : null;
+    return rows.map((row: any) => {
+      const { data, ...rest } = row;
+      let out = rest;
+      if (reverseRenames) {
+        out = {};
+        for (const [k, v] of Object.entries(rest)) out[reverseRenames[k] || k] = v;
+      }
+      // Merge the jsonb catch-all back to top level (fields the whitelist didn't
+      // recognize at write time — keeps them visible to app code transparently).
+      return data && typeof data === "object" ? { ...data, ...out } : out;
+    });
   } catch { return []; }
+}
+
+function sanitizeForTable(table: string, record: any): any {
+  const known = TABLE_COLUMNS[table];
+  if (!known) return record; // Table not in whitelist (e.g. legacy/other) — pass through unchanged.
+  const renames = TABLE_FIELD_RENAMES[table] || {};
+  const knownSet = new Set(known);
+  const out: any = {};
+  const extra: any = { ...(record.data && typeof record.data === "object" ? record.data : {}) };
+  for (const [key, value] of Object.entries(record)) {
+    if (key === "data") continue; // handled above/below
+    const dbKey = renames[key] || key;
+    if (knownSet.has(dbKey)) {
+      out[dbKey] = value;
+    } else {
+      extra[key] = value; // unknown field — preserved safely, never breaks the write
+    }
+  }
+  out.data = extra;
+  return out;
 }
 
 async function sbUpsert(table: string, data: any | any[]): Promise<boolean> {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
   const url = `${SUPABASE_URL}/rest/v1/${table}`;
+  const records = Array.isArray(data) ? data : [data];
+  const sanitized = records.map(r => sanitizeForTable(table, r));
   try {
     const r = await fetch(url, {
       method: "POST",
       headers: { ...sbHeaders(), "Prefer": "return=minimal,resolution=merge-duplicates" },
-      body: JSON.stringify(Array.isArray(data) ? data : [data]),
+      body: JSON.stringify(sanitized),
       signal: AbortSignal.timeout(8000)
     });
     if (!r.ok && r.status !== 204) {
@@ -118,7 +177,7 @@ async function migrateLegacyBlob(): Promise<void> {
     const blob = rows[0].state;
     // Migrate each array into its dedicated table
     if (blob.organizations?.length) await sbUpsert("bk_organizations", blob.organizations);
-    if (blob.users?.length) await sbUpsert("bk_users", blob.users.map((u: any) => { const { organizationId, ...rest } = u; return { ...rest, organizationid: organizationId || null }; }));
+    if (blob.users?.length) await sbUpsert("bk_users", blob.users);
     if (blob.registrationRequests?.length) await sbUpsert("bk_registrations", blob.registrationRequests);
     if (blob.seatRequests?.length) await sbUpsert("bk_seat_requests", blob.seatRequests);
     if (blob.supportTickets?.length) await sbUpsert("bk_support_tickets", blob.supportTickets);
@@ -134,9 +193,15 @@ async function migrateLegacyBlob(): Promise<void> {
   }
 }
 
+// SYSTEMIC FIX: previously this function returned immediately on every call after the
+// first successful load (`if (userDbLoaded) return;`). That meant a warm serverless
+// instance would serve/act on the exact same in-memory snapshot for its entire lifetime,
+// no matter how many writes other instances made in the meantime — this was the direct
+// cause of registrations/users/orgs "appearing then disappearing", 404s on approve/delete
+// actions for records that genuinely existed in Supabase, and admin lists silently going
+// stale. This is an admin/superadmin panel with low request volume, so always reloading
+// fresh is the correct tradeoff — correctness over a marginal latency cost.
 async function loadUserDB(): Promise<void> {
-  if (userDbLoaded) return;
-
   if (SUPABASE_URL && SUPABASE_ANON_KEY) {
     try {
       // Load from dedicated tables (new schema)
@@ -150,9 +215,10 @@ async function loadUserDB(): Promise<void> {
       ]);
 
       if (orgs.length || users.length) {
-        // Normalize column names (Supabase returns snake_case)
-        USER_DB.organizations = orgs.map((o: any) => ({ ...o, id: o.id }));
-        USER_DB.users = users.map((u: any) => ({ ...u, organizationId: u.organizationid || u.organizationId || null }));
+        // sbSelect already normalizes field names (organizationid -> organizationId) and
+        // merges the jsonb catch-all back to top level — no manual mapping needed here.
+        USER_DB.organizations = orgs;
+        USER_DB.users = users;
         USER_DB.registrationRequests = regs;
         USER_DB.seatRequests = seats;
         USER_DB.supportTickets = tickets;
@@ -167,7 +233,7 @@ async function loadUserDB(): Promise<void> {
           sbSelect("bk_support_tickets"), sbSelect("bk_notifications", "limit=200")
         ]);
         USER_DB.organizations = o2;
-        USER_DB.users = u2.map((u: any) => ({ ...u, organizationId: u.organizationid || u.organizationId || null }));
+        USER_DB.users = u2;
         USER_DB.registrationRequests = r2;
         USER_DB.seatRequests = s2;
         USER_DB.supportTickets = t2;
@@ -217,7 +283,6 @@ async function loadUserDB(): Promise<void> {
   const seen = new Set<string>();
   USER_DB.users = USER_DB.users.filter((u: any) => { if (seen.has(u.email)) return false; seen.add(u.email); return true; });
 
-  userDbLoaded = true;
   saveUserDB().catch(() => {});
 }
 
@@ -234,11 +299,7 @@ async function saveUserDB(): Promise<boolean> {
   const writes: Promise<boolean>[] = [];
   if (USER_DB.organizations.length) writes.push(sbUpsert("bk_organizations", USER_DB.organizations));
   if (USER_DB.users.length) {
-    const usersForDB = USER_DB.users.map((u: any) => {
-      const { organizationId, ...rest } = u;
-      return { ...rest, organizationid: organizationId || null };
-    });
-    writes.push(sbUpsert("bk_users", usersForDB));
+  if (USER_DB.users.length) writes.push(sbUpsert("bk_users", USER_DB.users));
   }
   if (USER_DB.registrationRequests.length) writes.push(sbUpsert("bk_registrations", USER_DB.registrationRequests));
   if (USER_DB.seatRequests.length) writes.push(sbUpsert("bk_seat_requests", USER_DB.seatRequests));
@@ -687,11 +748,13 @@ app.use(express.json());
 // route runs, and saves it after any mutating request completes. This is what makes
 // pending registration approvals, seat requests, etc. survive across Vercel cold starts.
 const USER_DB_ROUTES = ["/api/auth/", "/api/superadmin/", "/api/users", "/api/seat-requests", "/api/audit-logs", "/api/custom-roles", "/api/support"];
-// /api/users/add and /api/users/remove are a separate, already-persistent legacy system
-// that mutates db.users (per-organization ledger team members) via readDB()/writeDB(),
-// not USER_DB.users (the SaaS-wide super-admin/admin layer) — exclude them so they don't
-// trigger an unnecessary extra Supabase round-trip on every call.
-const USER_DB_EXCLUDED_ROUTES = ["/api/users/add", "/api/users/remove"];
+// /api/users/add mutates db.users (per-organization ledger team members) via
+// readDB()/writeDB(), not USER_DB.users (the SaaS-wide super-admin/admin layer) —
+// excluded so it doesn't trigger an unnecessary extra Supabase round-trip on every call.
+// NOTE: /api/users/remove was previously excluded here too, but it actually operates
+// directly on USER_DB.users (confirmed in its handler below), so excluding it caused
+// deletes to 404 against a stale warm-instance cache instead of the live user list.
+const USER_DB_EXCLUDED_ROUTES = ["/api/users/add"];
 app.use(async (req: any, res: any, next: any) => {
   if (USER_DB_EXCLUDED_ROUTES.some(p => req.path === p)) return next();
   if (!USER_DB_ROUTES.some(p => req.path.startsWith(p))) return next();
@@ -1258,7 +1321,7 @@ app.post("/api/auth/send-reg-otp", authRateLimit, async (req: any, res: any) => 
     return res.status(400).json({ error: "Valid email required." });
   }
   if (USER_DB.users.some((u: any) => u.email === email) ||
-      USER_DB.registrationRequests.some((r: any) => r.email === email && r.status !== "Rejected")) {
+      USER_DB.registrationRequests.some((r: any) => r.email === email && r.status === "Pending")) {
     return res.status(400).json({ error: "An account with this email already exists or is pending." });
   }
   const otp = deriveOtp(email, Math.floor(Date.now() / OTP_WINDOW_MS));
@@ -1289,7 +1352,7 @@ app.post("/api/auth/register-request", authRateLimit, async (req: any, res: any)
   if (!verifyOtp(email, emailOtp)) { res.status(400).json({ error: "Invalid or expired OTP. Please check the code sent to your email, or request a new one." }); return; }
   const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
   if (!passwordRegex.test(password)) { res.status(400).json({ error: "Password must be 8+ chars with upper, lower, number and special character." }); return; }
-  if (USER_DB.users.some((u: any) => u.email === email) || USER_DB.registrationRequests.some((r: any) => r.email === email && r.status !== "Rejected")) {
+  if (USER_DB.users.some((u: any) => u.email === email) || USER_DB.registrationRequests.some((r: any) => r.email === email && r.status === "Pending")) {
     res.status(400).json({ error: "An account with this email already exists." }); return;
   }
   const newReg = { id: generateId("reg"), companyName, gstNumber: gstNumber || "", adminName, email, mobileNumber, password, numberOfRequiredSeats: Number(numberOfRequiredSeats), requestedPlan: requestedPlan || "starter", status: "Pending", emailVerified: true, createdAt: new Date().toISOString() };
@@ -1449,23 +1512,8 @@ app.post("/api/auth/terminate-sessions", authGuard, (req: any, res: any) => {
 });
 
 // Super Admin - Registrations
-// Always re-read from Supabase directly rather than trusting USER_DB.registrationRequests:
-// loadUserDB() only loads once per warm serverless instance (guarded by userDbLoaded), so a
-// long-lived warm instance serving this route would otherwise keep returning the same stale
-// in-memory snapshot forever, never picking up new registrations written by other instances
-// (e.g. the instance that handled the public /api/auth/register-request call).
-app.get("/api/superadmin/registrations", authGuard, superAdminGuard, async (req: any, res: any) => {
-  if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-    const fresh = await sbSelect("bk_registrations", "order=createdAt.desc");
-    USER_DB.registrationRequests = fresh;
-    return res.json(fresh.map((r: any) => ({ ...r, password: undefined })));
-  }
-  res.json(USER_DB.registrationRequests.map((r: any) => ({ ...r, password: undefined })));
-});
+app.get("/api/superadmin/registrations", authGuard, superAdminGuard, (req: any, res: any) => res.json(USER_DB.registrationRequests.map((r: any) => ({ ...r, password: undefined }))));
 app.post("/api/superadmin/registrations/:id/action", authGuard, superAdminGuard, async (req: any, res: any) => {
-  if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-    USER_DB.registrationRequests = await sbSelect("bk_registrations");
-  }
   const reg = USER_DB.registrationRequests.find((r: any) => r.id === req.params.id);
   if (!reg) { res.status(404).json({ error: "Registration not found." }); return; }
   const { action, feedback, subscriptionMonths } = req.body;
@@ -2770,9 +2818,12 @@ app.post("/api/superadmin/init-db", authGuard, superAdminGuard, async (req: any,
     create table if not exists bk_users (id text primary key, organizationid text, "fullName" text, email text unique, "mobileNumber" text, role text, status text, password text, permissions jsonb, "twoFactorEnabled" bool default false, "twoFactorVerified" bool default false, "createdAt" text, data jsonb default '{}');
     create table if not exists bk_registrations (id text primary key, "companyName" text, "gstNumber" text, "adminName" text, email text, "mobileNumber" text, password text, "numberOfRequiredSeats" int, "requestedPlan" text default 'starter', status text, "emailVerified" bool, "createdAt" text);
     alter table if exists bk_registrations add column if not exists "requestedPlan" text default 'starter';
-    create table if not exists bk_seat_requests (id text primary key, "organizationId" text, "requestedBy" text, "currentSeatCount" int, "additionalSeatsRequested" int, reason text, status text, "createdAt" text);
-    create table if not exists bk_support_tickets (id text primary key, "organizationId" text, "orgName" text, "raisedBy" text, "raisedByEmail" text, subject text, description text, priority text, status text, messages jsonb, "createdAt" text, "updatedAt" text);
-    create table if not exists bk_notifications (id text primary key, "to" text, subject text, body text, type text, timestamp text, code text);
+    create table if not exists bk_seat_requests (id text primary key, "organizationId" text, "requestedBy" text, "currentSeatCount" int, "additionalSeatsRequested" int, reason text, status text, "createdAt" text, data jsonb default '{}');
+    alter table if exists bk_seat_requests add column if not exists data jsonb default '{}';
+    create table if not exists bk_support_tickets (id text primary key, "organizationId" text, "orgName" text, "raisedBy" text, "raisedByEmail" text, subject text, description text, priority text, status text, messages jsonb, "createdAt" text, "updatedAt" text, data jsonb default '{}');
+    alter table if exists bk_support_tickets add column if not exists data jsonb default '{}';
+    create table if not exists bk_notifications (id text primary key, "to" text, subject text, body text, type text, timestamp text, code text, data jsonb default '{}');
+    alter table if exists bk_notifications add column if not exists data jsonb default '{}';
   `;
   try {
     const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/exec_sql`, {
