@@ -237,7 +237,7 @@ export default function Accounting({ db, defaultTab, onAddManualJournal, userRol
                     onClick={() => {
                       setJLines(prev => [...prev, { accountCode: db.accounts[0]?.code || "bank_account", debit: 0, credit: 0 }]);
                     }}
-                    className="bg-white hover:bg-slate-150 border border-[#E5E1D8] text-slate-700 font-bold px-3 py-1 rounded flex items-center gap-1 transition cursor-pointer"
+                    className="bg-white hover:bg-slate-100 border border-[#E5E1D8] text-slate-700 font-bold px-3 py-1 rounded flex items-center gap-1 transition cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5 text-blue-600" /> Add Debit/Credit Line
                   </button>
@@ -314,7 +314,7 @@ export default function Accounting({ db, defaultTab, onAddManualJournal, userRol
                         onClick={() => {
                           setJLines(prev => prev.filter((_, i) => i !== idx));
                         }}
-                        className="text-rose-500 hover:text-rose-700 bg-rose-50 hover:bg-rose-100/50 p-2 rounded border border-rose-150 transition self-end cursor-pointer disabled:opacity-20 disabled:cursor-not-allowed"
+                        className="text-rose-500 hover:text-rose-700 bg-rose-50 hover:bg-rose-100/50 p-2 rounded border border-rose-100 transition self-end cursor-pointer disabled:opacity-20 disabled:cursor-not-allowed"
                         title="Remove transaction line"
                       >
                         ✕
@@ -326,11 +326,11 @@ export default function Accounting({ db, defaultTab, onAddManualJournal, userRol
                 {/* Validation and Totals Row */}
                 <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 p-4 bg-white border border-[#E5E1D8] rounded-xl text-xs font-mono">
                   <div className="space-y-1">
-                    <div className="font-bold text-slate-650 flex items-center gap-1.5">
+                    <div className="font-bold text-slate-600 flex items-center gap-1.5">
                       <span>Debit Total Sum:</span> 
                       <strong className="text-emerald-700">₹{jLines.reduce((acc, curr) => acc + (curr.debit || 0), 0).toLocaleString('en-IN')}</strong>
                     </div>
-                    <div className="font-bold text-slate-650 flex items-center gap-1.5">
+                    <div className="font-bold text-slate-600 flex items-center gap-1.5">
                       <span>Credit Total Sum:</span> 
                       <strong className="text-rose-700">₹{jLines.reduce((acc, curr) => acc + (curr.credit || 0), 0).toLocaleString('en-IN')}</strong>
                     </div>
@@ -418,7 +418,7 @@ export default function Accounting({ db, defaultTab, onAddManualJournal, userRol
                         ]);
                       }
                     }} 
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white border border-indigo-650 px-5 py-2 rounded flex items-center gap-1.5 transition cursor-pointer"
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white border border-indigo-600 px-5 py-2 rounded flex items-center gap-1.5 transition cursor-pointer"
                   >
                     <Check className="w-3.5 h-3.5" /> Commit Balanced Entry
                   </button>

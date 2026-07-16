@@ -255,6 +255,7 @@ export default function SalesOrders({ db, onSaveSO, onConvertToInvoice }: Props)
 
       {/* Table */}
       <div className="card-lift bg-white border border-slate-200 rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>{["SO Number", "Customer", "Date", "Delivery Date", "Amount", "Status", "Actions"].map(h => (
@@ -300,6 +301,7 @@ export default function SalesOrders({ db, onSaveSO, onConvertToInvoice }: Props)
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

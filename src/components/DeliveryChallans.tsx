@@ -182,6 +182,7 @@ export default function DeliveryChallans({ db, onSaveChallan }: Props) {
       </div>
 
       <div className="card-lift bg-white border border-slate-200 rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>{["Challan #", "Customer", "Date", "Invoice Ref", "Items", "Status", "Actions"].map(h => (
@@ -213,6 +214,7 @@ export default function DeliveryChallans({ db, onSaveChallan }: Props) {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

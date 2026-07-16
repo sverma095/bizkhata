@@ -1200,7 +1200,7 @@ export default function App() {
               {/* 1. Dashboard */}
               <button id="sidebar-home" onClick={() => { setActiveTab("dashboard"); }}
                 className={`w-full flex items-center gap-3 px-4 py-2 text-xs font-semibold leading-relaxed transition-all cursor-pointer ${
-                  activeTab === "dashboard" ? "bg-[#E2EAFC] text-blue-700 font-bold border-l-4 border-blue-600" : "text-slate-650 hover:bg-slate-100/70 hover:text-slate-900"
+                  activeTab === "dashboard" ? "bg-[#E2EAFC] text-blue-700 font-bold border-l-4 border-blue-600" : "text-slate-600 hover:bg-slate-100/70 hover:text-slate-900"
                 }`}>
                 <LayoutDashboard className="w-4 h-4 text-slate-500" /><span>Dashboard</span>
               </button>
@@ -1208,7 +1208,7 @@ export default function App() {
               {/* 2. Items & Inventory */}
               <button id="sidebar-items" onClick={() => { setActiveTab("items"); }}
                 className={`w-full flex items-center gap-3 px-4 py-2 text-xs font-semibold leading-relaxed transition-all cursor-pointer ${
-                  activeTab === "items" ? "bg-[#E2EAFC] text-blue-700 font-bold border-l-4 border-blue-600" : "text-slate-650 hover:bg-slate-100/70 hover:text-slate-900"
+                  activeTab === "items" ? "bg-[#E2EAFC] text-blue-700 font-bold border-l-4 border-blue-600" : "text-slate-600 hover:bg-slate-100/70 hover:text-slate-900"
                 }`}>
                 <Package className="w-4 h-4 text-slate-500" /><span>Items & Inventory</span>
               </button>
@@ -1290,7 +1290,7 @@ export default function App() {
               {/* 5. Banking */}
               <button id="sidebar-banking" onClick={() => { setActiveTab("banking"); }}
                 className={`w-full flex items-center gap-3 px-4 py-2 text-xs font-semibold leading-relaxed transition-all cursor-pointer ${
-                  activeTab === "banking" ? "bg-[#E2EAFC] text-blue-700 font-bold border-l-4 border-blue-600" : "text-slate-650 hover:bg-slate-100/70 hover:text-slate-900"
+                  activeTab === "banking" ? "bg-[#E2EAFC] text-blue-700 font-bold border-l-4 border-blue-600" : "text-slate-600 hover:bg-slate-100/70 hover:text-slate-900"
                 }`}>
                 <Landmark className="w-4 h-4 text-slate-500" /><span>Banking</span>
               </button>
@@ -1329,7 +1329,7 @@ export default function App() {
                 disabled={isTabBlockedForRole("reports")}
                 className={`w-full flex items-center gap-3 px-4 py-2 text-xs font-semibold leading-relaxed transition-all cursor-pointer ${
                   isTabBlockedForRole("reports") ? "opacity-35 cursor-not-allowed" :
-                  activeTab === "reports" ? "bg-[#E2EAFC] text-blue-700 font-bold border-l-4 border-blue-600" : "text-slate-650 hover:bg-slate-100/70 hover:text-slate-900"
+                  activeTab === "reports" ? "bg-[#E2EAFC] text-blue-700 font-bold border-l-4 border-blue-600" : "text-slate-600 hover:bg-slate-100/70 hover:text-slate-900"
                 }`}>
                 <FolderLock className="w-4 h-4 text-slate-500" /><span>Reports</span>
               </button>
@@ -1337,7 +1337,7 @@ export default function App() {
               {/* 8. Time Tracking */}
               <button id="sidebar-time" onClick={() => { setActiveTab("timetracking"); }}
                 className={`w-full flex items-center gap-3 px-4 py-2 text-xs font-semibold leading-relaxed transition-all cursor-pointer ${
-                  activeTab === "timetracking" ? "bg-[#E2EAFC] text-blue-700 font-bold border-l-4 border-blue-600" : "text-slate-650 hover:bg-slate-100/70 hover:text-slate-900"
+                  activeTab === "timetracking" ? "bg-[#E2EAFC] text-blue-700 font-bold border-l-4 border-blue-600" : "text-slate-600 hover:bg-slate-100/70 hover:text-slate-900"
                 }`}>
                 <Timer className="w-4 h-4 text-slate-500" /><span>Time Tracking</span>
               </button>
@@ -1348,7 +1348,7 @@ export default function App() {
               {/* 9. AI Copilot */}
               <button id="sidebar-ai" onClick={() => { setActiveTab("ai"); }}
                 className={`w-full flex items-center justify-between px-4 py-2 text-xs font-semibold leading-relaxed transition-all cursor-pointer ${
-                  activeTab === "ai" ? "bg-[#E2EAFC] text-blue-700 font-bold border-l-4 border-blue-600" : "text-slate-650 hover:bg-slate-100/70 hover:text-slate-900"
+                  activeTab === "ai" ? "bg-[#E2EAFC] text-blue-700 font-bold border-l-4 border-blue-600" : "text-slate-600 hover:bg-slate-100/70 hover:text-slate-900"
                 }`}>
                 <span className="flex items-center gap-3"><Sparkles className="w-4 h-4 text-violet-500" /><span>AI Copilot</span></span>
                 <span className="text-[7.5px] font-bold bg-violet-600 text-white rounded px-1 tracking-widest uppercase">Active</span>
@@ -1357,7 +1357,7 @@ export default function App() {
               {/* 10. Advanced Modules */}
               <button onClick={() => { setActiveTab("advanced"); }}
                 className={`w-full flex items-center justify-between px-4 py-2 text-xs font-semibold leading-relaxed transition-all cursor-pointer ${
-                  activeTab === "advanced" ? "bg-purple-50 text-purple-700 font-bold border-l-4 border-purple-600" : "text-slate-650 hover:bg-slate-100/70 hover:text-slate-900"
+                  activeTab === "advanced" ? "bg-purple-50 text-purple-700 font-bold border-l-4 border-purple-600" : "text-slate-600 hover:bg-slate-100/70 hover:text-slate-900"
                 }`}>
                 <span className="flex items-center gap-3"><span className="text-sm">🚀</span><span>Advanced Modules</span></span>
                 <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700">30</span>
@@ -1366,7 +1366,7 @@ export default function App() {
               {/* 11. Users & Roles */}
               <button id="sidebar-users" onClick={() => { setActiveTab("users"); }}
                 className={`w-full flex items-center justify-between px-4 py-2 text-xs font-semibold leading-relaxed transition-all cursor-pointer ${
-                  activeTab === "users" ? "bg-[#E2EAFC] text-blue-700 font-bold border-l-4 border-blue-600" : "text-slate-650 hover:bg-slate-100/70 hover:text-slate-900"
+                  activeTab === "users" ? "bg-[#E2EAFC] text-blue-700 font-bold border-l-4 border-blue-600" : "text-slate-600 hover:bg-slate-100/70 hover:text-slate-900"
                 }`}>
                 <span className="flex items-center gap-3"><Users className="w-4 h-4 text-slate-500" /><span>Users & Roles</span></span>
                 <span className="text-[7.5px] font-black bg-blue-600 text-white rounded px-1.5 py-0.5">{db?.users?.length || 0} / {db?.userSeatsLimit || 10}</span>
@@ -1377,7 +1377,7 @@ export default function App() {
                 id="sidebar-settings"
                 onClick={() => setActiveTab("settings")}
                 className={`w-full flex items-center justify-between px-4 py-2 text-xs font-semibold leading-relaxed transition-all cursor-pointer ${
-                  activeTab === "settings" ? "bg-[#E2EAFC] text-blue-700 font-bold border-l-4 border-blue-600" : "text-slate-650 hover:bg-slate-100/70 hover:text-slate-900"
+                  activeTab === "settings" ? "bg-[#E2EAFC] text-blue-700 font-bold border-l-4 border-blue-600" : "text-slate-600 hover:bg-slate-100/70 hover:text-slate-900"
                 }`}>
                 <span className="flex items-center gap-3"><Settings className="w-4 h-4 text-slate-500" /><span>Organisation Settings</span></span>
               </button>
@@ -2134,7 +2134,7 @@ export default function App() {
 
 
           {/* Solid humble compliance footer */}
-          <footer className="p-4 border-t border-slate-200 text-center text-[10.5px] text-slate-550 select-none bg-slate-50">
+          <footer className="p-4 border-t border-slate-200 text-center text-[10.5px] text-slate-500 select-none bg-slate-50">
             Ledgerio Ledger Synchronization Engine • GSTIN compliant with Ministry of Corporate Affairs, India.
           </footer>
           </div>
@@ -2155,7 +2155,7 @@ export default function App() {
       {reminderEmail && (
         <div id="ai-reminder-email-overlay" className="fixed inset-0 bg-slate-700/20 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-2xl p-6 w-full max-w-xl space-y-4 text-xs font-sans text-slate-800 shadow-2xl animate-fade-in">
-            <div className="flex justify-between items-center border-b border-slate-250 pb-3">
+            <div className="flex justify-between items-center border-b border-slate-200 pb-3">
               <h3 className="font-bold text-slate-900 flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-blue-600 animate-bounce" />
                 AI Generated Payment Reminder Email
@@ -2167,17 +2167,17 @@ export default function App() {
 
             <div className="space-y-1.5 bg-slate-50 p-4 border border-slate-200 rounded-xl leading-relaxed select-all font-sans">
               <span className="text-[10px] uppercase font-bold font-mono text-slate-400 block mb-2">Subject Draft:</span>
-              <p className="whitespace-pre-line text-slate-850 font-medium">{reminderEmail}</p>
+              <p className="whitespace-pre-line text-slate-800 font-medium">{reminderEmail}</p>
             </div>
 
-            <p className="text-[10px] text-slate-505 font-mono uppercase tracking-wide">
+            <p className="text-[10px] text-slate-500 font-mono uppercase tracking-wide">
               *Copy this draft and send to the customer's email or registered account.
             </p>
 
             <div className="flex justify-end pt-2">
               <button 
                 onClick={() => setReminderEmail(null)}
-                className="bg-blue-650 hover:bg-blue-700 font-bold text-white text-xs px-5 py-2 rounded-lg"
+                className="bg-blue-600 hover:bg-blue-700 font-bold text-white text-xs px-5 py-2 rounded-lg"
               >
                 Dismiss Email Draft
               </button>
@@ -2188,7 +2188,7 @@ export default function App() {
 
       {/* Manual Standard Item/Service Creation Modal Overlay */}
       {showItemModal && (
-        <div id="item-creation-modal-overlay" className="fixed inset-0 bg-slate-700/20 backdrop-blur-sm z-55 flex items-center justify-center p-4">
+        <div id="item-creation-modal-overlay" className="fixed inset-0 bg-slate-700/20 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
           <div className="bg-white border border-[#E5E1D8] rounded-2xl w-full max-w-md p-6 space-y-4 text-xs font-sans text-slate-800 shadow-2xl animate-fade-in">
             <div className="flex justify-between items-center border-b border-[#E5E1D8] pb-3">
               <h3 className="text-sm font-bold text-[#2C2C24] flex items-center gap-2">
@@ -2208,7 +2208,7 @@ export default function App() {
                   required 
                   value={newItemName} 
                   onChange={e => setNewItemName(e.target.value)}
-                  className="w-full bg-slate-50 border border-[#E5E1D8] px-3 py-2 rounded-lg text-slate-900 placeholder-slate-400 focus:border-indigo-505 outline-none font-sans"
+                  className="w-full bg-slate-50 border border-[#E5E1D8] px-3 py-2 rounded-lg text-slate-900 placeholder-slate-400 focus:border-indigo-500 outline-none font-sans"
                   placeholder="e.g. Technology Advisory Services"
                 />
               </div>
@@ -2221,7 +2221,7 @@ export default function App() {
                     required 
                     value={newItemHsnSac} 
                     onChange={e => setNewItemHsnSac(e.target.value)}
-                    className="w-full bg-slate-50 border border-[#E5E1D8] px-3 py-2 rounded-lg text-slate-900 placeholder-slate-450 font-mono focus:border-indigo-550 outline-none"
+                    className="w-full bg-slate-50 border border-[#E5E1D8] px-3 py-2 rounded-lg text-slate-900 placeholder-slate-450 font-mono focus:border-indigo-500 outline-none"
                     placeholder="e.g. 9983"
                   />
                 </div>
@@ -2230,7 +2230,7 @@ export default function App() {
                   <select
                     value={newItemUnit}
                     onChange={e => setNewItemUnit(e.target.value)}
-                    className="w-full bg-slate-50 border border-[#E5E1D8] px-3 py-2 rounded-lg text-slate-900 focus:border-indigo-505 outline-none font-sans"
+                    className="w-full bg-slate-50 border border-[#E5E1D8] px-3 py-2 rounded-lg text-slate-900 focus:border-indigo-500 outline-none font-sans"
                   >
                     <option value="Hours">Hours</option>
                     <option value="Days">Days</option>
@@ -2249,7 +2249,7 @@ export default function App() {
                     min={0}
                     value={newItemSalesRate} 
                     onChange={e => setNewItemSalesRate(parseInt(e.target.value) || 0)}
-                    className="w-full bg-slate-50 border border-[#E5E1D8] px-3 py-2 rounded-lg text-slate-900 font-mono focus:border-indigo-550 outline-none"
+                    className="w-full bg-slate-50 border border-[#E5E1D8] px-3 py-2 rounded-lg text-slate-900 font-mono focus:border-indigo-500 outline-none"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -2257,7 +2257,7 @@ export default function App() {
                   <select
                     value={newItemGstRate}
                     onChange={e => setNewItemGstRate(parseInt(e.target.value) || 18)}
-                    className="w-full bg-slate-50 border border-[#E5E1D8] px-3 py-2 rounded-lg text-slate-900 focus:border-indigo-505 outline-none font-mono"
+                    className="w-full bg-slate-50 border border-[#E5E1D8] px-3 py-2 rounded-lg text-slate-900 focus:border-indigo-500 outline-none font-mono"
                   >
                     <option value={18}>18% CGST/SGST/IGST</option>
                     <option value={12}>12% CGST/SGST/IGST</option>
@@ -2275,7 +2275,7 @@ export default function App() {
                   required 
                   value={newItemIncomeAccount} 
                   onChange={e => setNewItemIncomeAccount(e.target.value)}
-                  className="w-full bg-slate-50 border border-[#E5E1D8] px-3 py-2 rounded-lg text-slate-900 placeholder-slate-400 focus:border-indigo-505 outline-none font-sans"
+                  className="w-full bg-slate-50 border border-[#E5E1D8] px-3 py-2 rounded-lg text-slate-900 placeholder-slate-400 focus:border-indigo-500 outline-none font-sans"
                   placeholder="e.g. Sales Revenue"
                 />
               </div>
@@ -2302,7 +2302,7 @@ export default function App() {
 
       {/* ------------------------ SCREENSHOT 2: FLOATING HELP & ASSISTANCE POPULAR DRAWER ------------------------ */}
       {showHelpDrawer && (
-        <div id="assist-popup-drawer" className="fixed inset-y-0 right-0 w-80 bg-white border-l border-slate-200 shadow-2xl z-55 flex flex-col justify-between animate-slide-in font-sans text-slate-700">
+        <div id="assist-popup-drawer" className="fixed inset-y-0 right-0 w-80 bg-white border-l border-slate-200 shadow-2xl z-[60] flex flex-col justify-between animate-slide-in font-sans text-slate-700">
           
           {/* Popover Header */}
           <div className="bg-[#1C2434] text-white p-5 flex justify-between items-center select-none">
@@ -2339,7 +2339,7 @@ export default function App() {
               </div>
 
               {/* Plan marker */}
-              <div className="bg-yellow-50 border border-yellow-250 rounded-xl p-2.5 text-center flex items-center justify-center gap-1.5">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-2.5 text-center flex items-center justify-center gap-1.5">
                 <Award className="w-4 h-4 text-yellow-600 shrink-0" />
                 <span className="text-[10px] font-bold text-yellow-800 uppercase tracking-wider">
                   {(db as any)?.company?.plan ? `${(db as any).company.plan} Plan` : "—"}
@@ -2355,7 +2355,7 @@ export default function App() {
 
             {/* Quick Assistance Grid Option (Screenshot 2) */}
             <div className="space-y-2.5">
-              <h3 className="text-[10.5px] font-black text-slate-450 uppercase tracking-widest border-b border-slate-100 pb-1.5">Quick Help Matrix</h3>
+              <h3 className="text-[10.5px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-1.5">Quick Help Matrix</h3>
               
               <div className="grid grid-cols-2 gap-2">
                 {[
@@ -2371,11 +2371,11 @@ export default function App() {
                     <button 
                       key={i}
                       onClick={() => alert(`Opening secure: ${hlp.title}`)}
-                      className="text-left bg-slate-50/70 hover:bg-slate-100/80 border border-slate-250/50 p-3 rounded-xl transition duration-150 flex flex-col justify-between h-20"
+                      className="text-left bg-slate-50/70 hover:bg-slate-100/80 border border-slate-200/50 p-3 rounded-xl transition duration-150 flex flex-col justify-between h-20"
                     >
                       <Icon className="w-4 h-4 text-[#006EE5]" />
                       <div>
-                        <span className="text-[11px] font-bold text-slate-905 block tracking-tight leading-tight">{hlp.title}</span>
+                        <span className="text-[11px] font-bold text-slate-900 block tracking-tight leading-tight">{hlp.title}</span>
                         <span className="text-[9px] text-slate-400 font-medium leading-none block mt-0.5">{hlp.desc}</span>
                       </div>
                     </button>
@@ -2388,7 +2388,7 @@ export default function App() {
             <div className="space-y-2 border-t border-slate-100 pt-4.5">
               <button 
                 onClick={() => alert("Shortcut Toggle: Press ( / ) on your keyboard anytime to search ledger settings.")}
-                className="w-full text-left bg-white hover:bg-slate-50 border p-3.5 rounded-xl text-xs font-bold text-slate-805 flex justify-between items-center transition"
+                className="w-full text-left bg-white hover:bg-slate-50 border p-3.5 rounded-xl text-xs font-bold text-slate-800 flex justify-between items-center transition"
               >
                 <span>Accessibility Preferences</span>
                 <span className="text-[9px] font-mono font-bold bg-[#1C2434] text-white p-0.5 px-1.5 rounded uppercase">Verified</span>
@@ -2397,15 +2397,15 @@ export default function App() {
 
             {/* Need Assistance Checklist Options (Screenshot 2) */}
             <div className="space-y-2.5 border-t border-slate-100 pt-4.5">
-              <h3 className="text-[10.5px] font-black text-slate-450 uppercase tracking-widest">Need Assistance?</h3>
+              <h3 className="text-[10.5px] font-black text-slate-400 uppercase tracking-widest">Need Assistance?</h3>
               
-              <ul className="space-y-2 text-xs font-semibold text-slate-650">
+              <ul className="space-y-2 text-xs font-semibold text-slate-600">
                 <li className="flex items-center gap-2.5 p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition">
                   <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
                   <span>Send an email</span>
                 </li>
                 <li className="flex items-center gap-2.5 p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition">
-                  <span className="w-1.5 h-1.5 bg-indigo-505 rounded-full"></span>
+                  <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full"></span>
                   <span>Record screen & share feedback</span>
                 </li>
                 <li className="flex items-center gap-2.5 p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition">

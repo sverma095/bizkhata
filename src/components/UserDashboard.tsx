@@ -189,11 +189,11 @@ export default function UserDashboard(props: UserDashboardProps) {
     <div id="user-dashboard" className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col">
       
       {/* Top bar corporate shell */}
-      <header className="bg-white border-b border-slate-150 shadow-2xs">
+      <header className="bg-white border-b border-slate-100 shadow-2xs">
         <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <span className="p-1 px-2 rounded text-[10px] bg-slate-150 text-slate-700 font-mono font-bold uppercase tracking-wider border border-slate-200">
+              <span className="p-1 px-2 rounded text-[10px] bg-slate-100 text-slate-700 font-mono font-bold uppercase tracking-wider border border-slate-200">
                 EMPLOYEE PORTAL SECURITY
               </span>
               <span className="text-slate-300">•</span>
@@ -222,14 +222,14 @@ export default function UserDashboard(props: UserDashboardProps) {
 
         {/* Real-time Operation Warning Alerts */}
         {successMsg && (
-          <div className="p-4 bg-emerald-50 border border-emerald-250 text-emerald-805 text-xs rounded-xl flex items-start gap-2.5 shadow-2xs transition animate-fade-in" id="user-p-success-banner">
+          <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl flex items-start gap-2.5 shadow-2xs transition animate-fade-in" id="user-p-success-banner">
             <CheckCircle2 className="w-4.5 h-4.5 shrink-0 text-emerald-500 mt-0.5" />
             <div className="leading-relaxed font-sans">{successMsg}</div>
           </div>
         )}
 
         {errorMsg && (
-          <div className="p-4 bg-rose-50 border border-rose-250 text-rose-800 text-xs rounded-xl flex items-start gap-2.5 shadow-2xs transition animate-fade-in" id="user-p-access-block-banner">
+          <div className="p-4 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl flex items-start gap-2.5 shadow-2xs transition animate-fade-in" id="user-p-access-block-banner">
             <LockKeyhole className="w-4.5 h-4.5 shrink-0 text-rose-500 mt-0.5" />
             <div className="leading-relaxed font-mono">{errorMsg}</div>
           </div>
@@ -241,7 +241,7 @@ export default function UserDashboard(props: UserDashboardProps) {
           <div className="lg:col-span-8 space-y-8">
             
             {/* Active Permissions visual block list */}
-            <div className="card-lift bg-white p-6 rounded-2xl border border-slate-100 shadow-3xs" id="user-clearances-matrix">
+            <div className="card-lift bg-white p-6 rounded-2xl border border-slate-100 shadow-xs" id="user-clearances-matrix">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
                 <ShieldCheck className="w-4.5 h-4.5 text-sky-500" />
                 Active Dynamic Permission Matrix (PBAC)
@@ -259,7 +259,7 @@ export default function UserDashboard(props: UserDashboardProps) {
                       className={`p-2.5 rounded-xl border text-xs flex items-center justify-between ${
                         hasClearance 
                           ? 'bg-emerald-50/20 border-emerald-100 text-slate-800 font-bold' 
-                          : 'bg-slate-50/50 border-slate-150 text-slate-400 line-through decoration-slate-300'
+                          : 'bg-slate-50/50 border-slate-100 text-slate-400 line-through decoration-slate-300'
                       }`}
                     >
                       <span className="font-sans">{perm.label}</span>
@@ -271,7 +271,7 @@ export default function UserDashboard(props: UserDashboardProps) {
             </div>
 
             {/* Simulated interactive billing module */}
-            <div className="card-lift bg-white p-6 rounded-2xl border border-slate-100 shadow-3xs" id="user-interactive-workspace">
+            <div className="card-lift bg-white p-6 rounded-2xl border border-slate-100 shadow-xs" id="user-interactive-workspace">
               <div className="flex justify-between items-center mb-3">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                   <FileText className="w-4.5 h-4.5 text-sky-500" />
@@ -291,7 +291,7 @@ export default function UserDashboard(props: UserDashboardProps) {
                 <div className="p-4 space-y-3.5">
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs bg-slate-50/50 p-3 rounded-lg border border-slate-100">
                     <div>
-                      <div className="font-bold text-slate-850">INV-2026-001 (Acme Corp)</div>
+                      <div className="font-bold text-slate-800">INV-2026-001 (Acme Corp)</div>
                       <div className="text-[10px] text-slate-400">Raised: 2026-06-01 | Due: 2026-06-15</div>
                     </div>
                     <div className="flex gap-1">
@@ -312,7 +312,7 @@ export default function UserDashboard(props: UserDashboardProps) {
                       <button 
                         id="test-action-approve"
                         onClick={() => tryPerformAction('approve_payments', "Secure payment authorization executed on INV-2026-001")}
-                        className="p-1 px-2.5 text-[10px] font-extrabold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded border border-emerald-250"
+                        className="p-1 px-2.5 text-[10px] font-extrabold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded border border-emerald-200"
                       >
                         Approve Payment
                       </button>
@@ -368,9 +368,9 @@ export default function UserDashboard(props: UserDashboardProps) {
           <div className="lg:col-span-4 space-y-6">
             
             {/* 2-Factor authentication switch */}
-            <div className="card-lift bg-white p-6 rounded-2xl border border-slate-100 shadow-3xs" id="user-2fa-panel">
+            <div className="card-lift bg-white p-6 rounded-2xl border border-slate-100 shadow-xs" id="user-2fa-panel">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5 flex items-center gap-1.5">
-                <Key className="w-4 h-4 text-sky-505" />
+                <Key className="w-4 h-4 text-sky-500" />
                 Two-Factor Security (2FA)
               </h3>
               <p className="text-xs text-slate-400 mb-4 leading-normal font-sans">
@@ -394,7 +394,7 @@ export default function UserDashboard(props: UserDashboardProps) {
             </div>
 
             {/* ChangePassword Form (Section 12) */}
-            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-3xs hover:shadow-xs transition duration-200" id="user-password-panel">
+            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-xs hover:shadow-xs transition duration-200" id="user-password-panel">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
                 <Lock className="w-4 h-4 text-sky-500" />
                 Update Security Password
@@ -402,7 +402,7 @@ export default function UserDashboard(props: UserDashboardProps) {
 
               <form onSubmit={handleChangePasswordSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-450 uppercase tracking-widest mb-1">New Secure Password</label>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">New Secure Password</label>
                   <input
                     type="password"
                     id="user-new-password"
@@ -418,7 +418,7 @@ export default function UserDashboard(props: UserDashboardProps) {
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-450 uppercase tracking-widest mb-1">Confirm password spelling</label>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Confirm password spelling</label>
                   <input
                     type="password"
                     id="user-confirm-password"
@@ -432,7 +432,7 @@ export default function UserDashboard(props: UserDashboardProps) {
 
                 {/* Password Policy visually shown explicitly (Section 12) */}
                 <div className="bg-slate-50 p-2.5 rounded border border-slate-200 text-[10px] space-y-1">
-                  <span className="font-bold text-slate-450 uppercase tracking-wider block mb-1">Policy Specifications:</span>
+                  <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">Policy Specifications:</span>
                   <div className="space-y-0.5">
                     <div className={checkStyle(policyChecks.length)}>• 8+ Characters</div>
                     <div className={checkStyle(policyChecks.upperLower)}>• Upper + Lower letters</div>
@@ -453,9 +453,9 @@ export default function UserDashboard(props: UserDashboardProps) {
             </div>
 
             {/* Session Management controls (Section 12) */}
-            <div className="card-lift bg-white p-6 rounded-2xl border border-slate-100 shadow-3xs" id="user-sessions-panel">
+            <div className="card-lift bg-white p-6 rounded-2xl border border-slate-100 shadow-xs" id="user-sessions-panel">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5 flex items-center gap-1.5">
-                <Sliders className="w-4 h-4 text-sky-505" />
+                <Sliders className="w-4 h-4 text-sky-500" />
                 Active Device Sessions
               </h3>
               <p className="text-xs text-slate-400 mb-4 leading-normal font-sans">
@@ -465,14 +465,14 @@ export default function UserDashboard(props: UserDashboardProps) {
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2 mt-2 text-xs">
                 <div>
                   <span className="font-bold block">Current Browser Simulator</span>
-                  <span className="text-[10px] text-slate-450 block font-mono">Last log: {activeUser.lastLogin ? new Date(activeUser.lastLogin).toLocaleTimeString() : 'Just now'}</span>
-                  <span className="text-[10px] text-slate-450 block font-mono">Address IP: {activeUser.ipAddress || '127.0.0.1'}</span>
+                  <span className="text-[10px] text-slate-400 block font-mono">Last log: {activeUser.lastLogin ? new Date(activeUser.lastLogin).toLocaleTimeString() : 'Just now'}</span>
+                  <span className="text-[10px] text-slate-400 block font-mono">Address IP: {activeUser.ipAddress || '127.0.0.1'}</span>
                 </div>
                 
                 <button
                   onClick={terminateAllOtherSessions}
                   id="btn-terminate-sessions"
-                  className="w-full py-1 bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-205 text-[10px] font-bold rounded cursor-pointer transition text-center"
+                  className="w-full py-1 bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 text-[10px] font-bold rounded cursor-pointer transition text-center"
                 >
                   Force Log Out Other Sessions
                 </button>

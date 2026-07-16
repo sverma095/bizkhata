@@ -306,7 +306,7 @@ export default function Dashboard({ db, onNavigate, onTriggerAI, token }: Dashbo
           <button 
             id="btn-ai-dashboard-analysis"
             onClick={() => onTriggerAI("explain-report")}
-            className="flex items-center gap-1.5 bg-gradient-to-r from-violet-650 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-semibold text-xs px-3.5 py-1.5 rounded-lg shadow-sm transition-all cursor-pointer"
+            className="flex items-center gap-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-semibold text-xs px-3.5 py-1.5 rounded-lg shadow-sm transition-all cursor-pointer"
           >
             <Sparkles className="w-3.5 h-3.5 text-white animate-pulse" />
             AI Projections
@@ -367,7 +367,7 @@ export default function Dashboard({ db, onNavigate, onTriggerAI, token }: Dashbo
                   <span className="flex items-center gap-1.5 cursor-pointer hover:underline text-orange-600">
                     <span className="w-2.5 h-2.5 rounded-sm bg-orange-500 inline-block" />
                     Overdue: <strong className="font-mono">{formatIndianCurrency(finalOverdueReceivables)}</strong>
-                    <ChevronDown className="w-3 h-3 text-orange-650" />
+                    <ChevronDown className="w-3 h-3 text-orange-600" />
                   </span>
                 </div>
               </div>
@@ -415,7 +415,7 @@ export default function Dashboard({ db, onNavigate, onTriggerAI, token }: Dashbo
                   <span className="flex items-center gap-1.5 cursor-pointer hover:underline text-orange-600">
                     <span className="w-2.5 h-2.5 rounded-sm bg-orange-500 inline-block" />
                     Overdue: <strong className="font-mono">{formatIndianCurrency(finalOverduePayables)}</strong>
-                    <ChevronDown className="w-3 h-3 text-orange-650" />
+                    <ChevronDown className="w-3 h-3 text-orange-600" />
                   </span>
                 </div>
               </div>
@@ -634,7 +634,7 @@ export default function Dashboard({ db, onNavigate, onTriggerAI, token }: Dashbo
               <div className="space-y-4 pt-1">
                 <div className="space-y-1.5">
                   <div className="flex justify-between text-xs">
-                    <span className="text-slate-550 flex items-center gap-1.5">
+                    <span className="text-slate-500 flex items-center gap-1.5">
                       <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full inline-block" /> Total Income
                     </span>
                     <strong className="font-mono text-emerald-700 font-bold">{formatIndianCurrency(totalIncomeValue || totalSales || 0)}</strong>
@@ -652,7 +652,7 @@ export default function Dashboard({ db, onNavigate, onTriggerAI, token }: Dashbo
 
                 <div className="space-y-1.5">
                   <div className="flex justify-between text-xs">
-                    <span className="text-slate-550 flex items-center gap-1.5">
+                    <span className="text-slate-500 flex items-center gap-1.5">
                       <span className="w-2.5 h-2.5 bg-rose-500 rounded-full inline-block" /> Total Expense
                     </span>
                     <strong className="font-mono text-rose-700 font-bold">{formatIndianCurrency(totalExpenseValue || totalExpenses || 0)}</strong>
@@ -669,7 +669,7 @@ export default function Dashboard({ db, onNavigate, onTriggerAI, token }: Dashbo
                 </div>
 
                 <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-xs">
-                  <span className="text-slate-550">Net Margin:</span>
+                  <span className="text-slate-500">Net Margin:</span>
                   <span className={`font-mono font-bold  ${estimatedProfit >= 0 ? "text-emerald-700 bg-emerald-50" : "text-rose-700 bg-rose-50"} px-2.5 py-1 rounded-full text-[11px]`}>
                     {estimatedProfit >= 0 ? "+" : ""}{formatIndianCurrency(estimatedProfit || 0)}
                   </span>

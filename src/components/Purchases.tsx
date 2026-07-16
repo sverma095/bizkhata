@@ -1294,7 +1294,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
 
             <form onSubmit={handleBillPaySubmit} className="space-y-4">
               <div className="space-y-1.5 font-sans">
-                <label className="text-slate-450">Remitted clearing Date</label>
+                <label className="text-slate-400">Remitted clearing Date</label>
                 <input 
                   type="date" required value={payDate} onChange={(e) => setPayDate(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:border-blue-500 outline-none font-medium"
@@ -1303,7 +1303,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5 font-sans">
-                  <label className="text-slate-450">Payment Instrument / Mode</label>
+                  <label className="text-slate-400">Payment Instrument / Mode</label>
                   <select 
                     value={payMode} onChange={(e) => setPayMode(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:border-blue-500 outline-none"
@@ -1315,7 +1315,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-slate-450">UTR Clearance ID</label>
+                  <label className="text-slate-400">UTR Clearance ID</label>
                   <input 
                     type="text" required value={payRef} placeholder="UTR ID" onChange={(e) => setPayRef(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:border-blue-500 outline-none"
@@ -1324,7 +1324,7 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-slate-405">Settled Amount (₹)</label>
+                <label className="text-slate-400">Settled Amount (₹)</label>
                 <input 
                   type="number" required max={showPayBillForm.total - (showPayBillForm.paymentPaid || 0)}
                   value={payAmount} onChange={(e) => setPayAmount(parseFloat(e.target.value) || 0)}

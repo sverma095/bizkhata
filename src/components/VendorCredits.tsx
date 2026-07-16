@@ -113,6 +113,7 @@ export default function VendorCredits({ db, onSaveVC }: Props) {
         ))}
       </div>
       <div className="card-lift bg-white border border-slate-200 rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>{["Credit #","Vendor","Date","Bill #","Reason","Amount","Status","Action"].map(h=>(
@@ -136,6 +137,7 @@ export default function VendorCredits({ db, onSaveVC }: Props) {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

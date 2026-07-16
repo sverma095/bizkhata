@@ -147,6 +147,14 @@ export interface Invoice {
   ewbNo?: string;         // E-Way Bill Number
   notes?: string;         // Internal notes
   termsAndConditions?: string;
+  // Multi-currency: subtotal/total above are always in the org's base currency (INR)
+  // so every existing report/journal/GL calculation keeps working unchanged. These
+  // fields hold the original foreign-currency entry for display and for computing
+  // forex gain/loss when the invoice is settled at a different rate.
+  currency?: string;          // ISO code, e.g. "USD". Omitted/absent = INR, base currency.
+  exchangeRate?: number;      // rate to INR at invoice date (1 unit of `currency` = this many INR)
+  foreignSubtotal?: number;
+  foreignTotal?: number;
 }
 
 export interface CreditNoteItem {

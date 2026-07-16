@@ -156,6 +156,7 @@ export default function FixedAssets({ db, onSaveAsset, onRunDepreciation }: Prop
         ))}
       </div>
       <div className="card-lift bg-white border border-slate-200 rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>{["Asset Name","Category","Purchase Date","Cost (₹)","Method","Acc. Dep. (₹)","Net Book Value (₹)","Status","Actions"].map(h=><th key={h} className="py-3 px-3 text-left text-[10px] font-bold text-slate-500 uppercase">{h}</th>)}</tr>
@@ -197,6 +198,7 @@ export default function FixedAssets({ db, onSaveAsset, onRunDepreciation }: Prop
             })}
           </tbody>
         </table>
+        </div>
       </div>
 
       {disposing && (

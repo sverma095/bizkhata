@@ -346,7 +346,7 @@ export default function AdminDashboard(props: AdminDashboardProps) {
   const seatsExhausted = seatsAvailable <= 0;
 
   return (
-    <div id="admin-dashboard" className="min-h-screen bg-slate-55 text-slate-850 font-sans flex flex-col md:flex-row">
+    <div id="admin-dashboard" className="min-h-screen bg-slate-50 text-slate-800 font-sans flex flex-col md:flex-row">
       
       {/* Sleek LEFT SIDEBAR - Sticky on Desktop, stacks on Mobile */}
       <aside className="w-full md:w-64 bg-[#F3F4F7] text-slate-700 flex flex-col shrink-0 border-b md:border-b-0 md:border-r border-slate-200 justify-between md:h-screen md:sticky md:top-0 shadow-sm">
@@ -487,7 +487,7 @@ export default function AdminDashboard(props: AdminDashboardProps) {
       <main className="flex-1 flex flex-col md:h-screen md:overflow-y-auto">
         
         {/* Top bar on top of main workspace */}
-        <header className="bg-white border-b border-slate-205 px-8 py-4 shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <header className="bg-white border-b border-slate-200 px-8 py-4 shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-lg font-extrabold text-slate-950 tracking-tight font-sans">
               {activeTab === 'users' && "Staff Teammates Directory"}
@@ -495,7 +495,7 @@ export default function AdminDashboard(props: AdminDashboardProps) {
               {activeTab === 'seats' && "Subscription Seats Licensing"}
               {activeTab === 'audit' && "Organizational Operation Audits"}
             </h1>
-            <p className="text-xs text-slate-505 font-medium mt-0.5">
+            <p className="text-xs text-slate-500 font-medium mt-0.5">
               Authorized Tenant Node: GSTIN <span className="font-mono font-bold uppercase text-slate-700">{company.gstNumber}</span>
             </p>
             {(company as any).approvedAt && (
@@ -525,7 +525,7 @@ export default function AdminDashboard(props: AdminDashboardProps) {
             <button
               id="admin-btn-refresh"
               onClick={fetchTenantData}
-              className="text-xs font-bold px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-350 text-slate-700 transition duration-150 flex items-center gap-2 cursor-pointer shadow-xs"
+              className="text-xs font-bold px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-700 transition duration-150 flex items-center gap-2 cursor-pointer shadow-xs"
             >
               Sync Active State
             </button>
@@ -539,8 +539,8 @@ export default function AdminDashboard(props: AdminDashboardProps) {
           {message && (
             <div className={`p-4 rounded-xl border text-xs shadow-xs flex items-center gap-3 animate-fade-in ${
               message.isError 
-                ? 'bg-rose-50 border-rose-200 text-rose-850 font-medium' 
-                : 'bg-emerald-50 border-emerald-200 text-emerald-850 font-medium'
+                ? 'bg-rose-50 border-rose-200 text-rose-800 font-medium' 
+                : 'bg-emerald-50 border-emerald-200 text-emerald-800 font-medium'
             }`}>
               <span id="admin-dashboard-flash-text" className="font-medium">{message.text}</span>
             </div>
@@ -561,7 +561,7 @@ export default function AdminDashboard(props: AdminDashboardProps) {
                 </div>
                 <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden flex" id="licensing-seats-meter">
                   <div 
-                    className={`h-full transition-all duration-300 ${seatsExhausted ? 'bg-rose-500' : 'bg-sky-505'}`} 
+                    className={`h-full transition-all duration-300 ${seatsExhausted ? 'bg-rose-500' : 'bg-sky-500'}`} 
                     style={{ width: `${Math.min(100, (seatsUsed / company.allocatedSeats) * 100)}%` }}
                   ></div>
                 </div>
@@ -602,7 +602,7 @@ export default function AdminDashboard(props: AdminDashboardProps) {
                     placeholder="Search staff teammate..."
                     value={userQuery}
                     onChange={(e) => setUserQuery(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-205 focus:outline-hidden rounded-lg"
+                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 focus:outline-hidden rounded-lg"
                   />
                   <Users className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-slate-400" />
                 </div>
@@ -640,7 +640,7 @@ export default function AdminDashboard(props: AdminDashboardProps) {
                           value={fullName}
                           onChange={(e) => setFullName(e.target.value)}
                           placeholder="Arpit Shah"
-                          className="w-full px-3 py-1.5 text-xs bg-white border border-slate-205 rounded focus:ring-1 focus:ring-sky-500"
+                          className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded focus:ring-1 focus:ring-sky-500"
                         />
                       </div>
 
@@ -653,7 +653,7 @@ export default function AdminDashboard(props: AdminDashboardProps) {
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           placeholder="arpit@company.com"
-                          className="w-full px-3 py-1.5 text-xs bg-white border border-slate-205 rounded disabled:opacity-60 focus:ring-1 focus:ring-sky-500"
+                          className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded disabled:opacity-60 focus:ring-1 focus:ring-sky-500"
                         />
                       </div>
 
@@ -665,7 +665,7 @@ export default function AdminDashboard(props: AdminDashboardProps) {
                           value={mobileNumber}
                           onChange={(e) => setMobileNumber(e.target.value)}
                           placeholder="+919911991199"
-                          className="w-full px-3 py-1.5 text-xs bg-white border border-slate-205 rounded"
+                          className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded"
                         />
                       </div>
                     </div>
@@ -678,7 +678,7 @@ export default function AdminDashboard(props: AdminDashboardProps) {
                           value={department}
                           onChange={(e) => setDepartment(e.target.value)}
                           placeholder="Engineering / Sales"
-                          className="w-full px-3 py-1.5 text-xs bg-white border border-slate-205 rounded"
+                          className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded"
                         />
                       </div>
 
@@ -689,7 +689,7 @@ export default function AdminDashboard(props: AdminDashboardProps) {
                           value={designation}
                           onChange={(e) => setDesignation(e.target.value)}
                           placeholder="Staff Auditor"
-                          className="w-full px-3 py-1.5 text-xs bg-white border border-slate-205 rounded"
+                          className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded"
                         />
                       </div>
 
@@ -698,7 +698,7 @@ export default function AdminDashboard(props: AdminDashboardProps) {
                         <select
                           value={role}
                           onChange={(e) => handleRolePresetSelect(e.target.value)}
-                          className="w-full px-3 py-1.5 text-xs bg-white border border-slate-205 rounded font-bold"
+                          className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded font-bold"
                         >
                           <option value="Manager">Manager Preset</option>
                           <option value="Accountant">Accountant Preset</option>
@@ -777,7 +777,7 @@ export default function AdminDashboard(props: AdminDashboardProps) {
                       .map((member) => (
                         <tr key={member.id} id={`row-employee-${member.id}`} className="hover:bg-slate-50/50">
                           <td className="p-3">
-                            <div className="font-bold text-slate-850 text-sm">{member.fullName}</div>
+                            <div className="font-bold text-slate-800 text-sm">{member.fullName}</div>
                             <div className="text-[10px] text-slate-400 font-mono select-all shrink-0 max-w-[160px] truncate">{member.email}</div>
                           </td>
                           <td className="p-3">
@@ -809,7 +809,7 @@ export default function AdminDashboard(props: AdminDashboardProps) {
                                 <button
                                   id={`btn-member-reset-${member.id}`}
                                   onClick={() => triggerDirectReset(member.id, member.fullName)}
-                                  className="p-1 px-1.5 text-[10px] font-bold bg-slate-50 hover:bg-slate-105 border border-slate-205 rounded font-sans transition flex items-center gap-1"
+                                  className="p-1 px-1.5 text-[10px] font-bold bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded font-sans transition flex items-center gap-1"
                                   title="Force Reset Password"
                                 >
                                   <ResetIcon className="w-3 h-3 text-amber-500" /> Reset Password
@@ -819,7 +819,7 @@ export default function AdminDashboard(props: AdminDashboardProps) {
                                   onClick={() => toggleUserStatus(member)}
                                   className={`p-1 px-1.5 text-[10px] font-bold rounded font-sans border transition ${
                                     member.status === 'Active' 
-                                      ? 'border-rose-100 bg-rose-50/50 text-rose-605 hover:bg-rose-950/35' 
+                                      ? 'border-rose-100 bg-rose-50/50 text-rose-600 hover:bg-rose-950/35' 
                                       : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100/50'
                                   }`}
                                 >
@@ -828,7 +828,7 @@ export default function AdminDashboard(props: AdminDashboardProps) {
                                 <button
                                   id={`btn-member-edit-${member.id}`}
                                   onClick={() => startEditUser(member)}
-                                  className="p-1 px-2 text-[10px] font-bold bg-slate-50 border border-slate-250 text-sky-600 rounded transition"
+                                  className="p-1 px-2 text-[10px] font-bold bg-slate-50 border border-slate-200 text-sky-600 rounded transition"
                                 >
                                   Edit
                                 </button>
@@ -864,7 +864,7 @@ export default function AdminDashboard(props: AdminDashboardProps) {
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-450 uppercase tracking-widest mb-1">Unique Role Title / name</label>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Unique Role Title / name</label>
                       <input
                         type="text"
                         required
@@ -876,14 +876,14 @@ export default function AdminDashboard(props: AdminDashboardProps) {
                     </div>
 
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-450 uppercase tracking-widest mb-1 font-sans">Role Summary Description</label>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 font-sans">Role Summary Description</label>
                       <input
                         type="text"
                         required
                         value={customRoleDesc}
                         onChange={(e) => setCustomRoleDesc(e.target.value)}
                         placeholder="Authorized to review company logs, view receipts, and print statements."
-                        className="w-full px-3 py-1.5 text-xs bg-white border border-slate-205 rounded"
+                        className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded"
                       />
                     </div>
                   </div>
@@ -931,7 +931,7 @@ export default function AdminDashboard(props: AdminDashboardProps) {
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Active Custom Profiles Listing</span>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {customRoles.map((cr) => (
-                    <div key={cr.id} className="p-4 bg-slate-50/50 border border-slate-150 rounded-xl">
+                    <div key={cr.id} className="p-4 bg-slate-50/50 border border-slate-100 rounded-xl">
                       <div className="flex justify-between items-start mb-1">
                         <span className="text-xs font-extrabold text-slate-800 font-sans uppercase tracking-wider">{cr.name}</span>
                         <span className="text-[9px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-200 text-slate-500">{cr.permissions.length} Clearances</span>
@@ -972,7 +972,7 @@ export default function AdminDashboard(props: AdminDashboardProps) {
                       type="number"
                       required
                       min={1}
-                      className="w-full px-3 py-1.5 text-xs bg-white border border-slate-205 rounded font-bold font-mono"
+                      className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded font-bold font-mono"
                       value={seatsRequestedValue}
                       onChange={(e) => setSeatsRequestedValue(Number(e.target.value))}
                     />
@@ -984,7 +984,7 @@ export default function AdminDashboard(props: AdminDashboardProps) {
                       type="text"
                       required
                       placeholder="Onboarding five regional billing agents for national accounts expansion..."
-                      className="w-full px-3 py-1.5 text-xs bg-white border border-slate-205 rounded font-sans"
+                      className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded font-sans"
                       value={seatRequestReason}
                       onChange={(e) => setSeatRequestReason(e.target.value)}
                     />
@@ -1003,10 +1003,10 @@ export default function AdminDashboard(props: AdminDashboardProps) {
               </div>
 
               <div className="space-y-3">
-                <span className="text-xs font-bold text-slate-405 uppercase tracking-widest">Active License Ticket Applications</span>
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Active License Ticket Applications</span>
                 <div className="space-y-2">
                   {seatRequests.map((req) => (
-                    <div key={req.id} id={`history-seat-req-${req.id}`} className="p-3.5 bg-white border border-slate-150 rounded-lg shadow-3xs flex justify-between items-center text-xs">
+                    <div key={req.id} id={`history-seat-req-${req.id}`} className="p-3.5 bg-white border border-slate-100 rounded-lg shadow-xs flex justify-between items-center text-xs">
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-1.5">
                           <span className="font-extrabold text-slate-800 font-mono">Request +{req.additionalSeatsRequested} seats</span>
@@ -1045,7 +1045,7 @@ export default function AdminDashboard(props: AdminDashboardProps) {
               <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
                 <div className="max-h-[300px] overflow-y-auto">
                   <table className="w-full text-xs text-left text-slate-600">
-                    <thead className="bg-slate-50 uppercase tracking-wider text-[10px] text-slate-400 border-b border-slate-150 sticky top-0 md:bg-white">
+                    <thead className="bg-slate-50 uppercase tracking-wider text-[10px] text-slate-400 border-b border-slate-100 sticky top-0 md:bg-white">
                       <tr>
                         <th className="p-3">Event Date</th>
                         <th className="p-3 font-semibold">User Context</th>

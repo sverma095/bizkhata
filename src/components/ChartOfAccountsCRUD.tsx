@@ -153,6 +153,7 @@ export default function ChartOfAccountsCRUD({ db, onSaveAccount, onDeleteAccount
 
       {/* Accounts table grouped by type */}
       <div className="card-lift bg-white border border-slate-200 rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>
@@ -207,6 +208,7 @@ export default function ChartOfAccountsCRUD({ db, onSaveAccount, onDeleteAccount
             </tr>
           </tfoot>
         </table>
+        </div>
       </div>
     </div>
   );

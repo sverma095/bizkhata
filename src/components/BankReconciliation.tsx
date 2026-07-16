@@ -200,6 +200,7 @@ export default function BankReconciliation({ db, onSaveBankAccount, onSaveBankTr
           </div>
           {selectedAccountId && (
             <div className="card-lift bg-white border border-slate-200 rounded-xl overflow-hidden">
+              <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>{["Date","Description","Debit (₹)","Credit (₹)","Balance (₹)","Status","Match","Action"].map(h => (
@@ -239,6 +240,7 @@ export default function BankReconciliation({ db, onSaveBankAccount, onSaveBankTr
                   })}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </div>

@@ -2065,6 +2065,12 @@ app.post("/api/company", authGuard, async (req: any, res: any) => {
 app.post("/api/customers", authGuard, requirePermission("manage_customers"), async (req: any, res: any) => {
   const orgId = req.user.organizationId;
   if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
+  if (!req.body.name || !String(req.body.name).trim()) {
+    return res.status(400).json({ error: "Customer name is required." });
+  }
+  if (!req.body.state || !String(req.body.state).trim()) {
+    return res.status(400).json({ error: "State is required (used for GST intrastate/interstate calculation on invoices)." });
+  }
   const db = await readDB(orgId);
   const index = db.customers.findIndex(c => c.id === req.body.id);
   const user = req.body.authorUser || "User";

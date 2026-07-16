@@ -308,7 +308,7 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
       
       {/* Toast Alert Banner */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 bg-slate-900 text-emerald-450 border border-slate-800 text-xs font-bold font-mono py-3.5 px-6 rounded-xl shadow-2xl z-50 flex items-center gap-2.5 animate-bounce">
+        <div className="fixed bottom-6 right-6 bg-slate-900 text-emerald-400 border border-slate-800 text-xs font-bold font-mono py-3.5 px-6 rounded-xl shadow-2xl z-50 flex items-center gap-2.5 animate-bounce">
           <Check className="w-4 h-4 text-emerald-400" />
           <span>{toastMessage}</span>
         </div>
@@ -395,7 +395,7 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-slate-405 italic py-6 text-center">No configurations found matching that keyword query.</p>
+                <p className="text-xs text-slate-400 italic py-6 text-center">No configurations found matching that keyword query.</p>
               )}
             </div>
           )}
@@ -439,7 +439,7 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
               <ul className="space-y-2.5 text-xs text-slate-600 font-medium">
                 <li><button onClick={() => setActiveSection("general-configs")} className="text-left text-slate-800 hover:text-[#006EE5] transition duration-150 cursor-pointer">General</button></li>
                 <li><button onClick={() => setActiveSection("currencies")} className="text-left text-slate-800 hover:text-[#006EE5] transition duration-150 cursor-pointer">Currencies</button></li>
-                <li className="text-slate-850 font-bold flex items-center gap-1 hover:text-[#006EE5] cursor-pointer" onClick={() => triggerToast("New Payment Terms configuration successfully loaded!")}>
+                <li className="text-slate-800 font-bold flex items-center gap-1 hover:text-[#006EE5] cursor-pointer" onClick={() => triggerToast("New Payment Terms configuration successfully loaded!")}>
                   Payment Terms <span className="text-[8px] bg-red-100 text-red-600 font-extrabold px-1 rounded">NEW</span>
                 </li>
                 <li><button onClick={() => setActiveSection("opening-balances")} className="text-left text-slate-800 hover:text-[#006EE5] transition duration-150 cursor-pointer">Opening Balances</button></li>
@@ -897,6 +897,7 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
               <div className="space-y-4">
                 <h4 className="text-xs font-bold text-slate-400">REGISTERED WORKSPACE USERS</h4>
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
                     <thead className="bg-slate-50 border-b text-slate-600 font-bold">
                       <tr>
@@ -918,7 +919,7 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
                           <td className="p-3">{usr.name}</td>
                           <td className="p-3 font-mono">{usr.email}</td>
                           <td className="p-3"><span className="bg-blue-50 text-blue-700 border border-blue-200 text-[10px] uppercase font-bold px-2 py-0.5 rounded font-mono">{usr.role}</span></td>
-                          <td className="p-3 text-right text-slate-505">Read & Write</td>
+                          <td className="p-3 text-right text-slate-500">Read & Write</td>
                         </tr>
                       )) || (
                         <tr>
@@ -927,6 +928,7 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
                       )}
                     </tbody>
                   </table>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1001,7 +1003,7 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
               <div className="space-y-4">
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-500 font-bold block">Custom Domain Name</label>
-                  <div className="flex gap-2 text-slate-850">
+                  <div className="flex gap-2 text-slate-800">
                     <span className="bg-slate-100 border border-slate-200 border-r-0 text-slate-500 p-2 text-xs rounded-l-lg flex items-center font-bold">https://</span>
                     <input type="text" value={cfgCustomDomain} onChange={(e) => setCfgCustomDomain(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-r-lg px-3 py-2 text-xs font-mono text-slate-800 focus:outline-none" />
                   </div>
@@ -1083,8 +1085,8 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
               </div>
               <div className="space-y-4">
                 <div className="space-y-1.5 text-slate-700">
-                  <label className="text-xs text-slate-550 font-bold block">Minimum Spend/Bill Approval Threshold ( ₹ )</label>
-                  <input type="number" value={cfgApprovalLimit} onChange={(e) => setCfgApprovalLimit(Number(e.target.value))} className="w-full bg-slate-50 border border-slate-205 rounded-lg px-3.5 py-2 text-xs font-mono font-bold text-slate-800 focus:outline-none" />
+                  <label className="text-xs text-slate-500 font-bold block">Minimum Spend/Bill Approval Threshold ( ₹ )</label>
+                  <input type="number" value={cfgApprovalLimit} onChange={(e) => setCfgApprovalLimit(Number(e.target.value))} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2 text-xs font-mono font-bold text-slate-800 focus:outline-none" />
                 </div>
                 <div className="p-3 bg-amber-50 rounded-lg text-[11px] text-amber-800 border border-amber-200 leading-normal">
                   Any expense or vendor bill recorded above <strong>₹{cfgApprovalLimit.toLocaleString()}</strong> will enter the pending reviews queue.
@@ -1105,14 +1107,14 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
               </div>
               <div className="space-y-4">
                 <div className="space-y-1.5 text-slate-700">
-                  <label className="text-xs text-slate-555 font-bold block">UI Display Theme Preset</label>
+                  <label className="text-xs text-slate-600 font-bold block">UI Display Theme Preset</label>
                   <select value={cfgUserTheme} onChange={(e) => setCfgUserTheme(e.target.value)} className="w-full bg-slate-50 border rounded-lg px-3.5 py-2 text-xs text-slate-800">
                     <option value="light">Classic Clean Amber Light</option>
                     <option value="dark">Professional Steel Dark</option>
                   </select>
                 </div>
                 <div className="space-y-1.5 text-slate-700">
-                  <label className="text-xs text-slate-555 font-bold block">Ledger Records Page Size Limit</label>
+                  <label className="text-xs text-slate-600 font-bold block">Ledger Records Page Size Limit</label>
                   <select value={cfgPageSize} onChange={(e) => setCfgPageSize(Number(e.target.value))} className="w-full bg-slate-50 border rounded-lg px-3.5 py-2 text-xs text-slate-800">
                     <option value={10}>10 records per view</option>
                     <option value={25}>25 records per view</option>
@@ -1164,11 +1166,11 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
               </div>
               <div className="space-y-4 text-xs">
                 <div className="p-4 bg-slate-50 border rounded-xl space-y-1">
-                  <span className="text-slate-550 font-bold block text-slate-600">Primary Ledger Standard Currency</span>
+                  <span className="text-slate-500 font-bold block text-slate-600">Primary Ledger Standard Currency</span>
                   <span className="font-mono text-sm font-bold text-slate-900">{cfgBaseCurrency}</span>
                 </div>
                 <div className="space-y-2">
-                  <span className="font-bold text-slate-505 uppercase tracking-wider text-[10px] text-slate-400">Foreign Currency exchange values</span>
+                  <span className="font-bold text-slate-500 uppercase tracking-wider text-[10px] text-slate-400">Foreign Currency exchange values</span>
                   {cfgForeignCurrencies.map((c, idx) => (
                     <div key={idx} className="flex justify-between items-center bg-slate-50/50 p-3 rounded-lg border border-slate-200">
                       <span className="font-mono font-bold text-slate-800">{c.code}</span>
@@ -1247,14 +1249,14 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
                 <label className="flex items-center gap-3 p-3.5 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer">
                   <input type="checkbox" checked={cfgCustPortalActive} onChange={(e) => setCfgCustPortalActive(e.target.checked)} className="rounded text-[#006EE5] cursor-pointer" />
                   <div>
-                    <span className="font-bold text-slate-905 block">Activate Customer Portal</span>
+                    <span className="font-bold text-slate-900 block">Activate Customer Portal</span>
                     <span className="text-[11px] text-slate-500 block">Allows domestic clients to view statements and record payment receipts.</span>
                   </div>
                 </label>
                 <label className="flex items-center gap-3 p-3.5 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer">
                   <input type="checkbox" checked={cfgVendPortalActive} onChange={(e) => setCfgVendPortalActive(e.target.checked)} className="rounded text-[#006EE5] cursor-pointer" />
                   <div>
-                    <span className="font-bold text-slate-905 block">Activate Vendor Registry Portal</span>
+                    <span className="font-bold text-slate-900 block">Activate Vendor Registry Portal</span>
                     <span className="text-[11px] text-slate-500 block">Enables partner vendors to file supply bills and view invoice payouts securely.</span>
                   </div>
                 </label>
@@ -1345,7 +1347,7 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
                   <input type="checkbox" checked={cfgSmsDispatch} onChange={(e) => setCfgSmsDispatch(e.target.checked)} className="rounded text-[#006EE5] cursor-pointer" />
                   <div>
                     <b className="block text-slate-900">Push SMS notifications via Twilio/Msg91 API</b>
-                    <span className="text-[10.5px] text-slate-450 block font-normal">Dispatches outstanding links to customer mobile numbers on file.</span>
+                    <span className="text-[10.5px] text-slate-400 block font-normal">Dispatches outstanding links to customer mobile numbers on file.</span>
                   </div>
                 </label>
                 <button onClick={() => { triggerToast("SMS broadcast parameters updated!"); setActiveSection("menu"); }} className="w-full bg-[#006EE5] text-white hover:bg-[#0060C7] text-xs font-bold py-2.5 rounded-lg transition cursor-pointer">
@@ -1421,7 +1423,7 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
                 <h3 className="font-bold text-slate-900 border-b pb-3 flex items-center gap-2 text-sm">✍️ Digital Signature Certificates</h3>
                 <p className="text-xs text-slate-500 mt-1">Affix DSC digital signatures directly to Tax Invoices in accordance with Section-37 compliance guidelines.</p>
               </div>
-              <div className="space-y-4 text-xs font-medium text-slate-605">
+              <div className="space-y-4 text-xs font-medium text-slate-600">
                 <div className="space-y-1.5 font-bold text-slate-700">
                   <label>DSC Hardware Serial Identity Token</label>
                   <input type="text" value={cfgDscSerial} onChange={(e) => setCfgDscSerial(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2 font-mono text-slate-800 focus:outline-none" />
@@ -1478,7 +1480,7 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
               </div>
               <div className="space-y-4 text-xs font-semibold text-slate-700 font-sans">
                 <div className="space-y-1.5 font-bold">
-                  <span className="block text-slate-550 mb-1">MSME Category Classification</span>
+                  <span className="block text-slate-500 mb-1">MSME Category Classification</span>
                   <select value={cfgMsmeCategory} onChange={(e) => setCfgMsmeCategory(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2 text-slate-800">
                     <option value="Micro Enterprise (Section-43B matching)">Micro Enterprise (15-day strict claim limit)</option>
                     <option value="Small Enterprise (Section-43B matching)">Small Enterprise (45-day contract limit)</option>
@@ -1486,7 +1488,7 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
                   </select>
                 </div>
                 <div className="space-y-1.5 font-bold">
-                  <span className="block text-slate-550 mb-1">UDYAM MSME Registration Serial Code</span>
+                  <span className="block text-slate-500 mb-1">UDYAM MSME Registration Serial Code</span>
                   <input type="text" value={cfgMsmeRegNo} onChange={(e) => setCfgMsmeRegNo(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2 font-mono font-bold text-slate-800 focus:outline-none" />
                 </div>
                 <button onClick={() => { triggerToast("Udyam registration profiles stored successfully!"); setActiveSection("menu"); }} className="w-full bg-[#006EE5] text-white hover:bg-[#0060C7] text-xs font-bold py-2.5 rounded-lg transition cursor-pointer">

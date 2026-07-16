@@ -252,7 +252,7 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
   const pendingSeatTickets = seatRequests.filter(s => s.status === 'Pending').length;
 
   return (
-    <div id="superadmin-dashboard" className="min-h-screen bg-slate-55 text-slate-800 font-sans flex flex-col md:flex-row">
+    <div id="superadmin-dashboard" className="min-h-screen bg-slate-50 text-slate-800 font-sans flex flex-col md:flex-row">
       
       {/* Sleek LEFT SIDEBAR - Sticky on Desktop, stacks on Mobile */}
       <aside className="w-full md:w-64 bg-[#F3F4F7] text-slate-700 flex flex-col shrink-0 border-b md:border-b-0 md:border-r border-slate-200 justify-between md:h-screen md:sticky md:top-0 shadow-sm">
@@ -481,7 +481,7 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
             <button
               id="su-btn-refresh"
               onClick={loadAllData}
-              className="text-xs font-bold px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-350 text-slate-700 transition duration-150 flex items-center gap-2 cursor-pointer shadow-xs"
+              className="text-xs font-bold px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-700 transition duration-150 flex items-center gap-2 cursor-pointer shadow-xs"
             >
               <RefreshIcon className={`w-3.5 h-3.5 text-slate-500 ${loading ? 'animate-spin' : ''}`} /> 
               Sync State
@@ -497,9 +497,9 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
             <div className={`p-4 rounded-xl border text-xs shadow-xs flex items-center gap-3 animate-fade-in ${
               message.isError 
                 ? 'bg-rose-50 border-rose-200 text-rose-800 font-medium' 
-                : 'bg-emerald-50 border-emerald-250 text-emerald-805 font-medium'
+                : 'bg-emerald-50 border-emerald-200 text-emerald-800 font-medium'
             }`}>
-              <AlertCircle className={`w-4 h-4 ${message.isError ? 'text-rose-500' : 'text-emerald-555'}`} />
+              <AlertCircle className={`w-4 h-4 ${message.isError ? 'text-rose-500' : 'text-emerald-600'}`} />
               <span id="su-dashboard-flash-text" className="font-medium">{message.text}</span>
             </div>
           )}
@@ -524,7 +524,7 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
               <div className="text-2xl font-bold text-slate-900" id="stat-seats">
                 {totalSeatsUsed} <span className="text-xs text-slate-400">/ {totalSeatsAllocated}</span>
               </div>
-              <p className="text-[10px] text-slate-450 mt-1 font-mono">
+              <p className="text-[10px] text-slate-400 mt-1 font-mono">
                 Occupancy count: {((totalSeatsUsed / (totalSeatsAllocated || 1)) * 100).toFixed(0)}%
               </p>
             </div>
@@ -544,7 +544,7 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                 <Sliders className="w-4.5 h-4.5 text-purple-500" />
               </div>
               <div className="text-2xl font-bold text-slate-900" id="stat-seat-reqs">{pendingSeatTickets}</div>
-              <div className="text-[10px] text-purple-650 font-semibold mt-1">Outstanding seat demands</div>
+              <div className="text-[10px] text-purple-600 font-semibold mt-1">Outstanding seat demands</div>
             </div>
 
           </div>
@@ -564,14 +564,14 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                   <p className="text-[9.5px] uppercase font-black text-slate-400 tracking-wider">Enrolled Tenant Businesses</p>
                   <div className="flex items-baseline gap-2">
                     <span className="text-2xl font-black text-slate-800">{organizations.length}</span>
-                    <span className="text-xs text-slate-550">SME Corporations</span>
+                    <span className="text-xs text-slate-500">SME Corporations</span>
                   </div>
                 </div>
                 <div className="card-lift bg-white border border-slate-200 p-4 rounded-xl shadow-xs space-y-1">
                   <p className="text-[9.5px] uppercase font-black text-slate-400 tracking-wider">Licensed Seating Capacity</p>
                   <div className="flex items-baseline gap-2">
                     <span className="text-2xl font-black text-slate-800">{organizations.reduce((acc, curr) => acc + (curr.allocatedSeats || 0), 0)}</span>
-                    <span className="text-xs text-slate-550">Active Seats</span>
+                    <span className="text-xs text-slate-500">Active Seats</span>
                   </div>
                 </div>
                 <div className="card-lift bg-white border border-slate-200 p-4 rounded-xl shadow-xs space-y-1">
@@ -647,7 +647,7 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                       .map((org) => (
                         <tr key={org.id} id={`row-org-${org.id}`} className="hover:bg-slate-50/50">
                           <td className="p-3">
-                            <div className="font-bold text-slate-860 font-sans text-sm">{org.name}</div>
+                            <div className="font-bold text-slate-900 font-sans text-sm">{org.name}</div>
                             <div className="text-[10px] text-slate-400">UUID: {org.id}</div>
                           </td>
                           <td className="p-3 uppercase font-semibold text-slate-700">{org.gstNumber}</td>
@@ -833,7 +833,7 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1 text-xs text-slate-500 font-mono">
                             <div><span className="font-semibold text-slate-400">GSTIN:</span> <span className="uppercase text-slate-700">{reg.gstNumber}</span></div>
                             <div><span className="font-semibold text-slate-400">Admin Owner:</span> <span className="text-slate-700">{reg.adminName}</span></div>
-                            <div><span className="font-semibold text-slate-400">Contact:</span> <span className="text-slate-750">{reg.email}</span></div>
+                            <div><span className="font-semibold text-slate-400">Contact:</span> <span className="text-slate-700">{reg.email}</span></div>
                             <div><span className="font-semibold text-slate-400">Asked seats:</span> <span className="font-bold text-sky-600">{reg.numberOfRequiredSeats} Seats</span></div>
                             <div><span className="font-semibold text-slate-400">Requested plan:</span> <span className="font-bold text-emerald-600 capitalize">{reg.requestedPlan || "—"}</span></div>
                           </div>
@@ -913,7 +913,7 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
               {pendingActionReg && (
                 <div className="p-5 bg-slate-50 rounded-xl border border-slate-200 space-y-3" id="su-reg-action-container">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Confirm Action for: <span className="text-slate-850 p-1 px-2 rounded bg-white font-mono">{pendingActionReg.companyName}</span>
+                    Confirm Action for: <span className="text-slate-800 p-1 px-2 rounded bg-white font-mono">{pendingActionReg.companyName}</span>
                   </h4>
 
                   {/* Registration date info */}
@@ -1071,7 +1071,7 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
               <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
                 <div className="max-h-[350px] overflow-y-auto pr-1">
                   <table className="w-full text-xs text-left text-slate-600">
-                    <thead className="bg-slate-50 uppercase tracking-wider text-[10px] text-slate-400 border-b border-slate-150 sticky top-0 md:bg-white">
+                    <thead className="bg-slate-50 uppercase tracking-wider text-[10px] text-slate-400 border-b border-slate-100 sticky top-0 md:bg-white">
                       <tr>
                         <th className="p-3">Event Date</th>
                         <th className="p-3">User context</th>
@@ -1125,6 +1125,7 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
               </div>
 
               <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+                <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead className="bg-slate-50 border-b border-slate-200 text-[11px] text-slate-500 uppercase font-semibold">
                     <tr>
@@ -1275,6 +1276,7 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                     )}
                   </tbody>
                 </table>
+                </div>
               </div>
             </div>
           )}
@@ -1534,7 +1536,7 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
               </div>
             </div>
             
-            <div className="mt-4 p-2 bg-slate-900/50 rounded-lg border border-slate-850/50 text-[10px] text-sky-300 flex items-center gap-2">
+            <div className="mt-4 p-2 bg-slate-900/50 rounded-lg border border-slate-800/50 text-[10px] text-sky-300 flex items-center gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></div>
               <span>Platform firewalls reporting zero leakage events</span>
             </div>

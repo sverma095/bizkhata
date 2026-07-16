@@ -309,7 +309,7 @@ export default function Payments({ db, onRecordPayment }: PaymentsProps) {
       {showReceipt && (
         <div id="payment-receipt-sheet" className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4">
           <div className="bg-white text-slate-900 w-full max-w-lg rounded-2xl shadow-2xl border border-slate-100 flex flex-col">
-            <div className="flex justify-between items-center p-4 border-b border-slate-150 bg-slate-900 text-white rounded-t-2xl">
+            <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-slate-900 text-white rounded-t-2xl">
               <span className="text-xs font-bold tracking-widest uppercase">MOCK REMITTANCE RECEIPT</span>
               <div className="flex gap-2">
                 <button 
@@ -327,7 +327,7 @@ export default function Payments({ db, onRecordPayment }: PaymentsProps) {
             <div className="p-8 space-y-6 text-xs text-slate-700 leading-relaxed">
               <div className="flex justify-between items-start">
                 <div className="space-y-1">
-                  <h3 className="text-sm font-bold text-indigo-650 uppercase tracking-wider">Payment Acknowledgement</h3>
+                  <h3 className="text-sm font-bold text-indigo-600 uppercase tracking-wider">Payment Acknowledgement</h3>
                   <p className="text-slate-500">Issued by: <span className="font-semibold text-slate-800">{db.company.name}</span></p>
                 </div>
                 <div className="text-right font-mono font-black text-slate-900">
@@ -336,7 +336,7 @@ export default function Payments({ db, onRecordPayment }: PaymentsProps) {
               </div>
 
               <div className="border border-indigo-100 bg-indigo-50/20 rounded-xl p-4 text-center space-y-1.5">
-                <div className="text-[10px] text-slate-450 uppercase font-bold tracking-widest">Amount Received</div>
+                <div className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">Amount Received</div>
                 <div className="text-2xl font-black text-slate-900 font-mono">
                   ₹ {showReceipt.amountReceived.toLocaleString('en-IN')}
                 </div>

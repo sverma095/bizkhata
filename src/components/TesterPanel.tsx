@@ -199,7 +199,7 @@ export default function TesterPanel(props: TesterPanelProps) {
                         {hasActivationCode && onNavigateToActivate && (
                           <button
                             onClick={() => onNavigateToActivate(notif.to, notif.code)}
-                            className="ml-auto text-[10px] font-bold text-teal-600 hover:text-teal-850 bg-teal-50 px-2 py-1 rounded border border-teal-200 transition"
+                            className="ml-auto text-[10px] font-bold text-teal-600 hover:text-teal-800 bg-teal-50 px-2 py-1 rounded border border-teal-200 transition"
                           >
                             Open Account Activation Page →
                           </button>

@@ -960,7 +960,7 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
 
                     <div className="border-t border-b border-[#E5E1D8] py-4 bg-[#FDFBF7] px-4 rounded-xl flex justify-between items-center text-sm font-black font-sans mt-4">
                       <span className="uppercase tracking-widest text-[#2C2C24]">Net Net Operating Earnings (A - B):</span>
-                      <span className={`font-mono text-sm px-4 py-1 border rounded ${netProfit >= 0 ? "bg-emerald-50 text-emerald-800 border-emerald-250" : "bg-rose-50 text-rose-800 border-rose-250 animate-pulse"}`}>
+                      <span className={`font-mono text-sm px-4 py-1 border rounded ${netProfit >= 0 ? "bg-emerald-50 text-emerald-800 border-emerald-200" : "bg-rose-50 text-rose-800 border-rose-200 animate-pulse"}`}>
                         ₹ {netProfit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </span>
                     </div>
@@ -988,7 +988,7 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
                       <span className="font-mono">₹{totalRevenue.toLocaleString('en-IN')}</span>
                     </div>
 
-                    <div className="flex justify-between text-slate-650 border-b border-[#E5E1D8]/50 pb-1">
+                    <div className="flex justify-between text-slate-600 border-b border-[#E5E1D8]/50 pb-1">
                       <span>Other Corporate Non-Operating Income:</span>
                       <span className="font-mono text-[#8C867A]">₹0.00</span>
                     </div>
@@ -1002,22 +1002,22 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
                       IV. Operational and Administrative Expenses
                     </div>
 
-                    <div className="flex justify-between text-slate-650 border-b border-[#E5E1D8]/50 pb-1 pl-4">
+                    <div className="flex justify-between text-slate-600 border-b border-[#E5E1D8]/50 pb-1 pl-4">
                       <span>Employee Benefits & Consultation compensation:</span>
                       <span className="font-mono">₹{(totalExpenses * 0.45).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
                     </div>
 
-                    <div className="flex justify-between text-slate-650 border-b border-[#E5E1D8]/50 pb-1 pl-4">
+                    <div className="flex justify-between text-slate-600 border-b border-[#E5E1D8]/50 pb-1 pl-4">
                       <span>Office Rent & Utility infrastructure allocations:</span>
                       <span className="font-mono">₹{(totalExpenses * 0.25).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
                     </div>
 
-                    <div className="flex justify-between text-slate-650 border-b border-[#E5E1D8]/50 pb-1 pl-4">
+                    <div className="flex justify-between text-slate-600 border-b border-[#E5E1D8]/50 pb-1 pl-4">
                       <span>Professional CA Fees, Audits, Licenses & SaaS:</span>
                       <span className="font-mono">₹{(totalExpenses * 0.3).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
                     </div>
 
-                    <div className="flex justify-between text-slate-650 border-b border-[#E5E1D8]/50 pb-1 pl-4">
+                    <div className="flex justify-between text-slate-600 border-b border-[#E5E1D8]/50 pb-1 pl-4">
                       <span>Depreciation and Amortisation Exp:</span>
                       <span className="font-mono">₹0.00</span>
                     </div>
@@ -1080,8 +1080,8 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
                       </div>
                       <div className={`text-right font-mono font-black text-sm px-4 py-1.5 rounded-xl border ${
                         netCashFlowChange >= 0 
-                          ? "bg-white text-emerald-800 border-emerald-250 font-bold" 
-                          : "bg-rose-50 text-rose-800 border-rose-250 font-bold animate-pulse"
+                          ? "bg-white text-emerald-800 border-emerald-200 font-bold" 
+                          : "bg-rose-50 text-rose-800 border-rose-200 font-bold animate-pulse"
                       }`}>
                         {netCashFlowChange >= 0 ? "+" : ""} ₹{netCashFlowChange.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </div>
@@ -1161,7 +1161,7 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
                             <span>Opening Owner Capital Paid-In:</span>
                             <span className="font-mono text-slate-800">₹{capital.toLocaleString('en-IN')}</span>
                           </div>
-                          <div className="flex justify-between text-teal-850 font-bold">
+                          <div className="flex justify-between text-teal-800 font-bold">
                             <span>Undistributed Earnings (P&L):</span>
                             <span className="font-mono text-slate-800">₹{retainedEarnings.toLocaleString('en-IN')}</span>
                           </div>
@@ -1265,7 +1265,7 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
                             <td className="py-3 px-4 font-mono text-[10px] text-[#8C867A]">{cust.gstin}</td>
                             <td className="py-3 px-4 text-right font-mono">₹{cust.totalInvoiced.toLocaleString('en-IN')}</td>
                             <td className="py-3 px-4 text-right font-mono text-emerald-800">₹{cust.totalReceived.toLocaleString('en-IN')}</td>
-                            <td className={`py-3 px-4 text-right font-mono font-bold ${cust.outstanding > 0 ? "text-indigo-805" : "text-slate-400"}`}>
+                            <td className={`py-3 px-4 text-right font-mono font-bold ${cust.outstanding > 0 ? "text-indigo-800" : "text-slate-400"}`}>
                               ₹{cust.outstanding.toLocaleString('en-IN')}
                             </td>
                           </tr>
@@ -1303,7 +1303,7 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
                             <td className="py-3 px-4 font-mono text-[10px] text-[#8C867A]">{vend.gstin}</td>
                             <td className="py-3 px-4 text-right font-mono">₹{vend.totalBilled.toLocaleString('en-IN')}</td>
                             <td className="py-3 px-4 text-right font-mono text-emerald-800">₹{vend.totalPaid.toLocaleString('en-IN')}</td>
-                            <td className={`py-3 px-4 text-right font-mono font-bold ${vend.outstanding > 0 ? "text-rose-805" : "text-slate-400"}`}>
+                            <td className={`py-3 px-4 text-right font-mono font-bold ${vend.outstanding > 0 ? "text-rose-800" : "text-slate-400"}`}>
                               ₹{vend.outstanding.toLocaleString('en-IN')}
                             </td>
                           </tr>
@@ -1318,7 +1318,7 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
               {selectedReport.id === "gstr1" && (
                 <div id="stat-gstr1" className="space-y-6 animate-fade-in font-sans">
                   <div className="text-center space-y-1 mb-6 border-b border-dashed border-[#E5E1D8] pb-4">
-                    <span className="text-[10px] font-mono font-bold tracking-widest text-emerald-805 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-250">GSTR India Schedulers</span>
+                    <span className="text-[10px] font-mono font-bold tracking-widest text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">GSTR India Schedulers</span>
                     <h3 className="text-base font-black uppercase tracking-wider mt-1.5 text-slate-900">GSTR-1 Outward Supplies Return</h3>
                     <p className="text-[11px] text-[#8C867A]">Monthly statement of outwards sales invoices, consumer supplies, and HSN consolidations.</p>
                   </div>
@@ -1343,7 +1343,7 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
                         <span className="text-xs font-semibold text-slate-500">{gstr1Data.b2cLargeCount} Invoices</span>
                         <span className="font-mono text-base font-bold text-slate-900">₹{gstr1Data.b2cLargeTaxable.toLocaleString('en-IN')}</span>
                       </div>
-                      <div className="text-[10px] font-mono text-emerald-705 mt-2 flex justify-between">
+                      <div className="text-[10px] font-mono text-emerald-700 mt-2 flex justify-between">
                         <span>IGST Levied:</span>
                         <span>₹{gstr1Data.b2cLargeGst.toLocaleString('en-IN')}</span>
                       </div>
@@ -1355,14 +1355,14 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
                         <span className="text-xs font-semibold text-slate-500">{gstr1Data.b2cSmallCount} Invoices</span>
                         <span className="font-mono text-base font-bold text-slate-900">₹{gstr1Data.b2cSmallTaxable.toLocaleString('en-IN')}</span>
                       </div>
-                      <div className="text-[10px] font-mono text-emerald-705 mt-2 flex justify-between">
+                      <div className="text-[10px] font-mono text-emerald-700 mt-2 flex justify-between">
                         <span>GST Levied:</span>
                         <span>₹{gstr1Data.b2cSmallGst.toLocaleString('en-IN')}</span>
                       </div>
                     </div>
 
                     <div className="bg-[#1C202F] text-white p-4 rounded-xl shadow-2xs">
-                      <span className="text-[10px] font-bold text-slate-450 uppercase tracking-widest block mb-1">Total Tax Liability</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Total Tax Liability</span>
                       <div className="text-lg font-mono font-black text-[#00D779] mt-1.5">
                         ₹{(gstr1Data.b2bGst + gstr1Data.b2cLargeGst + gstr1Data.b2cSmallGst).toLocaleString('en-IN')}
                       </div>
@@ -1427,7 +1427,7 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
                   </div>
 
                   {/* B2C SMALL RETAIL TRANSACTIONS */}
-                  <div className="card-lift bg-white border border-slate-205 rounded-xl overflow-hidden shadow-xs">
+                  <div className="card-lift bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
                     <p className="p-4 bg-slate-50 border-b border-slate-100 font-bold text-xs text-slate-800 flex items-center justify-between">
                       <span>B2C Small Consumer Supplies (Table 7)</span>
                       <span className="px-2 py-0.5 bg-amber-50 text-amber-700 rounded text-[9.5px] font-mono">Standard Retail Sales</span>
@@ -1458,9 +1458,9 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
                                 <td className="py-2.5 px-4 font-mono font-bold text-slate-900">{inv.invoiceNumber}</td>
                                 <td className="py-2.5 px-4 text-slate-600">{inv.customerName} (Unregistered)</td>
                                 <td className="py-2.5 px-4 text-right font-mono">₹{inv.subtotal.toLocaleString('en-IN')}</td>
-                                <td className="py-2.5 px-4 text-right font-mono text-slate-450">₹{(inv.totalCgst || 0).toLocaleString('en-IN')}</td>
-                                <td className="py-2.5 px-4 text-right font-mono text-slate-450">₹{(inv.totalSgst || 0).toLocaleString('en-IN')}</td>
-                                <td className="py-2.5 px-4 text-right font-mono text-slate-450">₹{(inv.totalIgst || 0).toLocaleString('en-IN')}</td>
+                                <td className="py-2.5 px-4 text-right font-mono text-slate-400">₹{(inv.totalCgst || 0).toLocaleString('en-IN')}</td>
+                                <td className="py-2.5 px-4 text-right font-mono text-slate-400">₹{(inv.totalSgst || 0).toLocaleString('en-IN')}</td>
+                                <td className="py-2.5 px-4 text-right font-mono text-slate-400">₹{(inv.totalIgst || 0).toLocaleString('en-IN')}</td>
                                 <td className="py-2.5 px-4 text-right font-mono font-bold text-slate-800">₹{inv.total.toLocaleString('en-IN')}</td>
                               </tr>
                             ))
@@ -1471,7 +1471,7 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
                   </div>
 
                   {/* HSN-WISE CONSOLIDATED SUMMARY */}
-                  <div className="card-lift bg-white border border-slate-205 rounded-xl overflow-hidden shadow-xs">
+                  <div className="card-lift bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
                     <p className="p-4 bg-slate-50 border-b border-slate-100 font-bold text-xs text-slate-800 flex items-center justify-between">
                       <span>HSN-wise Outward Supplies Summary (Table 12)</span>
                       <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded text-[9.5px] font-mono font-bold">Mandatory HSN/SAC</span>
@@ -2149,10 +2149,10 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
                         <p className="text-[10.5px] text-[#8C867A] mt-1 font-sans">Net liquid reserves available for day-to-day operations.</p>
                       </div>
                       <div className="flex items-baseline justify-between mt-4">
-                        <span className="font-mono font-bold text-emerald-850">
+                        <span className="font-mono font-bold text-emerald-800">
                           ₹ {(totalAssets - totalLiabilities).toLocaleString("en-IN")}
                         </span>
-                        <span className="text-[9.5px] text-slate-550 italic font-bold">
+                        <span className="text-[9.5px] text-slate-500 italic font-bold">
                           {(totalAssets - totalLiabilities) >= 0 ? "Positive working capital" : "Negative — review cash position"}
                         </span>
                       </div>
@@ -2754,7 +2754,7 @@ export default function Reports({ db, onTriggerAI, isLoadingAI, aiExplanation, o
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[#8C867A]">Status Index:</span>
-                    <span className="text-emerald-850 font-bold">100% Compliant</span>
+                    <span className="text-emerald-800 font-bold">100% Compliant</span>
                   </div>
                 </div>
               </div>
