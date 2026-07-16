@@ -816,6 +816,27 @@ app.get("/api/health", async (req: any, res: any) => {
       checks.bk_registrationsWritable = false;
       checks.bk_registrationsWritableNote = e.message;
     }
+
+    // Same write-then-delete probe for bk_users, using the exact field shape saveUserDB
+    // sends (organizationid lowercase, no camelCase organizationId) — this is the table
+    // that was silently failing every write due to the organizationId/organizationid
+    // case mismatch, which blocked all logins.
+    try {
+      const testId = `__write_test_${Date.now()}__`;
+      const writeOk = await sbUpsert("bk_users", { id: testId, organizationid: null, fullName: "__health_check__", email: `__health_check_${Date.now()}__@example.invalid`, role: "Admin", status: "Active", password: "x", createdAt: new Date().toISOString() });
+      checks.bk_usersWritable = writeOk;
+      if (writeOk) {
+        await fetch(`${SUPABASE_URL}/rest/v1/bk_users?id=eq.${testId}`, {
+          method: "DELETE",
+          headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` }
+        }).catch(() => {});
+      } else {
+        checks.bk_usersWritableNote = "Write failed - check Vercel logs for the sbUpsert(bk_users) error just above this health check request.";
+      }
+    } catch (e: any) {
+      checks.bk_usersWritable = false;
+      checks.bk_usersWritableNote = e.message;
+    }
   } else {
     checks.superAdminStateReachable = false;
     checks.superAdminStateError = "Supabase not configured — registrations will not survive cold starts";
