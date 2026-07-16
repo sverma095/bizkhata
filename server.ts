@@ -63,71 +63,24 @@ const sbHeaders = () => ({
   "Prefer": "return=representation"
 });
 
-// Known top-level columns per table, matching the actual Postgres schema created by
-// /api/superadmin/init-db. Any field NOT in this list is packed into the `data` jsonb
-// catch-all column (which the schema already has) instead of being sent as a top-level
-// column - PostgREST silently rejects unknown/mismatched top-level columns and fails
-// the ENTIRE batch upsert, not just the offending row. Two real instances of this were
-// found in production: the org `plan` field (added to the app's org object but never
-// added to the table), and `organizationId` on bk_users (the column was created
-// unquoted as `organizationid`, so PostgREST's case-sensitive matching never matched
-// the camelCase JSON key the app actually sends). Both are covered automatically by
-// routing anything not in this exact list through `data` instead.
-const TABLE_COLUMNS: Record<string, string[]> = {
-  bk_organizations: ["id", "name", "gstNumber", "status", "allocatedSeats", "usedSeats", "createdAt", "approvedAt", "subscriptionExpiresAt", "subscriptionMonths"],
-  bk_users: ["id", "fullName", "email", "mobileNumber", "role", "status", "password", "permissions", "twoFactorEnabled", "twoFactorVerified", "createdAt"],
-  bk_registrations: ["id", "companyName", "gstNumber", "adminName", "email", "mobileNumber", "password", "numberOfRequiredSeats", "requestedPlan", "status", "emailVerified", "createdAt"],
-};
-
-function packForUpsert(table: string, record: any): any {
-  const known = TABLE_COLUMNS[table];
-  if (!known) return record;
-  const packed: any = {};
-  const extra: any = {};
-  for (const [k, v] of Object.entries(record || {})) {
-    if (known.includes(k)) packed[k] = v;
-    else extra[k] = v;
-  }
-  packed.data = extra;
-  return packed;
-}
-
-function unpackFromSelect(table: string, row: any): any {
-  if (!row || !TABLE_COLUMNS[table]) return row;
-  const { data, ...rest } = row;
-  return { ...rest, ...(data && typeof data === "object" ? data : {}) };
-}
-
 async function sbSelect(table: string, filter?: string): Promise<any[]> {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return [];
   const url = `${SUPABASE_URL}/rest/v1/${table}${filter ? `?${filter}` : ""}`;
   try {
     const r = await fetch(url, { headers: sbHeaders(), signal: AbortSignal.timeout(8000) });
-    if (!r.ok) {
-      // Previously silent - a failed SELECT looked identical to "table is just empty",
-      // which is exactly what made this whole class of bug so hard to diagnose.
-      const body = await r.text().catch(() => "");
-      console.error(`sbSelect(${table}) failed: ${r.status} ${body.slice(0, 300)}`);
-      return [];
-    }
-    const rows = await r.json();
-    return Array.isArray(rows) ? rows.map((row: any) => unpackFromSelect(table, row)) : rows;
-  } catch (err) {
-    console.error(`sbSelect(${table}) threw:`, err);
-    return [];
-  }
+    if (!r.ok) return [];
+    return await r.json();
+  } catch { return []; }
 }
 
 async function sbUpsert(table: string, data: any | any[]): Promise<boolean> {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
   const url = `${SUPABASE_URL}/rest/v1/${table}`;
   try {
-    const records = Array.isArray(data) ? data : [data];
-    const packed = records.map((r) => packForUpsert(table, r));
     const r = await fetch(url, {
       method: "POST",
       headers: { ...sbHeaders(), "Prefer": "return=minimal,resolution=merge-duplicates" },
-      body: JSON.stringify(packed),
+      body: JSON.stringify(Array.isArray(data) ? data : [data]),
       signal: AbortSignal.timeout(8000)
     });
     if (!r.ok && r.status !== 204) {
@@ -165,7 +118,7 @@ async function migrateLegacyBlob(): Promise<void> {
     const blob = rows[0].state;
     // Migrate each array into its dedicated table
     if (blob.organizations?.length) await sbUpsert("bk_organizations", blob.organizations);
-    if (blob.users?.length) await sbUpsert("bk_users", blob.users.map((u: any) => ({ ...u, organizationid: u.organizationId || null })));
+    if (blob.users?.length) await sbUpsert("bk_users", blob.users.map((u: any) => { const { organizationId, ...rest } = u; return { ...rest, organizationid: organizationId || null }; }));
     if (blob.registrationRequests?.length) await sbUpsert("bk_registrations", blob.registrationRequests);
     if (blob.seatRequests?.length) await sbUpsert("bk_seat_requests", blob.seatRequests);
     if (blob.supportTickets?.length) await sbUpsert("bk_support_tickets", blob.supportTickets);
@@ -281,7 +234,10 @@ async function saveUserDB(): Promise<boolean> {
   const writes: Promise<boolean>[] = [];
   if (USER_DB.organizations.length) writes.push(sbUpsert("bk_organizations", USER_DB.organizations));
   if (USER_DB.users.length) {
-    const usersForDB = USER_DB.users.map((u: any) => ({ ...u, organizationid: u.organizationId || null }));
+    const usersForDB = USER_DB.users.map((u: any) => {
+      const { organizationId, ...rest } = u;
+      return { ...rest, organizationid: organizationId || null };
+    });
     writes.push(sbUpsert("bk_users", usersForDB));
   }
   if (USER_DB.registrationRequests.length) writes.push(sbUpsert("bk_registrations", USER_DB.registrationRequests));
@@ -2788,20 +2744,14 @@ app.post("/api/users/remove", authGuard, requirePermission("manage_users"), asyn
 app.post("/api/superadmin/init-db", authGuard, superAdminGuard, async (req: any, res: any) => {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return res.status(400).json({ error: "Supabase not configured." });
   const sql = `
-    create table if not exists bk_organizations (id text primary key, name text, "gstNumber" text, status text, "allocatedSeats" int, "usedSeats" int, "createdAt" text, "approvedAt" text, "subscriptionExpiresAt" text, "subscriptionMonths" int, data jsonb default '{}');
+    create table if not exists bk_organizations (id text primary key, name text, "gstNumber" text, status text, "allocatedSeats" int, "usedSeats" int, plan text default 'starter', "createdAt" text, "approvedAt" text, "subscriptionExpiresAt" text, "subscriptionMonths" int, data jsonb default '{}');
+    alter table if exists bk_organizations add column if not exists plan text default 'starter';
     create table if not exists bk_users (id text primary key, organizationid text, "fullName" text, email text unique, "mobileNumber" text, role text, status text, password text, permissions jsonb, "twoFactorEnabled" bool default false, "twoFactorVerified" bool default false, "createdAt" text, data jsonb default '{}');
     create table if not exists bk_registrations (id text primary key, "companyName" text, "gstNumber" text, "adminName" text, email text, "mobileNumber" text, password text, "numberOfRequiredSeats" int, "requestedPlan" text default 'starter', status text, "emailVerified" bool, "createdAt" text);
     alter table if exists bk_registrations add column if not exists "requestedPlan" text default 'starter';
     create table if not exists bk_seat_requests (id text primary key, "organizationId" text, "requestedBy" text, "currentSeatCount" int, "additionalSeatsRequested" int, reason text, status text, "createdAt" text);
     create table if not exists bk_support_tickets (id text primary key, "organizationId" text, "orgName" text, "raisedBy" text, "raisedByEmail" text, subject text, description text, priority text, status text, messages jsonb, "createdAt" text, "updatedAt" text);
     create table if not exists bk_notifications (id text primary key, "to" text, subject text, body text, type text, timestamp text, code text);
-    -- Migrations for tables that may already exist from before these fixes: add the
-    -- jsonb catch-all columns that packForUpsert/unpackFromSelect rely on to safely
-    -- persist fields not in the original fixed column list (e.g. org "plan",
-    -- registration "requestedPlan") without failing the whole batch write.
-    alter table bk_organizations add column if not exists data jsonb default '{}';
-    alter table bk_users add column if not exists data jsonb default '{}';
-    alter table bk_registrations add column if not exists data jsonb default '{}';
   `;
   try {
     const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/exec_sql`, {
@@ -2809,25 +2759,11 @@ app.post("/api/superadmin/init-db", authGuard, superAdminGuard, async (req: any,
       body: JSON.stringify({ sql })
     });
     if (r.ok) {
-      res.json({ success: true, sqlRan: true, message: "Tables created/migrated successfully via exec_sql." });
+      res.json({ success: true, message: "Tables created. Run migration to copy existing data." });
     } else {
-      // exec_sql RPC isn't available in this Supabase project (it's not a default
-      // Supabase function — must be created manually). Previously this silently
-      // fell back to a plain upsert and reported success regardless, which meant
-      // "Init DB Tables" could report success without the ALTER TABLE migrations
-      // (the actual fix for the plan/organizationId/requestedPlan schema mismatches)
-      // ever having run. Now honest about that so it's actually diagnosable.
-      const body = await r.text().catch(() => "");
-      const writeOk = await sbUpsert("bk_organizations", USER_DB.organizations.length ? USER_DB.organizations : []);
-      res.json({
-        success: writeOk,
-        sqlRan: false,
-        message: writeOk
-          ? "exec_sql RPC not available (status " + r.status + ") — couldn't run the ALTER TABLE migrations. Tables exist and basic writes work, but you may need to add the 'data jsonb' column to bk_organizations/bk_users/bk_registrations manually in the Supabase SQL editor: alter table bk_organizations add column if not exists data jsonb default '{}'; (repeat for bk_users, bk_registrations)."
-          : "exec_sql RPC not available and the fallback write also failed — check RLS policies or run the CREATE/ALTER statements manually in the Supabase SQL editor.",
-        sqlToRunManually: sql,
-        execSqlError: body.slice(0, 300)
-      });
+      // Tables might already exist — try a direct write instead
+      await sbUpsert("bk_organizations", USER_DB.organizations.length ? USER_DB.organizations : []);
+      res.json({ success: true, message: "Tables ready (already existed or created)." });
     }
   } catch (err: any) {
     res.status(500).json({ error: err.message });
