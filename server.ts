@@ -76,7 +76,7 @@ const sbHeaders = () => ({
 const TABLE_COLUMNS: Record<string, string[]> = {
   bk_organizations: ["id", "name", "gstNumber", "status", "allocatedSeats", "usedSeats", "createdAt", "approvedAt", "subscriptionExpiresAt", "subscriptionMonths"],
   bk_users: ["id", "fullName", "email", "mobileNumber", "role", "status", "password", "permissions", "twoFactorEnabled", "twoFactorVerified", "createdAt"],
-  bk_registrations: ["id", "companyName", "gstNumber", "adminName", "email", "mobileNumber", "password", "numberOfRequiredSeats", "status", "emailVerified", "createdAt"],
+  bk_registrations: ["id", "companyName", "gstNumber", "adminName", "email", "mobileNumber", "password", "numberOfRequiredSeats", "requestedPlan", "status", "emailVerified", "createdAt"],
 };
 
 function packForUpsert(table: string, record: any): any {
