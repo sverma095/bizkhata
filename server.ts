@@ -88,6 +88,14 @@ function packForUpsert(table: string, record: any): any {
     if (known.includes(k)) packed[k] = v;
     else extra[k] = v;
   }
+  // PostgREST bulk upsert requires every object in the array to have IDENTICAL keys -
+  // it builds one SQL statement from the first object's shape and rejects the whole
+  // batch with PGRST102 "All object keys must match" if any other object's key set
+  // differs. Records commonly differ in which fields are actually populated (a legacy
+  // org missing approvedAt, a user without twoFactorVerified set, etc.), so every known
+  // column must always be present - explicitly null when the record doesn't have it -
+  // rather than only including keys that happen to exist on this particular record.
+  for (const col of known) if (!(col in packed)) packed[col] = null;
   packed.data = extra;
   return packed;
 }
