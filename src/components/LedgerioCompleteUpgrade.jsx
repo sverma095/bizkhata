@@ -872,7 +872,6 @@ function CostCentres({ db, token }) {
 const MODULES = [
   { id: "tds", icon: "📋", label: "TDS Management", p: "p1", C: TDSModule },
   { id: "workflow", icon: "⚡", label: "Workflow Automation", p: "p1", C: WorkflowAutomation },
-  { id: "email", icon: "✉", label: "Email / SMTP", p: "p1", C: EmailModule },
   { id: "gstr2b", icon: "🧾", label: "GSTR-2B Reconciliation", p: "p1", C: GSTR2B },
   { id: "reminders", icon: "🔔", label: "Payment Reminders", p: "p1", C: PaymentReminders },
   { id: "approvals", icon: "✅", label: "Approval Workflows", p: "p2", C: ApprovalWorkflows },
@@ -974,4 +973,3 @@ create table if not exists advance_payments (id uuid primary key default gen_ran
 create table if not exists recurring_transactions (id uuid primary key default gen_random_uuid(), org_id uuid, type text, name text, amount numeric, frequency text, next_date date, is_active boolean default true, times_generated int default 0, created_at timestamptz default now());
 create table if not exists currencies (id uuid primary key default gen_random_uuid(), org_id uuid, code text, name text, exchange_rate numeric, last_updated timestamptz default now());
 */
-
