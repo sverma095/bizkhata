@@ -1036,7 +1036,7 @@ export default function App() {
             className="hidden md:flex items-center gap-1.5 cursor-pointer text-xs text-slate-100 hover:text-white font-semibold bg-transparent border-0 transition-colors"
             title="Organisation Settings"
           >
-            <span className="max-w-[150px] truncate">{db.company.legalName || db.company.name || "Your Company"}</span>
+            <span className="max-w-[150px] truncate">{db?.company?.legalName || db?.company?.name || "Your Company"}</span>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
           </button>
 
@@ -1388,7 +1388,7 @@ export default function App() {
           {/* System settings and current status bar */}
           <div className="p-3 border-t border-slate-200 bg-[#EBECF2]/40 space-y-1 text-[10.5px]">
             <p className="text-slate-400 font-medium">FINANCIAL INSTANCE:</p>
-            <p className="font-mono text-slate-800 font-bold uppercase truncate">{db.company.name}</p>
+            <p className="font-mono text-slate-800 font-bold uppercase truncate">{db?.company?.name || "—"}</p>
             <div className="flex items-center gap-1.5 text-emerald-600 font-bold text-[10px] mt-1">
               <Check className="w-3 h-3 text-emerald-600" />
               <span>GSTR COMPLIANT</span>
