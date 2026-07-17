@@ -1549,6 +1549,45 @@ app.post("/api/auth/terminate-sessions", authGuard, (req: any, res: any) => {
 
 // Super Admin - Registrations
 app.get("/api/superadmin/registrations", authGuard, superAdminGuard, (req: any, res: any) => res.json(USER_DB.registrationRequests.map((r: any) => ({ ...r, password: undefined }))));
+
+// Super Admin: view/edit the original sign-up form data for a registration - company
+// name, GSTIN, admin name, contact details, seats requested, plan. Useful for
+// correcting typos or updating details before/after approval, without asking the
+// applicant to submit a whole new registration. Password is intentionally excluded -
+// use POST /api/superadmin/users/:id/set-password for that instead.
+const EDITABLE_REG_FIELDS = ["companyName", "gstNumber", "adminName", "email", "mobileNumber", "numberOfRequiredSeats", "requestedPlan"];
+app.patch("/api/superadmin/registrations/:id", authGuard, superAdminGuard, async (req: any, res: any) => {
+  const reg = USER_DB.registrationRequests.find((r: any) => r.id === req.params.id);
+  if (!reg) return res.status(404).json({ error: "Registration not found." });
+  const originalEmail = reg.email;
+  const changes: string[] = [];
+  for (const field of EDITABLE_REG_FIELDS) {
+    if (field in req.body && req.body[field] !== reg[field]) {
+      changes.push(`${field}: "${reg[field] ?? ""}" → "${req.body[field]}"`);
+      reg[field] = req.body[field];
+    }
+  }
+  if (changes.length === 0) return res.json({ success: true, reg: { ...reg, password: undefined }, changed: false });
+
+  // If already approved, keep the linked user record in sync too - otherwise an
+  // edit here would silently drift from what's actually on the account.
+  if (reg.status === "Approved") {
+    const user = USER_DB.users.find((u: any) => u.email === originalEmail);
+    if (user) {
+      if ("adminName" in req.body) user.fullName = req.body.adminName;
+      if ("mobileNumber" in req.body) user.mobileNumber = req.body.mobileNumber;
+      if ("email" in req.body && req.body.email !== originalEmail) user.email = req.body.email;
+    }
+  }
+
+  addAuditLog(null, req.user.fullName, req.user.role, "Edit Registration", `Updated '${reg.companyName}': ${changes.join(", ")}`);
+  const saveOk = await saveUserDB();
+  if (!saveOk) {
+    console.error(`edit registration: saveUserDB failed for ${reg.id} — check the sbUpsert error logged just above this.`);
+    return res.status(500).json({ success: false, error: "Changes applied but failed to persist. Check server logs, then try again." });
+  }
+  res.json({ success: true, reg: { ...reg, password: undefined }, changed: true });
+});
 app.post("/api/superadmin/registrations/:id/action", authGuard, superAdminGuard, async (req: any, res: any) => {
   const reg = USER_DB.registrationRequests.find((r: any) => r.id === req.params.id);
   if (!reg) { res.status(404).json({ error: "Registration not found." }); return; }

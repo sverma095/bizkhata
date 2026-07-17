@@ -44,6 +44,9 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
   const [editExpiry, setEditExpiry] = useState<string>('');
   
   const [pendingActionReg, setPendingActionReg] = useState<RegistrationRequest | null>(null);
+  const [editingReg, setEditingReg] = useState<RegistrationRequest | null>(null);
+  const [editRegForm, setEditRegForm] = useState<any>({});
+  const [savingRegEdit, setSavingRegEdit] = useState(false);
   const [actionFeedback, setActionFeedback] = useState('');
   const [approvalMonths, setApprovalMonths] = useState(12);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
@@ -828,6 +831,12 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
                             <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded-full font-bold bg-slate-200" id={`reg-badge-status-${reg.id}`}>
                               {reg.status}
                             </span>
+                            <button
+                              onClick={() => { setEditingReg(reg); setEditRegForm({ companyName: reg.companyName, gstNumber: reg.gstNumber || "", adminName: reg.adminName, email: reg.email, mobileNumber: reg.mobileNumber, numberOfRequiredSeats: reg.numberOfRequiredSeats, requestedPlan: reg.requestedPlan || "starter" }); }}
+                              className="text-[10px] font-bold text-sky-600 hover:text-sky-800 underline decoration-dotted cursor-pointer"
+                            >
+                              Edit
+                            </button>
                           </div>
                           
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1 text-xs text-slate-500 font-mono">
@@ -1592,6 +1601,86 @@ export default function SuperAdminDashboard(props: SuperAdminDashboardProps) {
     </div>
 
   </main>
+
+  {editingReg && (
+    <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl border border-slate-200 p-6 w-full max-w-md space-y-4 shadow-lg">
+        <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+          <h4 className="font-bold text-slate-800 text-sm">Edit Registration — {editingReg.companyName}</h4>
+          <button onClick={() => setEditingReg(null)} className="text-slate-400 hover:text-slate-700 text-lg leading-none cursor-pointer">×</button>
+        </div>
+        <div className="space-y-3 text-xs">
+          <div>
+            <label className="text-slate-500 font-semibold block mb-1">Company Name</label>
+            <input value={editRegForm.companyName || ""} onChange={e => setEditRegForm({ ...editRegForm, companyName: e.target.value })} className="w-full border border-slate-300 rounded px-2.5 py-1.5" />
+          </div>
+          <div>
+            <label className="text-slate-500 font-semibold block mb-1">GSTIN</label>
+            <input value={editRegForm.gstNumber || ""} onChange={e => setEditRegForm({ ...editRegForm, gstNumber: e.target.value.toUpperCase() })} className="w-full border border-slate-300 rounded px-2.5 py-1.5 uppercase font-mono" />
+          </div>
+          <div>
+            <label className="text-slate-500 font-semibold block mb-1">Admin Owner Name</label>
+            <input value={editRegForm.adminName || ""} onChange={e => setEditRegForm({ ...editRegForm, adminName: e.target.value })} className="w-full border border-slate-300 rounded px-2.5 py-1.5" />
+          </div>
+          <div>
+            <label className="text-slate-500 font-semibold block mb-1">Contact Email</label>
+            <input type="email" value={editRegForm.email || ""} onChange={e => setEditRegForm({ ...editRegForm, email: e.target.value })} className="w-full border border-slate-300 rounded px-2.5 py-1.5" />
+            {editingReg.status === "Approved" && <p className="text-[10px] text-amber-600 mt-1">Changing this also updates their login email since this account is already active.</p>}
+          </div>
+          <div>
+            <label className="text-slate-500 font-semibold block mb-1">Mobile Number</label>
+            <input value={editRegForm.mobileNumber || ""} onChange={e => setEditRegForm({ ...editRegForm, mobileNumber: e.target.value })} className="w-full border border-slate-300 rounded px-2.5 py-1.5" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-slate-500 font-semibold block mb-1">Seats Requested</label>
+              <input type="number" min={1} value={editRegForm.numberOfRequiredSeats || 1} onChange={e => setEditRegForm({ ...editRegForm, numberOfRequiredSeats: parseInt(e.target.value) || 1 })} className="w-full border border-slate-300 rounded px-2.5 py-1.5" />
+            </div>
+            <div>
+              <label className="text-slate-500 font-semibold block mb-1">Requested Plan</label>
+              <select value={editRegForm.requestedPlan || "starter"} onChange={e => setEditRegForm({ ...editRegForm, requestedPlan: e.target.value })} className="w-full border border-slate-300 rounded px-2.5 py-1.5">
+                <option value="free">Free</option>
+                <option value="starter">Starter</option>
+                <option value="professional">Professional</option>
+                <option value="enterprise">Enterprise</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+          <button onClick={() => setEditingReg(null)} className="px-4 py-1.5 text-xs font-bold text-slate-500 hover:text-slate-700">Cancel</button>
+          <button
+            disabled={savingRegEdit}
+            onClick={async () => {
+              setSavingRegEdit(true);
+              try {
+                const r = await fetch(`/api/superadmin/registrations/${editingReg.id}`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                  body: JSON.stringify(editRegForm)
+                });
+                const d = await r.json();
+                if (r.ok) {
+                  setMessage({ text: d.changed ? `✓ Updated ${editRegForm.companyName}` : "No changes to save", isError: false });
+                  setEditingReg(null);
+                  loadAllData();
+                } else {
+                  setMessage({ text: d.error || "Failed to save changes", isError: true });
+                }
+              } catch (e: any) {
+                setMessage({ text: e.message || "Failed to save changes", isError: true });
+              } finally {
+                setSavingRegEdit(false);
+              }
+            }}
+            className="px-5 py-1.5 text-xs font-bold text-white bg-sky-600 hover:bg-sky-700 rounded cursor-pointer disabled:opacity-60"
+          >
+            {savingRegEdit ? "Saving..." : "Save Changes"}
+          </button>
+        </div>
+      </div>
+    </div>
+  )}
 
 </div>
   );
