@@ -211,8 +211,6 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
   const [tdsRate, setTdsRate] = useState<number>(0);
   const [tdsAmount, setTdsAmount] = useState<number>(0);
   const [roundingOff, setRoundingOff] = useState<boolean>(false);
-  const [currency, setCurrency] = useState<string>("INR");
-  const [exchangeRate, setExchangeRate] = useState<number>(1);
   const [formItems, setFormItems] = useState<Array<{ itemId: string; name: string; hsnSac: string; qty: number; rate: number; gstRate: number; discount: number }>>([]);
   const [draftInvoiceNum, setDraftInvoiceNum] = useState("");
   const [discountType, setDiscountType] = useState<'percent'|'amount'>('percent');
@@ -243,8 +241,6 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
     setTdsRate(0);
     setTdsAmount(0);
     setRoundingOff(false);
-    setCurrency("INR");
-    setExchangeRate(1);
     setDiscountValue(0);
     setDiscountTiming('after_tax');
     setShippingCharge(0);
@@ -265,7 +261,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
     const cust = db.customers.find(c => c.id === customerId);
     if (!cust) return { sameState: true, companyState: "", customerState: "" };
     return {
-      sameState: (db.company.state || "").trim().toLowerCase() === (cust.state || "").trim().toLowerCase(),
+      sameState: db.company.state.trim().toLowerCase() === cust.state.trim().toLowerCase(),
       companyState: db.company.state,
       customerState: cust.state
     };
@@ -373,7 +369,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
 
     // Compile Invoice Items schema
     const finalItems: InvoiceItem[] = formItems.map((fItem, idx) => {
-      const isIntrastate = (db.company.state || "").trim().toLowerCase() === (cust.state || "").trim().toLowerCase();
+      const isIntrastate = db.company.state.trim().toLowerCase() === cust.state.trim().toLowerCase();
       const lineAmount = fItem.qty * fItem.rate;
       const lineGst = (lineAmount * fItem.gstRate) / 100;
 
@@ -401,31 +397,19 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
     const netBeforeRound = finalTotal - tdsAmount;
     const netTotal = roundingOff ? Math.round(netBeforeRound) : Math.round(netBeforeRound * 100) / 100;
 
-    // Multi-currency: line items above are entered and stored in the invoice's own
-    // currency (e.g. USD). subtotal/totalGst/total etc. must stay in the org's base
-    // currency (INR) since every report, journal, and GL calculation assumes that —
-    // so convert here, once, at the boundary, rather than touching any of that logic.
-    const fxRate = currency !== "INR" && exchangeRate > 0 ? exchangeRate : 1;
-    const foreignSubtotalVal = discountTiming === 'before_tax' ? Math.round((liveResults.subtotal - discountAmount) * 100) / 100 : liveResults.subtotal;
-    const foreignTotalVal = netTotal;
-
     const invoicePayload: any = {
       customerId,
       customerName: cust.name,
       date,
       dueDate,
       items: finalItems,
-      subtotal: Math.round(foreignSubtotalVal * fxRate * 100) / 100,
-      totalGst: Math.round((discountTiming === 'before_tax' ? effectiveGst : liveResults.totalGst) * fxRate * 100) / 100,
-      totalCgst: Math.round((discountTiming === 'before_tax' ? effectiveCgst : liveResults.cgst) * fxRate * 100) / 100,
-      totalSgst: Math.round((discountTiming === 'before_tax' ? effectiveSgst : liveResults.sgst) * fxRate * 100) / 100,
-      totalIgst: Math.round((discountTiming === 'before_tax' ? effectiveIgst : liveResults.igst) * fxRate * 100) / 100,
-      total: Math.round(foreignTotalVal * fxRate * 100) / 100,
-      currency: currency !== "INR" ? currency : undefined,
-      exchangeRate: currency !== "INR" ? exchangeRate : undefined,
-      foreignSubtotal: currency !== "INR" ? foreignSubtotalVal : undefined,
-      foreignTotal: currency !== "INR" ? foreignTotalVal : undefined,
-      tcsAmount: applyTcs ? Math.round(liveResults.total * 0.001 * fxRate * 100) / 100 : undefined,
+      subtotal: discountTiming === 'before_tax' ? Math.round((liveResults.subtotal - discountAmount) * 100) / 100 : liveResults.subtotal,
+      totalGst: discountTiming === 'before_tax' ? effectiveGst : liveResults.totalGst,
+      totalCgst: discountTiming === 'before_tax' ? effectiveCgst : liveResults.cgst,
+      totalSgst: discountTiming === 'before_tax' ? effectiveSgst : liveResults.sgst,
+      totalIgst: discountTiming === 'before_tax' ? effectiveIgst : liveResults.igst,
+      total: netTotal,
+      tcsAmount: applyTcs ? Math.round(liveResults.total * 0.001 * 100) / 100 : undefined,
       tdsAmount: tdsAmount || undefined,
       tdsRate: tdsSection ? tdsRate : undefined,
       tdsSection: tdsSection || undefined,
@@ -523,8 +507,6 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
     setDiscountValue(inv.discountValue || 0);
     setDiscountType(inv.discountType || 'percent');
     setDiscountTiming(inv.discountTiming || 'after_tax');
-    setCurrency(inv.currency || "INR");
-    setExchangeRate(inv.exchangeRate || 1);
     setShowForm(true);
   };
 
@@ -1026,35 +1008,6 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
               </div>
             </div>
 
-            {/* Multi-currency: line items are entered in this currency; totals are
-                stored in INR (base currency) using the rate below, so reports/journals/GL
-                all keep working in a single consistent currency. */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs text-gray-600 font-medium">Currency</label>
-                <select value={currency} onChange={(e) => setCurrency(e.target.value)}
-                  className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-800 text-sm focus:border-blue-500 outline-none"
-                >
-                  <option value="INR">INR — Indian Rupee</option>
-                  <option value="USD">USD — US Dollar</option>
-                  <option value="EUR">EUR — Euro</option>
-                  <option value="GBP">GBP — British Pound</option>
-                  <option value="AED">AED — UAE Dirham</option>
-                  <option value="SGD">SGD — Singapore Dollar</option>
-                </select>
-              </div>
-              {currency !== "INR" && (
-                <div className="space-y-1.5">
-                  <label className="text-xs text-gray-600 font-medium">Exchange Rate (1 {currency} = ? INR)</label>
-                  <input type="number" step="0.0001" min="0.0001" value={exchangeRate}
-                    onChange={(e) => setExchangeRate(parseFloat(e.target.value) || 0)}
-                    className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-800 text-sm focus:border-blue-500 outline-none"
-                  />
-                  <p className="text-[10px] text-gray-400">Line item rates below are in {currency}. Invoice will be booked to the ledger at ₹{exchangeRate} per {currency}.</p>
-                </div>
-              )}
-            </div>
-
             {/* Subject field */}
             <div className="space-y-1.5">
               <label className="text-xs text-gray-600 font-medium">Subject</label>
@@ -1260,25 +1213,25 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                           setTdsRate(rate);
                           setTdsAmount(Math.round(liveResults.subtotal * rate / 100 * 100) / 100);
                         }}
-                        className="flex-1 bg-white border border-gray-300 rounded px-2 py-1 text-gray-700 text-xs outline-none"
+                        className="flex-1 min-w-0 bg-white border border-gray-300 rounded px-2 py-1 text-gray-700 text-xs outline-none"
                       >
                         <option value="">Select a Tax</option>
-                        <optgroup label="Contract — old 194C / new Sec 393(1) Sl.6(i)">
+                        <optgroup label="Contract (194C)">
                           <option value="194C_ind">Contractor Ind/HUF @ 1%</option>
                           <option value="194C_comp">Contractor Company @ 2%</option>
                         </optgroup>
-                        <optgroup label="Professional — old 194J / new Sec 393(1) Sl.12">
+                        <optgroup label="Professional (194J)">
                           <option value="194J_prof">Professional Services @ 10%</option>
                           <option value="194J_tech">Technical Services @ 2%</option>
                         </optgroup>
-                        <optgroup label="Rent — old 194I / new Sec 393(1) Sl.2">
+                        <optgroup label="Rent (194I)">
                           <option value="194I_land">Land/Building @ 10%</option>
                           <option value="194I_plant">Plant/Machinery @ 2%</option>
                         </optgroup>
                         <optgroup label="Other">
-                          <option value="194A">Interest @ 10% (old 194A / new Sec 393(1) Sl.4)</option>
-                          <option value="194H">Commission @ 2% (old 194H / new Sec 393(1) Sl.10)</option>
-                          <option value="194Q">Purchase of Goods @ 0.1% (old 194Q / new Sec 393(1))</option>
+                          <option value="194A">Interest @ 10%</option>
+                          <option value="194H">Commission @ 2%</option>
+                          <option value="194Q">Purchase of Goods @ 0.1%</option>
                         </optgroup>
                       </select>
                     ) : (
@@ -1288,8 +1241,8 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                   {!applyTcs && tdsSection && (
                     <p className="text-[10px] text-gray-400 -mt-1">
                       {new Date(dueDate || new Date()) >= new Date("2026-04-01")
-                        ? "This invoice falls under the new Income Tax Act (2025) — quote the Section 393(1) reference on your TDS return, not the old 194-series code."
-                        : "This invoice falls under the old Income Tax Act (1961) 194-series section — the new Act's Section 393(1) applies from 1 April 2026 onward."}
+                        ? "New Income Tax Act (2025) applies — quote the Section 393(1) reference on your TDS return, not the old 194-series code shown above."
+                        : "Old Income Tax Act (1961) 194-series section applies — the new Act's Section 393(1) takes over from 1 April 2026 onward."}
                     </p>
                   )}
 
@@ -1671,7 +1624,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                           </button>
                           
                           {inv.status === "Converted" || inv.convertedToTax ? (
-                            <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-1 rounded font-bold inline-flex items-center gap-1">
+                            <span className="text-[10px] bg-emerald-100 text-emerald-850 border border-emerald-200 px-2 py-1 rounded font-bold inline-flex items-center gap-1">
                               ✓ {inv.convertedInvoiceNumber || "Converted"}
                             </span>
                           ) : (
@@ -1899,7 +1852,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                         .then(() => toast('Customer portal link copied!', 'success'))
                         .catch(() => toast(`Portal: bizkhata.app/portal?customer=${selectedCustomer.id}`, 'info'));
                     }}
-                    className="p-1.5 px-2 bg-white border border-slate-300 rounded text-xs text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+                    className="p-1.5 px-2 bg-white border border-slate-300 rounded text-xs text-slate-650 hover:bg-slate-50 transition cursor-pointer"
                     title="Copy direct attachment link"
                   >
                     <Clipboard className="w-3.5 h-3.5" />
@@ -1983,7 +1936,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                               setShowCustomerMore(false);
                               toast("GST treatment saved: Registered Business (Regular)", "success");
                             }}
-                            className="w-full text-left font-sans hover:bg-slate-50 px-2.5 py-1 text-slate-600 transition rounded-sm"
+                            className="w-full text-left font-sans hover:bg-slate-50 px-2.5 py-1 text-slate-650 transition rounded-sm"
                           >
                             GST Treatment Settings...
                           </button>
@@ -2092,11 +2045,11 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                               <span>Shipping Address</span>
                               <button onClick={() => handleEditCustomerClick(selectedCustomer)} className="text-[#5A5A40] hover:text-[#2C2C24]"><Edit className="w-3 h-3" /></button>
                             </div>
-                            <p className="mt-1 pb-1 leading-relaxed text-slate-600 whitespace-pre-wrap font-sans text-[11px]">
+                            <p className="mt-1 pb-1 leading-relaxed text-slate-650 whitespace-pre-wrap font-sans text-[11px]">
                               {selectedCustomer.billingAddress || "2nd Floor, Plot No. 270, Garage Society,\nUdyog Vihar Phase-2, Gurgaon\nGurugram, Haryana 122016\nIndia"}
                             </p>
                           </div>
-                          <button onClick={() => handleEditCustomerClick(selectedCustomer)} className="text-blue-600 font-bold hover:underline block text-[10.5px]">Add additional address</button>
+                          <button onClick={() => handleEditCustomerClick(selectedCustomer)} className="text-blue-650 font-bold hover:underline block text-[10.5px]">Add additional address</button>
                         </div>
                       )}
                     </div>
@@ -2185,7 +2138,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                     </p>
 
                     {/* Payment Terms bar */}
-                    <div className="bg-[#F5F2ED] border border-slate-200 p-4 rounded-xl flex items-center justify-between">
+                    <div className="bg-[#F5F2ED] border border-slate-205 p-4 rounded-xl flex items-center justify-between">
                       <span className="text-slate-400 font-bold uppercase text-[10px] tracking-wide">Payment due period</span>
                       <span className="font-extrabold text-[#5A5A40] text-xs font-mono">{selectedCustomer.paymentTerms || "Net 45"}</span>
                     </div>
@@ -2209,7 +2162,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                               <tbody className="text-slate-700 divide-y divide-slate-100 font-mono">
                                 <tr>
                                   <td className="p-3 text-slate-900 font-bold font-sans">INR- Indian Rupee</td>
-                                  <td className="p-3 text-right font-mono font-bold text-red-600 text-xs">₹{outstandingTotal.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
+                                  <td className="p-3 text-right font-mono font-bold text-red-650 text-xs">₹{outstandingTotal.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
                                   <td className="p-3 text-right text-slate-400">₹0.00</td>
                                 </tr>
                               </tbody>
@@ -2218,7 +2171,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                           <div>
                             <button 
                               type="button"
-                              onClick={() => alert("Initialize customer opening balance sheet adjustments")} className="text-blue-600 font-extrabold hover:underline text-[10.5px]">Enter Opening Balance</button>
+                              onClick={() => alert("Initialize customer opening balance sheet adjustments")} className="text-blue-650 font-extrabold hover:underline text-[10.5px]">Enter Opening Balance</button>
                           </div>
                         </div>
                       );
@@ -2247,20 +2200,20 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                           <div className="flex justify-between items-center">
                             <div>
                               <h3 className="text-sm font-bold text-slate-900">Income</h3>
-                              <p className="text-[11px] text-slate-400 font-medium">This chart is displayed in the organization's base currency.</p>
+                              <p className="text-[11px] text-slate-450 font-medium">This chart is displayed in the organization's base currency.</p>
                             </div>
                             <div className="flex items-center gap-2">
-                              <select className="border border-slate-200 rounded px-2 py-1 bg-white text-[10px] outline-none font-bold text-slate-600 cursor-pointer"><option>Last 6 Months</option></select>
-                              <select className="border border-slate-200 rounded px-2 py-1 bg-white text-[10px] outline-none font-bold text-slate-600 cursor-pointer"><option>Accrual</option></select>
+                              <select className="border border-slate-205 rounded px-2 py-1 bg-white text-[10px] outline-none font-bold text-slate-600 cursor-pointer"><option>Last 6 Months</option></select>
+                              <select className="border border-slate-205 rounded px-2 py-1 bg-white text-[10px] outline-none font-bold text-slate-600 cursor-pointer"><option>Accrual</option></select>
                             </div>
                           </div>
 
                           <div className="card-lift bg-white border border-slate-200 rounded-xl p-5 shadow-2xs h-56 flex flex-col justify-between">
-                            <div className="flex-1 flex gap-4 items-end justify-around pb-2 relative border-b border-slate-100 h-36">
+                            <div className="flex-1 flex gap-4 items-end justify-around pb-2 relative border-b border-slate-150 h-36">
                               
                               {/* Horizontal Indicator grids */}
-                              <div className="absolute left-0 right-0 top-0 border-t border-slate-100 text-[9px] text-slate-300 pr-2 pt-0.5 pointer-events-none">₹{Math.round(highestSaleValue).toLocaleString('en-IN')}</div>
-                              <div className="absolute left-0 right-0 top-1/2 border-t border-slate-100 text-[9px] text-slate-300 pr-2 pt-0.5 pointer-events-none">₹{Math.round(highestSaleValue / 2).toLocaleString('en-IN')}</div>
+                              <div className="absolute left-0 right-0 top-0 border-t border-slate-100 text-[9px] text-slate-350 pr-2 pt-0.5 pointer-events-none">₹{Math.round(highestSaleValue).toLocaleString('en-IN')}</div>
+                              <div className="absolute left-0 right-0 top-1/2 border-t border-slate-150 text-[9px] text-slate-350 pr-2 pt-0.5 pointer-events-none">₹{Math.round(highestSaleValue / 2).toLocaleString('en-IN')}</div>
                               
                               {months.map((m, ix) => {
                                 const sumValue = monthSalesSums[ix];
@@ -2280,12 +2233,12 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                             </div>
                             <div className="flex justify-around items-center pt-2 select-none font-sans">
                               {months.map(m => (
-                                <span key={m} className="text-[10px] font-bold text-slate-400 font-sans tracking-tight">{m}</span>
+                                <span key={m} className="text-[10px] font-bold text-slate-450 font-sans tracking-tight">{m}</span>
                               ))}
                             </div>
                           </div>
 
-                          <p className="text-slate-800 text-xs font-semibold">
+                          <p className="text-slate-850 text-xs font-semibold">
                             Total Income ( Last 6 Months ) - <span className="font-extrabold text-slate-900 border-b-2 border-[#5A5A40]">₹{chartIncomeTotal.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
                           </p>
                         </div>
@@ -2295,7 +2248,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                     {/* Timeline Log Section */}
                     <div className="space-y-4">
                       <h3 className="text-sm font-bold text-slate-900 font-sans">Timeline Audit Trails</h3>
-                      <div className="relative border-l-2 border-slate-200 pl-6 ml-2 space-y-4 py-1">
+                      <div className="relative border-l-2 border-slate-155 pl-6 ml-2 space-y-4 py-1">
                         <div className="relative">
                           <span className="absolute -left-[31px] top-1.5 w-2.5 h-2.5 bg-blue-600 rounded-full border border-white"></span>
                           <span className="text-[10px] text-slate-400 font-mono block font-bold">18 May 2026 10:55 AM</span>
@@ -2323,8 +2276,8 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                   <div className="space-y-3 font-sans">
                     {(customerComments[selectedCustomer.id] || []).length > 0 ? (
                       (customerComments[selectedCustomer.id] || []).map((comm, idx) => (
-                        <div key={idx} className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-1.5">
-                          <div className="flex justify-between items-center text-[10.5px] font-semibold text-slate-400">
+                        <div key={idx} className="bg-slate-50 p-4 rounded-xl border border-slate-150 space-y-1.5">
+                          <div className="flex justify-between items-center text-[10.5px] font-semibold text-slate-450">
                             <span className="text-blue-700 font-bold">• {comm.author}</span>
                             <span className="font-mono">{comm.date}</span>
                           </div>
@@ -2337,14 +2290,14 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                   </div>
 
                   {/* Add Comments field */}
-                  <div className="space-y-2 border-t border-slate-100 pt-4 font-sans">
-                    <label className="font-bold text-slate-700">Add Internal Regulatory Comment</label>
+                  <div className="space-y-2 border-t border-slate-150 pt-4 font-sans">
+                    <label className="font-bold text-slate-705">Add Internal Regulatory Comment</label>
                     <textarea
                       rows={2}
                       value={newCommentText}
                       onChange={e => setNewCommentText(e.target.value)}
                       placeholder="Input billing alerts, regulatory inquiries, or client updates..."
-                      className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 outline-none focus:border-[#5A5A40] resize-none font-sans font-medium"
+                      className="w-full bg-slate-50 border border-slate-205 rounded px-3 py-2 text-slate-800 outline-none focus:border-[#5A5A40] resize-none font-sans font-medium"
                     />
                     <div className="flex justify-end">
                       <button
@@ -2378,7 +2331,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                   
                   <div className="overflow-x-auto border border-slate-200 rounded-xl shadow-2xs bg-white">
                     <table className="w-full text-left text-xs font-sans font-medium">
-                      <thead className="bg-[#F5F2ED] text-slate-400 font-bold border-b border-[#E5E1D8]">
+                      <thead className="bg-[#F5F2ED] text-slate-450 font-bold border-b border-[#E5E1D8]">
                         <tr>
                           <th className="p-3">Doc Code</th>
                           <th className="p-3">Ref Code</th>
@@ -2394,7 +2347,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                           if (userBills.length === 0) {
                             return (
                               <tr>
-                                <td colSpan={6} className="text-center py-6 text-slate-400 italic font-normal">No invoices issued.</td>
+                                <td colSpan={6} className="text-center py-6 text-slate-450 italic font-normal">No invoices issued.</td>
                               </tr>
                             );
                           }
@@ -2402,11 +2355,11 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                             <tr key={b.id} className="hover:bg-slate-50/50">
                               <td className="p-3 font-mono font-bold text-blue-700">{b.invoiceNumber}</td>
                               <td className="p-3 font-mono text-slate-500">{b.isProforma ? "PROFORMA" : "TAX INVOICE"}</td>
-                              <td className="p-3 text-slate-600">{b.date}</td>
+                              <td className="p-3 text-slate-650">{b.date}</td>
                               <td className="p-3 text-right font-mono border-r border-slate-100/50">₹{b.subtotal.toLocaleString('en-IN')}</td>
                               <td className="p-3 text-right font-mono font-bold text-slate-900">₹{b.total.toLocaleString('en-IN')}</td>
                               <td className="p-3 text-center">
-                                <span className={`inline-block px-2.5 py-0.5 rounded text-[9.5px] uppercase font-bold border ${b.status === "Paid" || b.status === "Sent" ? "bg-emerald-50 text-emerald-800 border-emerald-200" : "bg-orange-50 text-orange-800 border-orange-200"}`}>{b.status}</span>
+                                <span className={`inline-block px-2.5 py-0.5 rounded text-[9.5px] uppercase font-bold border ${b.status === "Paid" || b.status === "Sent" ? "bg-emerald-50 text-emerald-800 border-emerald-250" : "bg-orange-55 text-orange-800 border-orange-200"}`}>{b.status}</span>
                               </td>
                             </tr>
                           ));
@@ -2430,14 +2383,14 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                           <span>TO: {selectedCustomer.email || "finance@customer.com"}</span>
                           <span>18 May 2026 11:32 AM</span>
                         </div>
-                        <h4 className="font-bold text-slate-800 font-sans text-xs">Initial Welcome Notification & legal record compliance review</h4>
+                        <h4 className="font-bold text-slate-850 font-sans text-xs">Initial Welcome Notification & legal record compliance review</h4>
                         <p className="text-slate-500 text-[11px]">Requested contact to directly confirm Haryana GSTIN status setup details.</p>
                         <span className="inline-block mt-1 font-mono text-[9px] bg-emerald-50 text-emerald-800 rounded font-bold border border-emerald-200 px-1.5 py-0.5 font-sans">✓ DELIVERED</span>
                       </div>
                     </div>
                     {db.invoices.filter(i => i.customerId === selectedCustomer.id && i.status === "Sent").map(i => (
                       <div key={i.id} className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex gap-4 items-start relative shadow-2xs leading-relaxed animate-fade-in font-sans">
-                        <div className="p-2 py-1 bg-blue-100 rounded text-blue-700 font-bold text-sm">✉</div>
+                        <div className="p-2 py-1 bg-blue-100 rounded text-blue-705 font-bold text-sm">✉</div>
                         <div className="flex-1 space-y-1 font-sans">
                           <div className="flex justify-between items-center text-[10px] font-semibold text-slate-400">
                             <span>TO: {selectedCustomer.email || "finance@customer.com"}</span>
@@ -2445,7 +2398,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                           </div>
                           <h4 className="font-bold text-slate-800 text-xs font-sans">Dispatched Tax Invoice No: {i.invoiceNumber}</h4>
                           <p className="text-slate-500 text-[11px]">Forwarded dual-entry digitally signed e-invoice sum of ₹{i.total.toLocaleString('en-IN')}</p>
-                          <span className="inline-block mt-1 font-mono text-[9px] bg-emerald-50 text-emerald-800 rounded font-bold border border-emerald-200 px-1.5 py-0.5">✓ SATELLITE DISPATCH SENT</span>
+                          <span className="inline-block mt-1 font-mono text-[9px] bg-emerald-50 text-emerald-800 rounded font-bold border border-emerald-250 px-1.5 py-0.5">✓ SATELLITE DISPATCH SENT</span>
                         </div>
                       </div>
                     ))}
@@ -2459,7 +2412,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                   <div className="flex justify-between items-start border-b border-slate-200 pb-3 font-sans">
                     <div>
                       <h3 className="text-sm font-bold text-slate-900 border-none">Client Account Statement Ledger</h3>
-                      <p className="text-[11px] text-slate-400 font-medium font-sans">Running balance calculations showing debit (invoice issued) and credit (incurred settlements).</p>
+                      <p className="text-[11px] text-slate-450 font-medium font-sans">Running balance calculations showing debit (invoice issued) and credit (incurred settlements).</p>
                     </div>
                     <button 
                       type="button"
@@ -2478,7 +2431,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                         win.document.close();
                         setTimeout(() => { win.focus(); win.print(); }, 400);
                       }}
-                      className="text-[10px] bg-slate-100 border border-slate-200 p-1.5 px-3 rounded font-bold hover:bg-slate-200 flex items-center gap-1 cursor-pointer text-slate-700 transition"
+                      className="text-[10px] bg-slate-105 border border-slate-200 p-1.5 px-3 rounded font-bold hover:bg-slate-200 flex items-center gap-1 cursor-pointer text-slate-750 transition"
                     >
                       <Printer className="w-3.5 h-3.5 text-slate-500" /> Export PDF
                     </button>
@@ -2487,7 +2440,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                   {/* MATHEMATICAL STATEMENT LEDGER TABLE */}
                   <div className="overflow-x-auto border border-slate-200 rounded-xl bg-white shadow-2xs">
                     <table className="w-full text-left font-sans text-xs">
-                      <thead className="bg-[#F5F2ED] text-slate-400 font-bold border-b border-[#E5E1D8] uppercase text-[9px] tracking-wider">
+                      <thead className="bg-[#F5F2ED] text-slate-450 font-bold border-b border-[#E5E1D8] uppercase text-[9px] tracking-wider">
                         <tr>
                           <th className="p-3">Tx Date</th>
                           <th className="p-3">Doc particulars / descriptor</th>
@@ -2498,8 +2451,8 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                       </thead>
                       <tbody className="divide-y divide-slate-100 font-medium text-slate-700 font-mono text-[11px]">
                         <tr className="hover:bg-slate-50/50">
-                          <td className="p-3 font-sans text-slate-400">18 May 2026</td>
-                          <td className="p-3 font-sans text-slate-800 font-bold">• Direct Opening Balance Ledger Entry</td>
+                          <td className="p-3 font-sans text-slate-450">18 May 2026</td>
+                          <td className="p-3 font-sans text-slate-850 font-bold">• Direct Opening Balance Ledger Entry</td>
                           <td className="p-3 text-right">₹{(selectedCustomer.openingBalance || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
                           <td className="p-3 text-right">₹0.00</td>
                           <td className="p-3 text-right font-bold text-slate-900">₹{(selectedCustomer.openingBalance || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
@@ -2550,8 +2503,8 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                                   <span className="font-bold text-blue-700 font-mono text-[10px] bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded mr-1.5">{tx.number}</span>
                                   {tx.type}
                                 </td>
-                                <td className="p-3 text-right text-red-600">₹{tx.dr > 0 ? tx.dr.toLocaleString('en-IN', {minimumFractionDigits: 2}) : "0.00"}</td>
-                                <td className="p-3 text-right text-emerald-600">₹{tx.cr > 0 ? tx.cr.toLocaleString('en-IN', {minimumFractionDigits: 2}) : "0.00"}</td>
+                                <td className="p-3 text-right text-red-650">₹{tx.dr > 0 ? tx.dr.toLocaleString('en-IN', {minimumFractionDigits: 2}) : "0.00"}</td>
+                                <td className="p-3 text-right text-emerald-650">₹{tx.cr > 0 ? tx.cr.toLocaleString('en-IN', {minimumFractionDigits: 2}) : "0.00"}</td>
                                 <td className="p-3 text-right font-bold text-slate-900 font-mono">₹{runningBalance.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
                               </tr>
                             );
@@ -2569,7 +2522,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
               <div className="flex justify-between items-center border-b border-[#E5E1D8] pb-3">
                 <div>
                   <h3 className="text-sm font-bold text-[#2C2C24]">Client & Customer Directory Accounts</h3>
-                  <span className="font-mono bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded text-[10px] inline-block mt-1">{db.customers.length} Regular Mapped Accounts</span>
+                  <span className="font-mono bg-blue-105 text-blue-800 font-bold px-2 py-0.5 rounded text-[10px] inline-block mt-1">{db.customers.length} Regular Mapped Accounts</span>
                 </div>
                 <button 
                   onClick={handleCreateCustomerClick}
@@ -3018,7 +2971,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                   value={creditSubtotal}
                   placeholder={`Max allocation remaining: ₹${showCreditForm.total}`}
                   onChange={(e) => setCreditSubtotal(parseFloat(e.target.value) || 0)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-slate-100 focus:border-slate-700 outline-none"
+                  className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-slate-100 focus:border-slate-750 outline-none"
                 />
               </div>
 
@@ -3030,7 +2983,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                   value={creditReason}
                   placeholder="e.g. Services fee waiver, items returned/defective, or discount alignment"
                   onChange={(e) => setCreditReason(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-slate-100 focus:border-slate-700 outline-none"
+                  className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-slate-100 focus:border-slate-750 outline-none"
                 />
               </div>
 
@@ -3045,8 +2998,8 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
 
       {/* E-INVOICE PORTAL PUSH ANIMATED PROGRESS MODAL */}
       {pushingEInvoiceId && (
-        <div className="fixed inset-0 bg-black/85 z-[60] flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 max-w-sm w-full text-center space-y-6">
+        <div className="fixed inset-0 bg-black/85 z-55 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-850 rounded-2xl p-8 max-w-sm w-full text-center space-y-6">
             <div className="relative w-16 h-16 mx-auto">
               <div className="absolute inset-0 border-4 border-amber-500/20 rounded-full"></div>
               <div className="absolute inset-0 border-4 border-t-amber-500 rounded-full animate-spin"></div>
@@ -3054,7 +3007,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
             </div>
             
             <div className="space-y-2">
-              <h4 className="text-sm font-bold text-slate-200">Pushing to National E-Invoicing System</h4>
+              <h4 className="text-sm font-bold text-slate-155">Pushing to National E-Invoicing System</h4>
               <p className="text-[11px] text-slate-400">GST Portal Invoice Registration Services</p>
             </div>
 
@@ -3092,7 +3045,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
               </button>
             </div>
 
-            <div className="space-y-4 text-xs text-slate-300">
+            <div className="space-y-4 text-xs text-slate-350">
               <div className="bg-amber-950/20 border border-amber-900/60 p-3 rounded-xl text-[11px] text-amber-300/90 leading-relaxed">
                 ⚠️ Demo only — this does not perform a real cryptographic signature. There's no USB DSC token integration
                 here; any 4+ characters will "validate." Provide a real Class 3 DSC token via your CA/GSP for anything
@@ -3100,11 +3053,11 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Select e-Token Certificate (demo labels — not real certificates):</label>
+                <label className="text-[10px] uppercase font-bold text-slate-450 tracking-wider">Select e-Token Certificate (demo labels — not real certificates):</label>
                 <select 
                   value={dscCertType} 
                   onChange={(e) => setDscCertType(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-slate-200 outline-none"
+                  className="w-full bg-slate-955 border border-slate-850 rounded px-3 py-2 text-slate-200 outline-none"
                 >
                   <option value="Aditya Hegde (Class 3 DSC USB Token - CCA India)">Aditya Hegde (Class 3 DSC USB Token - CCA India)</option>
                   <option value="Corporate Authorized Signatory - Ledgerio Solutions">Corporate Authorized Signatory - Ledgerio Solutions</option>
@@ -3113,14 +3066,14 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
               </div>
 
               <div className="space-y-1.5 font-sans">
-                <label className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">USB DSC Token PIN / Password:</label>
+                <label className="text-[10px] uppercase font-bold text-slate-455 tracking-wider">USB DSC Token PIN / Password:</label>
                 <input 
                   type="password"
                   required
                   placeholder="••••••••"
                   value={dscPin}
                   onChange={(e) => setDscPin(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-slate-200 font-mono tracking-widest focus:border-slate-700 outline-none"
+                  className="w-full bg-slate-955 border border-slate-850 rounded px-3 py-2 text-slate-200 font-mono tracking-widest focus:border-slate-705 outline-none"
                 />
               </div>
 
@@ -3185,7 +3138,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
               </button>
             </div>
 
-            <div className="space-y-3.5 text-xs text-slate-300">
+            <div className="space-y-3.5 text-xs text-slate-350">
               {onSendInvoiceEmail ? (
                 <p>
                   This sends a real email with invoice <span className="font-mono text-indigo-400 font-bold">{sendingInvoice.invoiceNumber}</span> to <span className="font-semibold text-slate-200">{sendingInvoice.customerName}</span> and marks it as Sent.
@@ -3248,6 +3201,3 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
     </div>
   );
 }
-
-
-
