@@ -1263,28 +1263,35 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                         className="flex-1 bg-white border border-gray-300 rounded px-2 py-1 text-gray-700 text-xs outline-none"
                       >
                         <option value="">Select a Tax</option>
-                        <optgroup label="Contract (194C)">
+                        <optgroup label="Contract — old 194C / new Sec 393(1) Sl.6(i)">
                           <option value="194C_ind">Contractor Ind/HUF @ 1%</option>
                           <option value="194C_comp">Contractor Company @ 2%</option>
                         </optgroup>
-                        <optgroup label="Professional (194J)">
+                        <optgroup label="Professional — old 194J / new Sec 393(1) Sl.12">
                           <option value="194J_prof">Professional Services @ 10%</option>
                           <option value="194J_tech">Technical Services @ 2%</option>
                         </optgroup>
-                        <optgroup label="Rent (194I)">
+                        <optgroup label="Rent — old 194I / new Sec 393(1) Sl.2">
                           <option value="194I_land">Land/Building @ 10%</option>
                           <option value="194I_plant">Plant/Machinery @ 2%</option>
                         </optgroup>
                         <optgroup label="Other">
-                          <option value="194A">Interest @ 10%</option>
-                          <option value="194H">Commission @ 2%</option>
-                          <option value="194Q">Purchase of Goods @ 0.1%</option>
+                          <option value="194A">Interest @ 10% (old 194A / new Sec 393(1) Sl.4)</option>
+                          <option value="194H">Commission @ 2% (old 194H / new Sec 393(1) Sl.10)</option>
+                          <option value="194Q">Purchase of Goods @ 0.1% (old 194Q / new Sec 393(1))</option>
                         </optgroup>
                       </select>
                     ) : (
                       <span className="flex-1 text-xs text-blue-600">TCS @ 0.1% (206C)</span>
                     )}
                   </div>
+                  {!applyTcs && tdsSection && (
+                    <p className="text-[10px] text-gray-400 -mt-1">
+                      {new Date(dueDate || new Date()) >= new Date("2026-04-01")
+                        ? "This invoice falls under the new Income Tax Act (2025) — quote the Section 393(1) reference on your TDS return, not the old 194-series code."
+                        : "This invoice falls under the old Income Tax Act (1961) 194-series section — the new Act's Section 393(1) applies from 1 April 2026 onward."}
+                    </p>
+                  )}
 
                   {/* Round off */}
                   <div className="flex items-center justify-between border-t border-gray-200 pt-2">

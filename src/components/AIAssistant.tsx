@@ -18,7 +18,7 @@ import {
 
 interface AIAssistantProps {
   db: DatabaseState;
-  onParseInvoice: (rawText: string) => Promise<any>;
+  onParseInvoice: (rawText: string, file?: { base64: string; mimeType: string }) => Promise<any>;
   onReconcileTransaction: (payload: any) => Promise<void>;
   onTriggerCopilot: (query: string) => Promise<string>;
 }
@@ -30,6 +30,8 @@ export default function AIAssistant({ db, onParseInvoice, onReconcileTransaction
   const [rawInvoiceText, setRawInvoiceText] = useState("");
   const [parsedDraft, setParsedDraft] = useState<any>(null);
   const [parsing, setParsing] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<{ name: string; base64: string; mimeType: string } | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   // State Bank Reconciliation Matches
   const [selectedFeedId, setSelectedFeedId] = useState<string | null>(null);
@@ -75,16 +77,48 @@ Grand Sum: 118000.00 INR`
   ];
 
   const handleParseInvoiceText = async () => {
-    if (!rawInvoiceText.trim()) return alert("Please specify raw text to extract details.");
+    if (!rawInvoiceText.trim() && !uploadedFile) return alert("Please paste text or upload an invoice/receipt file to extract details.");
     setParsing(true);
     setParsedDraft(null);
     try {
-      const data = await onParseInvoice(rawInvoiceText);
+      const data = await onParseInvoice(rawInvoiceText, uploadedFile ? { base64: uploadedFile.base64, mimeType: uploadedFile.mimeType } : undefined);
       setParsedDraft(data);
     } catch {
       alert("Error parsing using Gemini models. Check connection.");
     }
     setParsing(false);
+  };
+
+  const handleFileSelected = (file: File) => {
+    const allowed = ["image/jpeg", "image/png", "image/webp", "application/pdf", "text/plain"];
+    if (!allowed.includes(file.type)) {
+      return alert("Please upload an image (JPG/PNG/WEBP), PDF, or plain text file.");
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      return alert("File is too large — please upload something under 10MB.");
+    }
+    if (file.type === "text/plain") {
+      const reader = new FileReader();
+      reader.onload = () => setRawInvoiceText(String(reader.result || ""));
+      reader.readAsText(file);
+      setUploadedFile(null);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || "");
+      const base64 = result.split(",")[1] || "";
+      setUploadedFile({ name: file.name, base64, mimeType: file.type });
+      setRawInvoiceText("");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleFileSelected(file);
   };
 
   const handleApplyParsedDraft = () => {
@@ -227,7 +261,7 @@ Grand Sum: 118000.00 INR`
                   <button
                     key={idx}
                     type="button"
-                    onClick={() => setRawInvoiceText(samp)}
+                    onClick={() => { setRawInvoiceText(samp); setUploadedFile(null); }}
                     className="bg-[#F5F2ED] hover:bg-[#E5E1D8] px-2.5 py-1.5 rounded text-[10px] font-mono font-semibold text-[#2C2C24] border border-[#E5E1D8] cursor-pointer"
                   >
                     Template #{idx + 1} ({idx === 0 ? "ACME Bill" : "Tiger Service Credit"})
@@ -235,10 +269,49 @@ Grand Sum: 118000.00 INR`
                 ))}
               </div>
 
+              {/* Drag-and-drop / click-to-upload zone */}
+              <label
+                htmlFor="ocr-file-input"
+                onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+                onDragLeave={() => setIsDragOver(false)}
+                onDrop={handleDrop}
+                className={`flex flex-col items-center justify-center gap-1.5 border-2 border-dashed rounded-xl px-3.5 py-5 cursor-pointer transition-colors ${
+                  isDragOver ? "border-[#5A5A40] bg-[#F5F2ED]" : "border-[#E5E1D8] bg-[#FDFBF7] hover:bg-[#F5F2ED]"
+                }`}
+              >
+                <input
+                  id="ocr-file-input"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,application/pdf,text/plain"
+                  className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelected(f); e.target.value = ""; }}
+                />
+                <Upload className="w-5 h-5 text-[#8C867A]" />
+                {uploadedFile ? (
+                  <span className="text-xs font-semibold text-[#2C2C24]">{uploadedFile.name}</span>
+                ) : (
+                  <>
+                    <span className="text-xs font-semibold text-[#2C2C24]">Drop an invoice image or PDF here, or click to browse</span>
+                    <span className="text-[10px] text-[#8C867A]">JPG, PNG, WEBP, PDF, or .txt — up to 10MB</span>
+                  </>
+                )}
+                {uploadedFile && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setUploadedFile(null); }}
+                    className="text-[10px] font-bold text-red-600 hover:underline mt-1"
+                  >
+                    Remove file
+                  </button>
+                )}
+              </label>
+
+              <div className="text-center text-[10px] text-[#8C867A] font-semibold">— or paste text below —</div>
+
               <textarea
                 value={rawInvoiceText}
-                onChange={(e) => setRawInvoiceText(e.target.value)}
-                rows={11}
+                onChange={(e) => { setRawInvoiceText(e.target.value); if (e.target.value) setUploadedFile(null); }}
+                rows={7}
                 placeholder="Paste raw vendor invoice texts or OCR transcripts here..."
                 className="w-full bg-[#FDFBF7] border border-[#E5E1D8] rounded-xl px-3.5 py-2.5 text-[#2C2C24] font-mono text-xs focus:border-[#D4CDBC] outline-none resize-none leading-relaxed"
               />
@@ -246,8 +319,8 @@ Grand Sum: 118000.00 INR`
 
             <button
               onClick={handleParseInvoiceText}
-              disabled={parsing || !rawInvoiceText}
-              className="w-full bg-[#5A5A40] hover:bg-[#4E4E37] text-white font-bold text-xs py-2.5 rounded-lg select-none cursor-pointer border border-[#5A5A40]/30 flex items-center justify-center gap-2 shadow-sm"
+              disabled={parsing || (!rawInvoiceText && !uploadedFile)}
+              className="w-full bg-[#5A5A40] hover:bg-[#4E4E37] text-white font-bold text-xs py-2.5 rounded-lg select-none cursor-pointer border border-[#5A5A40]/30 flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Sparkles className="w-3.5 h-3.5 text-white" />
               {parsing ? "Gemini GPT Parsing..." : "Extract OCR Invoices draft"}

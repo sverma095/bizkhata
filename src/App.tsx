@@ -778,11 +778,11 @@ export default function App() {
   };
 
   // AI OCR integration
-  const handleParseRawInvoiceTextAPI = async (rawText: string) => {
+  const handleParseRawInvoiceTextAPI = async (rawText: string, file?: { base64: string; mimeType: string }) => {
     const r = await authFetch("/api/ai/invoice-create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt: rawText })
+      body: JSON.stringify({ prompt: rawText, fileBase64: file?.base64, fileMimeType: file?.mimeType })
     });
     if (r.ok) {
       return await r.json();

@@ -3478,9 +3478,9 @@ app.post("/api/reset", authGuard, async (req: any, res: any) => {
 
 // Server-side AI Services utilizing Google Gemini API 3.5 Flash
 app.post("/api/ai/invoice-create", authGuard, async (req: any, res: any) => {
-  const { prompt } = req.body;
-  if (!prompt) {
-    return res.status(400).json({ error: "No prompts provided." });
+  const { prompt, fileBase64, fileMimeType } = req.body;
+  if (!prompt && !fileBase64) {
+    return res.status(400).json({ error: "No prompt or file provided." });
   }
 
   if (!ai) {
@@ -3490,7 +3490,7 @@ app.post("/api/ai/invoice-create", authGuard, async (req: any, res: any) => {
   }
 
   try {
-    const systemPrompt = `You are Ledgerio's smart invoice extraction system. Parse the client's unstructured prompt (e.g., mail copy, bill list, note) and return matched business fields as JSON. Identify:
+    const systemPrompt = `You are Ledgerio's smart invoice extraction system. Parse the client's unstructured input (pasted text, or an uploaded invoice/receipt image or PDF) and return matched business fields as JSON. Identify:
     1. Customer Name
     2. Items list (name, qty, rate, gstRate (standard 18% if unspecified))
     Strictly output details inside the following JSON structure:
@@ -3501,9 +3501,17 @@ app.post("/api/ai/invoice-create", authGuard, async (req: any, res: any) => {
       ]
     }`;
 
+    // Support real file OCR (image/PDF) via Gemini's multimodal input, not just pasted text.
+    const contents = fileBase64
+      ? [{ role: "user", parts: [
+          ...(prompt ? [{ text: prompt }] : []),
+          { inlineData: { mimeType: fileMimeType || "image/jpeg", data: fileBase64 } }
+        ] }]
+      : prompt;
+
     const response = await ai.models.generateContent({
       model: "gemini-3.5-flash",
-      contents: prompt,
+      contents,
       config: {
         systemInstruction: systemPrompt,
         responseMimeType: "application/json",

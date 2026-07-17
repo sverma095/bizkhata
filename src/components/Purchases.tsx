@@ -968,12 +968,19 @@ export default function Purchases({ db, onAddVendor, onAddExpense, onAddBill, on
                         <select value={billTdsSection} onChange={e => setBillTdsSection(e.target.value)}
                           className="flex-1 bg-white border border-gray-300 rounded px-2 py-1 text-gray-700 text-xs outline-none">
                           <option value="">Select a Tax</option>
-                          <option value="194C">194C — Contractor @ 1-2%</option>
-                          <option value="194J">194J — Professional @ 10%</option>
-                          <option value="194I">194I — Rent @ 2-10%</option>
-                          <option value="194Q">194Q — Goods @ 0.1%</option>
+                          <option value="194C">Contractor @ 1-2% (old 194C / new Sec 393(1) Sl.6(i))</option>
+                          <option value="194J">Professional @ 10% (old 194J / new Sec 393(1) Sl.12)</option>
+                          <option value="194I">Rent @ 2-10% (old 194I / new Sec 393(1) Sl.2)</option>
+                          <option value="194Q">Goods @ 0.1% (old 194Q / new Sec 393(1))</option>
                         </select>
                       </div>
+                      {billTdsSection && (
+                        <p className="text-[10px] text-gray-400">
+                          {new Date() >= new Date("2026-04-01")
+                            ? "This bill falls under the new Income Tax Act (2025) — quote the Section 393(1) reference on your TDS return, not the old 194-series code."
+                            : "This bill falls under the old Income Tax Act (1961) 194-series section — the new Act's Section 393(1) applies from 1 April 2026 onward."}
+                        </p>
+                      )}
                       <div className="flex items-center gap-2">
                         <span className="text-gray-500 flex-1">Adjustment</span>
                         <input type="number" min={0} value={billTds} onChange={(e) => setBillTds(parseFloat(e.target.value) || 0)}
