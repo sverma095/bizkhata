@@ -1216,19 +1216,19 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                         className="flex-1 min-w-0 bg-white border border-gray-300 rounded px-2 py-1 text-gray-700 text-xs outline-none"
                       >
                         <option value="">Select a Tax</option>
-                        <optgroup label="Contract (194C)">
+                        <optgroup label="Contract (194C → new 393)">
                           <option value="194C_ind">Contractor Ind/HUF @ 1%</option>
                           <option value="194C_comp">Contractor Company @ 2%</option>
                         </optgroup>
-                        <optgroup label="Professional (194J)">
+                        <optgroup label="Professional (194J → new 393)">
                           <option value="194J_prof">Professional Services @ 10%</option>
                           <option value="194J_tech">Technical Services @ 2%</option>
                         </optgroup>
-                        <optgroup label="Rent (194I)">
+                        <optgroup label="Rent (194I → new 393)">
                           <option value="194I_land">Land/Building @ 10%</option>
                           <option value="194I_plant">Plant/Machinery @ 2%</option>
                         </optgroup>
-                        <optgroup label="Other">
+                        <optgroup label="Other (→ new 393)">
                           <option value="194A">Interest @ 10%</option>
                           <option value="194H">Commission @ 2%</option>
                           <option value="194Q">Purchase of Goods @ 0.1%</option>
