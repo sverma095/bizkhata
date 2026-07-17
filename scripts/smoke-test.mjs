@@ -2,6 +2,12 @@
 // Run: npm run smoke-test  (defaults to SMOKE_BASE_URL or http://localhost:3000)
 // Run against production: SMOKE_BASE_URL=https://bizkhata.app npm run smoke-test
 //
+// Requires SUPERADMIN_PASSWORD and OWNER_SEED_PASSWORD env vars to be set when
+// testing against a fresh/local server instance (e.g. SUPERADMIN_PASSWORD=Admin@123
+// OWNER_SEED_PASSWORD=Admin@123 node dist/server.cjs) - these no longer have
+// hardcoded fallbacks for security (a missing env var now generates a random
+// password and logs a warning instead of silently using a known default).
+//
 // Covers the critical paths called out in the developer handover doc:
 //   - health check responds
 //   - login endpoint exists and rejects bad credentials cleanly (not a 500)

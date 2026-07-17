@@ -265,9 +265,13 @@ async function loadUserDB(): Promise<void> {
   const saIdx = USER_DB.users.findIndex((u: any) => u.role === "Super Admin" || u.email === SUPERADMIN_EMAIL);
   if (saIdx >= 0) {
     USER_DB.users[saIdx].email = SUPERADMIN_EMAIL;
-    USER_DB.users[saIdx].password = hashPassword(SUPERADMIN_PASSWORD);
     USER_DB.users[saIdx].status = "Active";
     USER_DB.users[saIdx].role = "Super Admin";
+    // Password intentionally NOT reset here - seedUserDB() runs on every single request
+    // now (no more once-per-instance cache), so unconditionally overwriting the
+    // password on every call would mean this account could never actually be changed
+    // through the app (Set Password tool, etc.) - it would just get reset back on the
+    // very next request. Only set on first creation, in the else branch below.
   } else {
     USER_DB.users.push({ id: "user_superadmin", organizationId: null, fullName: SUPERADMIN_NAME, email: SUPERADMIN_EMAIL, mobileNumber: "", role: "Super Admin", status: "Active", password: hashPassword(SUPERADMIN_PASSWORD), permissions: ALL_PERMISSIONS_LIST.map((p: any) => p.id), twoFactorEnabled: false, twoFactorVerified: false, createdAt: "2026-01-01T00:00:00Z" });
   }
@@ -279,13 +283,23 @@ async function loadUserDB(): Promise<void> {
 
   const ownerEmail = "svtiger543939@gmail.com";
   const ownerIdx = USER_DB.users.findIndex((u: any) => u.email === ownerEmail);
+  // SECURITY: no hardcoded password fallback (see SUPERADMIN_PASSWORD above for why).
+  // Only used when actually CREATING this account for the first time below - never to
+  // overwrite an existing account's password, since seedUserDB() now runs on every
+  // single request (no more once-per-instance cache) and unconditionally resetting the
+  // password here on every call would mean this user could never actually change their
+  // own password through the app.
+  const ownerSeedPassword = process.env.OWNER_SEED_PASSWORD || (() => {
+    const generated = crypto.randomBytes(24).toString("base64url");
+    console.error(`⚠️  OWNER_SEED_PASSWORD is not set! Generated a random one-time password for creating ${ownerEmail}: ${generated}\n   Set OWNER_SEED_PASSWORD in your environment, or use the Super Admin console's Set Password tool once this account exists.`);
+    return generated;
+  })();
   if (ownerIdx >= 0) {
     USER_DB.users[ownerIdx].organizationId = ownerOrgId;
-    USER_DB.users[ownerIdx].password = hashPassword("Admin@123");
     USER_DB.users[ownerIdx].status = "Active";
     USER_DB.users[ownerIdx].role = "Admin";
   } else {
-    USER_DB.users.push({ id: "user_verma_owner", organizationId: ownerOrgId, fullName: "Sunil Verma", email: ownerEmail, mobileNumber: "+919876543210", department: "Management", designation: "Owner", role: "Admin", status: "Active", password: hashPassword("Admin@123"), permissions: ALL_PERMISSIONS_LIST.map((p: any) => p.id), twoFactorEnabled: false, twoFactorVerified: false, createdAt: "2026-01-01T00:00:00Z" });
+    USER_DB.users.push({ id: "user_verma_owner", organizationId: ownerOrgId, fullName: "Sunil Verma", email: ownerEmail, mobileNumber: "+919876543210", department: "Management", designation: "Owner", role: "Admin", status: "Active", password: hashPassword(ownerSeedPassword), permissions: ALL_PERMISSIONS_LIST.map((p: any) => p.id), twoFactorEnabled: false, twoFactorVerified: false, createdAt: "2026-01-01T00:00:00Z" });
   }
 
   // De-duplicate
@@ -346,7 +360,16 @@ const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBL
 // assignment, so calling seedUserDB() before this line would silently seed `undefined`.
 const SUPERADMIN_EMAIL = process.env.SUPERADMIN_EMAIL || "owner@bizkhata.app";
 const SUPERADMIN_NAME = process.env.SUPERADMIN_NAME || "Platform Owner";
-const SUPERADMIN_PASSWORD = process.env.SUPERADMIN_PASSWORD || "Admin@123";
+// SECURITY: previously fell back to the publicly-known "Admin@123" if this env var was
+// ever unset/misconfigured on any environment - visible to anyone who reads this
+// public repo. Now generates a random, unguessable password instead, so a missing env
+// var results in a locked-out Super Admin account (annoying, loudly logged, fixable by
+// setting the env var) rather than a silently-known password (a real security hole).
+const SUPERADMIN_PASSWORD = process.env.SUPERADMIN_PASSWORD || (() => {
+  const generated = crypto.randomBytes(24).toString("base64url");
+  console.error(`⚠️  SUPERADMIN_PASSWORD is not set! Generated a random one-time password for this cold start: ${generated}\n   Set SUPERADMIN_PASSWORD in your environment to fix this properly - it will change again on every restart until you do.`);
+  return generated;
+})();
 // SECURITY: session tokens are HMAC-signed with this secret so they can't be forged by
 // guessing an email address. Set SESSION_SECRET in your environment for production —
 // the fallback below is fine only for local/dev use.
@@ -625,7 +648,15 @@ const seedUserDB = () => {
       designation: "Owner",
       role: "Admin",
       status: "Active",
-      password: hashPassword("Admin@123"),
+      // SECURITY: no hardcoded fallback - see SUPERADMIN_PASSWORD/OWNER_SEED_PASSWORD
+      // above. This is the actual first-creation seed for this account (the other
+      // "ENFORCE CANONICAL ACCOUNTS" block only handles re-syncing an already-existing
+      // record and correctly no longer touches the password there either).
+      password: hashPassword(process.env.OWNER_SEED_PASSWORD || (() => {
+        const generated = crypto.randomBytes(24).toString("base64url");
+        console.error(`⚠️  OWNER_SEED_PASSWORD is not set! Generated a random one-time password for seeding svtiger543939@gmail.com: ${generated}\n   Set OWNER_SEED_PASSWORD in your environment, or use the Super Admin console's Set Password tool once this account exists.`);
+        return generated;
+      })()),
       permissions: ALL_PERMISSIONS_LIST.map(p => p.id),
       twoFactorEnabled: false,
       twoFactorVerified: false,
@@ -1592,6 +1623,7 @@ app.post("/api/superadmin/registrations/:id/action", authGuard, superAdminGuard,
   const reg = USER_DB.registrationRequests.find((r: any) => r.id === req.params.id);
   if (!reg) { res.status(404).json({ error: "Registration not found." }); return; }
   const { action, feedback, subscriptionMonths } = req.body;
+  let generatedPassword: string | null = null;
   if (action === "Approve") {
     // Idempotency guard: if this registration was already approved and a matching
     // org/user already exist, don't create a duplicate organization. A stale cached
@@ -1608,8 +1640,17 @@ app.post("/api/superadmin/registrations/:id/action", authGuard, superAdminGuard,
     const approvedAt = new Date().toISOString();
     const months = Math.max(1, Math.min(120, parseInt(subscriptionMonths) || 12));
     const subscriptionExpiresAt = new Date(Date.now() + months * 30 * 24 * 60 * 60 * 1000).toISOString();
+    // SECURITY: reg.password should always be present (the applicant's own chosen
+    // password from registration) - this fallback only matters for corrupted/missing
+    // data, and previously used a hardcoded, publicly-known default. Generate a random
+    // one instead and surface it in the response so it can actually be relayed.
+    let effectivePassword = reg.password;
+    if (!effectivePassword) {
+      generatedPassword = crypto.randomBytes(9).toString("base64url");
+      effectivePassword = generatedPassword;
+    }
     USER_DB.organizations.push({ id: orgId, name: reg.companyName, gstNumber: reg.gstNumber, status: "Active", allocatedSeats: reg.numberOfRequiredSeats, usedSeats: 1, plan: reg.requestedPlan || "starter", createdAt: reg.createdAt, approvedAt, subscriptionExpiresAt, subscriptionMonths: months });
-    USER_DB.users.push({ id: generateId("user"), organizationId: orgId, fullName: reg.adminName, email: reg.email, mobileNumber: reg.mobileNumber, role: "Admin", status: "Active", password: hashPassword(reg.password || "Admin@123"), permissions: ALL_PERMISSIONS_LIST.map(p => p.id), twoFactorEnabled: false, createdAt: new Date().toISOString() });
+    USER_DB.users.push({ id: generateId("user"), organizationId: orgId, fullName: reg.adminName, email: reg.email, mobileNumber: reg.mobileNumber, role: "Admin", status: "Active", password: hashPassword(effectivePassword), permissions: ALL_PERMISSIONS_LIST.map(p => p.id), twoFactorEnabled: false, createdAt: new Date().toISOString() });
     // Seed a clean blank ledger for the new org in Supabase (no demo data, zero balances)
     const cleanState = getInitialState();
     cleanState.company.name = reg.companyName;
@@ -1635,7 +1676,7 @@ app.post("/api/superadmin/registrations/:id/action", authGuard, superAdminGuard,
     console.error(`registrations/action: saveUserDB failed for '${reg.companyName}' (${reg.email}) — check the sbUpsert error logged just above this.`);
     return res.status(500).json({ success: false, error: "Action was processed but failed to persist. Check server logs for the exact database error. Use 'Check / Fix Account' to retry once fixed." });
   }
-  res.json({ success: true, reg });
+  res.json({ success: true, reg, ...(generatedPassword ? { generatedPassword, note: "The applicant's original password wasn't available, so a new one was generated. Relay this password to them directly — it won't be shown again." } : {}) });
 });
 
 // Recovery for registrations stuck in "Approved" status with no matching org/user -
@@ -1671,8 +1712,14 @@ app.post("/api/superadmin/registrations/:id/reprovision", authGuard, superAdminG
     org = { id: generateId("org"), name: reg.companyName, gstNumber: reg.gstNumber, status: "Active", allocatedSeats: reg.numberOfRequiredSeats, usedSeats: 1, plan: reg.requestedPlan || "starter", createdAt: reg.createdAt, approvedAt: new Date().toISOString(), subscriptionExpiresAt: new Date(Date.now() + months * 30 * 24 * 60 * 60 * 1000).toISOString(), subscriptionMonths: months };
     USER_DB.organizations.push(org);
   }
+  let generatedPassword: string | null = null;
   if (!user) {
-    user = { id: generateId("user"), organizationId: org.id, fullName: reg.adminName, email: reg.email, mobileNumber: reg.mobileNumber, role: "Admin", status: "Active", password: hashPassword(reg.password || "Admin@123"), permissions: ALL_PERMISSIONS_LIST.map((p: any) => p.id), twoFactorEnabled: false, createdAt: new Date().toISOString() };
+    let effectivePassword = reg.password;
+    if (!effectivePassword) {
+      generatedPassword = crypto.randomBytes(9).toString("base64url");
+      effectivePassword = generatedPassword;
+    }
+    user = { id: generateId("user"), organizationId: org.id, fullName: reg.adminName, email: reg.email, mobileNumber: reg.mobileNumber, role: "Admin", status: "Active", password: hashPassword(effectivePassword), permissions: ALL_PERMISSIONS_LIST.map((p: any) => p.id), twoFactorEnabled: false, createdAt: new Date().toISOString() };
     USER_DB.users.push(user);
   }
   const cleanState = getInitialState();
@@ -1687,7 +1734,7 @@ app.post("/api/superadmin/registrations/:id/reprovision", authGuard, superAdminG
     console.error(`reprovision: saveUserDB failed for ${reg.email} — check the sbUpsert error logged just above this.`);
     return res.status(500).json({ success: false, error: "Recovery data was prepared but failed to persist. Check server logs for the exact database error, then try again." });
   }
-  res.json({ success: true, alreadyProvisioned: false, orgId: org.id });
+  res.json({ success: true, alreadyProvisioned: false, orgId: org.id, ...(generatedPassword ? { generatedPassword, note: "The applicant's original password wasn't available, so a new one was generated. Relay this password to them directly — it won't be shown again." } : {}) });
 });
 
 // Super Admin: directly set a specific user's password. For resolving login-access
