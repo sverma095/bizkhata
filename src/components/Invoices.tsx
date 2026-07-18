@@ -1515,6 +1515,16 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                           </button>
 
                           {/* Interactive Step-by-Step Sale Invoice flow */}
+                          {inv.status === "Approved" && (
+                            <button
+                              type="button"
+                              onClick={() => setSendingInvoice(inv)}
+                              className="p-1 px-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-[10px] text-white font-bold rounded transition cursor-pointer shadow-sm flex items-center gap-1"
+                            >
+                              📨 Send Email
+                            </button>
+                          )}
+
                           {inv.status === "Draft" && (
                             <>
                               <button
@@ -1593,9 +1603,18 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                           )}
 
                           {inv.status === "Sent" && (
-                            <span className="text-[10px] text-emerald-800 font-bold flex items-center gap-0.5">
-                              ✓ Dispatched
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] text-emerald-800 font-bold flex items-center gap-0.5">
+                                ✓ Dispatched
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setSendingInvoice(inv)}
+                                className="p-1 px-2 border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-[10px] text-emerald-700 font-semibold rounded transition cursor-pointer flex items-center gap-1"
+                              >
+                                📨 Resend
+                              </button>
+                            </div>
                           )}
 
                           {balanceDue > 0 && inv.status !== "Draft" && inv.status !== "E-Invoiced" && inv.status !== "Digitally Signed" && (
