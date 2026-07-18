@@ -872,6 +872,73 @@ app.get("/api/test-supabase", async (req: any, res: any) => {
 // public with zero authentication, leaking the configured email provider, the exact
 // EMAIL_FROM address, and a partial Supabase URL to any anonymous visitor. Uptime
 // monitors that don't send an auth header still get a minimal 200 OK.
+app.get("/api/cron/send-reminders", async (req: any, res: any) => {
+  const cronSecret = process.env.CRON_SECRET;
+  const authHeader = req.headers.authorization;
+  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    return res.status(401).json({ error: "Unauthorized." });
+  }
+  if (!cronSecret) {
+    console.error("cron/send-reminders: CRON_SECRET is not set — refusing to run unauthenticated.");
+    return res.status(500).json({ error: "CRON_SECRET not configured on the server." });
+  }
+
+  const REMINDER_INTERVAL_DAYS = 3; // don't re-remind the same invoice more than once every 3 days
+  const today = new Date().toISOString().slice(0, 10);
+  const summary = { orgsChecked: 0, remindersSent: 0, remindersSkipped: 0, errors: [] as string[] };
+
+  for (const org of USER_DB.organizations) {
+    summary.orgsChecked++;
+    try {
+      const db = await readDB(org.id);
+      let mutated = false;
+      for (const inv of db.invoices || []) {
+        const isUnpaid = inv.status !== "Paid" && inv.status !== "Cancelled" && inv.status !== "Draft" && !inv.isProforma;
+        const isPastDue = inv.dueDate && inv.dueDate < today;
+        if (!isUnpaid || !isPastDue) continue;
+
+        const daysSinceLastReminder = inv.lastReminderSentAt
+          ? (new Date(today).getTime() - new Date(inv.lastReminderSentAt).getTime()) / 86400000
+          : Infinity;
+        if (daysSinceLastReminder < REMINDER_INTERVAL_DAYS) { summary.remindersSkipped++; continue; }
+
+        const customer = db.customers.find((c: any) => c.id === inv.customerId);
+        if (!customer?.email) { summary.remindersSkipped++; continue; }
+
+        const companyName = db.company?.name || "Ledgerio";
+        const daysOverdue = Math.floor((new Date(today).getTime() - new Date(inv.dueDate).getTime()) / 86400000);
+        const html = `
+          <div style="font-family:sans-serif;max-width:600px;margin:0 auto">
+            <h2 style="color:#b91c1c">Payment Reminder: Invoice ${inv.invoiceNumber}</h2>
+            <p>Dear ${inv.customerName || "Customer"},</p>
+            <p>This is a reminder that invoice <strong>${inv.invoiceNumber}</strong> for <strong>₹${Number(inv.total || 0).toLocaleString("en-IN")}</strong> was due on ${inv.dueDate} and is now <strong>${daysOverdue} day(s) overdue</strong>.</p>
+            <p>Please arrange payment at your earliest convenience.</p>
+            <p style="color:#64748b;font-size:12px;margin-top:24px">Sent automatically via Ledgerio on behalf of ${companyName}.</p>
+          </div>`;
+
+        try {
+          const result = await sendEmail(customer.email, `Payment Reminder: Invoice ${inv.invoiceNumber} (${daysOverdue} days overdue)`, html);
+          if (result.sent) {
+            inv.lastReminderSentAt = today;
+            summary.remindersSent++;
+            mutated = true;
+          } else {
+            summary.errors.push(`${org.name}/${inv.invoiceNumber}: ${result.reason}`);
+          }
+        } catch (e: any) {
+          summary.errors.push(`${org.name}/${inv.invoiceNumber}: ${e.message}`);
+        }
+      }
+      if (mutated) await writeDB(org.id, db);
+    } catch (e: any) {
+      summary.errors.push(`org ${org.id}: ${e.message}`);
+    }
+  }
+
+  console.log(`cron/send-reminders: ${JSON.stringify(summary)}`);
+  res.json({ success: true, ...summary });
+});
+
 app.get("/api/health", async (req: any, res: any) => {
   const user = await verifyTokenAndGetUser(req);
   const isSuperAdmin = user?.role === "Super Admin";

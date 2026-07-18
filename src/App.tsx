@@ -559,7 +559,26 @@ export default function App() {
         body: JSON.stringify(invoicePayload)
       });
       if (r.ok) {
+        const result = await r.json();
         await fetchDB();
+        // "Save and Send" promises an email, not just a save - actually send it.
+        // Skip for Drafts/Proformas (those buttons say "Save as Draft"/"Save Proforma",
+        // no send promised) and don't fail the whole save if the email itself fails -
+        // the invoice is already safely saved either way.
+        if (invoicePayload.status === "Approved" && !invoicePayload.isProforma) {
+          const savedInvoice = result?.db?.invoices?.find((inv: any) => inv.invoiceNumber === invoicePayload.invoiceNumber);
+          if (savedInvoice?.id) {
+            try {
+              const sendRes = await authFetch(`/api/invoices/${savedInvoice.id}/send-email`, { method: "POST" });
+              if (!sendRes.ok) {
+                const e = await sendRes.json().catch(() => ({}));
+                alert(`Invoice was saved, but the email couldn't be sent: ${e.error || "unknown error"}. You can retry sending from the invoice list.`);
+              }
+            } catch {
+              alert("Invoice was saved, but the email couldn't be sent (network error). You can retry sending from the invoice list.");
+            }
+          }
+        }
       } else {
         const err = await r.json().catch(() => ({ error: `Server error ${r.status}` }));
         throw new Error(err.error || `Server returned ${r.status}`);

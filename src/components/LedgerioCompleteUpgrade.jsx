@@ -872,7 +872,6 @@ function CostCentres({ db, token }) {
 const MODULES = [
   { id: "tds", icon: "📋", label: "TDS Management", p: "p1", C: TDSModule },
   { id: "workflow", icon: "⚡", label: "Workflow Automation", p: "p1", C: WorkflowAutomation },
-  { id: "email", icon: "✉", label: "Email / SMTP", p: "p1", C: EmailModule },
   { id: "gstr2b", icon: "🧾", label: "GSTR-2B Reconciliation", p: "p1", C: GSTR2B },
   { id: "reminders", icon: "🔔", label: "Payment Reminders", p: "p1", C: PaymentReminders },
   { id: "approvals", icon: "✅", label: "Approval Workflows", p: "p2", C: ApprovalWorkflows },
