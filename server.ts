@@ -71,6 +71,7 @@ const TABLE_COLUMNS: Record<string, string[]> = {
   bk_seat_requests: ["id", "organizationId", "requestedBy", "currentSeatCount", "additionalSeatsRequested", "reason", "status", "createdAt"],
   bk_support_tickets: ["id", "organizationId", "orgName", "raisedBy", "raisedByEmail", "subject", "description", "priority", "status", "messages", "createdAt", "updatedAt"],
   bk_notifications: ["id", "to", "subject", "body", "type", "timestamp", "code"],
+  bk_rate_limits: ["key", "count", "windowStart"],
 };
 // Only bk_users has a real field-name mismatch: the DB column is unquoted lowercase
 // `organizationid`, but every object in code uses camelCase `organizationId`.
@@ -1321,22 +1322,44 @@ async function writeDB(orgId: string, state: DatabaseState): Promise<void> {
 
 // REST Api Endpoints
 // ── Auth rate limiting ─────────────────────────────────────────────────────
-// In-memory per-IP sliding window. Resets on cold start, which is acceptable
-// here: the goal is to blunt scripted abuse, not provide hard guarantees
-// across instances.
-const rateLimit = (windowMs: number, max: number) => (req: any, res: any, next: any) => {
+// Backed by a real Supabase table (bk_rate_limits) so limits actually hold across
+// serverless instances - the previous in-memory version lived in a single instance's
+// process memory, which Vercel routinely discards/replaces between requests, making
+// it trivially bypassed under any real traffic pattern (this was flagged as a P0 in
+// the pre-launch audit). Not a perfectly atomic counter (a plain REST read-then-write
+// has a small race window under concurrent requests from the same IP+route within
+// the same instant), but that's an acceptable trade-off here: the goal is to blunt
+// scripted abuse on auth endpoints specifically, not provide airtight guarantees.
+// Falls back to in-memory if Supabase isn't configured at all, same behavior as before.
+const rateLimit = (windowMs: number, max: number) => async (req: any, res: any, next: any) => {
   const ip = (req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "unknown").toString().split(",")[0].trim();
   const key = `${req.path}:${ip}`;
-  if (!(global as any).__rateBuckets) (global as any).__rateBuckets = {};
-  const buckets = (global as any).__rateBuckets;
   const now = Date.now();
-  const bucket = (buckets[key] = buckets[key] || []).filter((t: number) => now - t < windowMs);
-  if (bucket.length >= max) {
-    res.status(429).json({ error: "Too many requests. Please try again later." });
-    return;
+
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    if (!(global as any).__rateBuckets) (global as any).__rateBuckets = {};
+    const buckets = (global as any).__rateBuckets;
+    const bucket = (buckets[key] = buckets[key] || []).filter((t: number) => now - t < windowMs);
+    if (bucket.length >= max) { res.status(429).json({ error: "Too many requests. Please try again later." }); return; }
+    bucket.push(now);
+    buckets[key] = bucket;
+    return next();
   }
-  bucket.push(now);
-  buckets[key] = bucket;
+
+  try {
+    const rows = await sbSelect("bk_rate_limits", `key=eq.${encodeURIComponent(key)}`);
+    const existing = rows[0];
+    if (existing && now - parseInt(existing.windowStart, 10) < windowMs) {
+      if (existing.count >= max) { res.status(429).json({ error: "Too many requests. Please try again later." }); return; }
+      await sbUpsert("bk_rate_limits", { key, count: existing.count + 1, windowStart: existing.windowStart });
+    } else {
+      await sbUpsert("bk_rate_limits", { key, count: 1, windowStart: String(now) });
+    }
+  } catch (err) {
+    // If the rate-limit store itself is unreachable, fail open rather than blocking
+    // all auth traffic on an unrelated Supabase hiccup.
+    console.error("rateLimit: Supabase check failed, failing open:", err);
+  }
   next();
 };
 const authRateLimit = rateLimit(10 * 60 * 1000, 5); // 5 per 10 min per IP per route
@@ -2985,6 +3008,8 @@ app.post("/api/superadmin/init-db", authGuard, superAdminGuard, async (req: any,
     create table if not exists bk_support_tickets (id text primary key, "organizationId" text, "orgName" text, "raisedBy" text, "raisedByEmail" text, subject text, description text, priority text, status text, messages jsonb, "createdAt" text, "updatedAt" text, data jsonb default '{}');
     alter table if exists bk_support_tickets add column if not exists data jsonb default '{}';
     create table if not exists bk_notifications (id text primary key, "to" text, subject text, body text, type text, timestamp text, code text, data jsonb default '{}');
+    create table if not exists bk_rate_limits (key text primary key, count int, "windowStart" text, data jsonb default '{}');
+    alter table if exists bk_rate_limits add column if not exists data jsonb default '{}';
     alter table if exists bk_notifications add column if not exists data jsonb default '{}';
   `;
   try {
