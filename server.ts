@@ -2421,6 +2421,18 @@ app.post("/api/invoices", authGuard, requirePermission("create_invoices"), async
   const db = await readDB(orgId);
   const user = req.body.authorUser || "User";
 
+  // Baseline validation: a real customer must be selected. Without this, an invoice
+  // could be saved with no customerId at all - and the tax-split shown in the UI
+  // preview (which defaults to same-state/CGST+SGST when no customer is chosen yet)
+  // would get persisted as if it were a deliberate, correct GST determination.
+  if (!invoiceData.customerId) {
+    return res.status(400).json({ error: "A customer must be selected before saving an invoice." });
+  }
+  const invoiceCustomer = db.customers.find((c: any) => c.id === invoiceData.customerId);
+  if (!invoiceCustomer) {
+    return res.status(400).json({ error: "The selected customer could not be found. Please re-select the customer and try again." });
+  }
+
   // Validation Rules enforcement (Settings > Validation Rules, sectionId "invoices")
   if (validationRuleEnabled(db, "invoices", "require_line_item") && (!Array.isArray(invoiceData.items) || invoiceData.items.length === 0)) {
     return res.status(400).json({ error: "This organization requires at least one line item on invoices.", validationRule: "require_line_item" });

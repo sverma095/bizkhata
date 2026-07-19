@@ -213,6 +213,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
   const [roundingOff, setRoundingOff] = useState<boolean>(false);
   const [currency, setCurrency] = useState<string>("INR");
   const [exchangeRate, setExchangeRate] = useState<number>(1);
+  const [supplyType, setSupplyType] = useState<"regular" | "sez_lut" | "export_igst">("regular");
   const [formItems, setFormItems] = useState<Array<{ itemId: string; name: string; hsnSac: string; qty: number; rate: number; gstRate: number; discount: number }>>([]);
   const [draftInvoiceNum, setDraftInvoiceNum] = useState("");
   const [discountType, setDiscountType] = useState<'percent'|'amount'>('percent');
@@ -245,6 +246,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
     setRoundingOff(false);
     setCurrency("INR");
     setExchangeRate(1);
+    setSupplyType("regular");
     setDiscountValue(0);
     setDiscountTiming('after_tax');
     setShippingCharge(0);
@@ -340,7 +342,17 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
     ...it,
     rate: it.discount > 0 ? it.rate * (1 - it.discount / 100) : it.rate
   }));
-  const liveResults = calculateGst(itemsForCalc, db.company.state, customerState || db.company.state);
+  const liveResultsRaw = calculateGst(itemsForCalc, db.company.state, customerState || db.company.state);
+  // SEZ/LUT supplies are zero-rated (no GST charged at all, input credit claimed
+  // separately) and exports-with-IGST-payment are always treated as interstate
+  // regardless of the customer's state match - neither of these was handled before,
+  // silently applying standard same-state/different-state GST logic to supplies that
+  // legally require different treatment.
+  const liveResults = supplyType === "sez_lut"
+    ? { ...liveResultsRaw, cgst: 0, sgst: 0, igst: 0, totalGst: 0, total: liveResultsRaw.subtotal }
+    : supplyType === "export_igst"
+    ? { ...liveResultsRaw, cgst: 0, sgst: 0, igst: liveResultsRaw.totalGst, total: liveResultsRaw.subtotal + liveResultsRaw.totalGst }
+    : liveResultsRaw;
   const discountAmount = discountType === 'percent'
     ? Math.round(liveResults.subtotal * discountValue / 100 * 100) / 100
     : discountValue;
@@ -422,6 +434,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
       totalIgst: Math.round((discountTiming === 'before_tax' ? effectiveIgst : liveResults.igst) * fxRate * 100) / 100,
       total: Math.round(foreignTotalVal * fxRate * 100) / 100,
       currency: currency !== "INR" ? currency : undefined,
+      supplyType: supplyType !== "regular" ? supplyType : undefined,
       exchangeRate: currency !== "INR" ? exchangeRate : undefined,
       foreignSubtotal: currency !== "INR" ? foreignSubtotalVal : undefined,
       foreignTotal: currency !== "INR" ? foreignTotalVal : undefined,
@@ -525,6 +538,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
     setDiscountTiming(inv.discountTiming || 'after_tax');
     setCurrency(inv.currency || "INR");
     setExchangeRate(inv.exchangeRate || 1);
+    setSupplyType((inv as any).supplyType || "regular");
     setShowForm(true);
   };
 
@@ -1052,6 +1066,24 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                   />
                   <p className="text-[10px] text-gray-400">Line item rates below are in {currency}. Invoice will be booked to the ledger at ₹{exchangeRate} per {currency}.</p>
                 </div>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs text-gray-600 font-medium">Supply Type</label>
+              <select value={supplyType} onChange={(e) => setSupplyType(e.target.value as any)}
+                className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-800 text-sm focus:border-blue-500 outline-none"
+              >
+                <option value="regular">Regular (standard CGST/SGST or IGST)</option>
+                <option value="sez_lut">Export/SEZ under LUT — Zero Rated (no GST charged)</option>
+                <option value="export_igst">Export with IGST Payment (claim refund later)</option>
+              </select>
+              {supplyType !== "regular" && (
+                <p className="text-[10px] text-amber-600">
+                  {supplyType === "sez_lut"
+                    ? "No GST will be charged on this invoice. Ensure you have a valid LUT (Letter of Undertaking) on file with GST authorities."
+                    : "IGST will be charged regardless of customer state. You can claim a refund of this IGST paid on exports."}
+                </p>
               )}
             </div>
 

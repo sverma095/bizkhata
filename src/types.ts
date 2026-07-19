@@ -155,6 +155,7 @@ export interface Invoice {
   exchangeRate?: number;      // rate to INR at invoice date (1 unit of `currency` = this many INR)
   foreignSubtotal?: number;
   foreignTotal?: number;
+  supplyType?: "sez_lut" | "export_igst"; // omitted = regular domestic supply
 }
 
 export interface CreditNoteItem {
