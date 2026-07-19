@@ -1909,7 +1909,7 @@ app.get("/api/settings/enabled-modules", authGuard, async (req: any, res: any) =
   const db = await readDB(req.user.organizationId);
   res.json(db.enabledModules || {});
 });
-app.put("/api/settings/enabled-modules", authGuard, async (req: any, res: any) => {
+app.put("/api/settings/enabled-modules", authGuard, requirePermission("manage_users"), async (req: any, res: any) => {
   const orgId = req.user.organizationId;
   const db = await readDB(orgId);
   db.enabledModules = { ...(db.enabledModules || {}), ...req.body };
@@ -2058,17 +2058,17 @@ app.post("/api/seat-requests/:id/action", authGuard, superAdminGuard, (req: any,
 });
 
 // Audit Logs
-app.get("/api/audit-logs", authGuard, (req: any, res: any) => {
+app.get("/api/audit-logs", authGuard, requirePermission("manage_users"), (req: any, res: any) => {
   const user = req.user;
   res.json(user.role === "Super Admin" ? USER_DB.auditLogs : USER_DB.auditLogs.filter((l: any) => l.organizationId === user.organizationId));
 });
 
 // Custom Roles
-app.get("/api/custom-roles", authGuard, (req: any, res: any) => {
+app.get("/api/custom-roles", authGuard, requirePermission("manage_users"), (req: any, res: any) => {
   const user = req.user;
   res.json(user.role === "Super Admin" ? USER_DB.customRoles : USER_DB.customRoles.filter((r: any) => r.organizationId === user.organizationId));
 });
-app.post("/api/custom-roles", authGuard, (req: any, res: any) => {
+app.post("/api/custom-roles", authGuard, requirePermission("manage_users"), (req: any, res: any) => {
   const user = req.user;
   if (user.role !== "Admin") { res.status(403).json({ error: "Admins only." }); return; }
   const { name, description, permissions } = req.body;
@@ -2207,7 +2207,7 @@ app.post("/api/users/add", authGuard, requirePermission("manage_users"), async (
 });
 
 // Secure API endpoint to update corporate license capacity slots on-demand
-app.post("/api/user-seats/update", authGuard, async (req: any, res: any) => {
+app.post("/api/user-seats/update", authGuard, requirePermission("manage_users"), async (req: any, res: any) => {
   const orgId = req.user.organizationId;
   if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
   const db = await readDB(orgId);
@@ -2231,7 +2231,7 @@ app.post("/api/user-seats/update", authGuard, async (req: any, res: any) => {
   res.json({ success: true, db });
 });
 
-app.post("/api/company", authGuard, async (req: any, res: any) => {
+app.post("/api/company", authGuard, requirePermission("manage_users"), async (req: any, res: any) => {
   const orgId = req.user.organizationId;
   if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
   const db = await readDB(orgId);
@@ -3892,7 +3892,7 @@ app.post("/api/ai/copilot", authGuard, async (req: any, res: any) => {
 });
 
 // ── Sales Orders API ────────────────────────────────────────────────────────
-app.post("/api/sales-orders", authGuard, async (req: any, res: any) => {
+app.post("/api/sales-orders", authGuard, requirePermission("manage_customers"), async (req: any, res: any) => {
   try {
     const orgId = req.user.organizationId;
   if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
@@ -3914,7 +3914,7 @@ app.post("/api/sales-orders", authGuard, async (req: any, res: any) => {
 });
 
 // ── Purchase Orders API ─────────────────────────────────────────────────────
-app.post("/api/purchase-orders", authGuard, async (req: any, res: any) => {
+app.post("/api/purchase-orders", authGuard, requirePermission("manage_vendors"), async (req: any, res: any) => {
   try {
     const orgId = req.user.organizationId;
   if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
@@ -4019,7 +4019,7 @@ app.post("/api/vendor-credits", authGuard, requirePermission("manage_billing"), 
 // org-scoped "rebuild my own organization's data" feature lives at POST /api/reset below.
 
 // ── Delivery Challans API ────────────────────────────────────────────────────
-app.post("/api/delivery-challans", authGuard, async (req: any, res: any) => {
+app.post("/api/delivery-challans", authGuard, requirePermission("manage_customers"), async (req: any, res: any) => {
   try {
     const orgId = req.user.organizationId;
   if (!orgId) { return res.status(400).json({ error: "Your account isn't linked to an organization." }); }
