@@ -197,7 +197,7 @@ export default function LoginScreen({ onLoginSuccess, onBackToLanding, initialVi
             { label: 'GST Invoicing', desc: 'CGST/SGST/IGST auto-calculation' },
             { label: 'E-Invoice (Beta)', desc: 'IRN generation — demo mode' },
             { label: 'Multi-User', desc: 'Role-based access control' },
-            { label: 'Real-time Sync', desc: 'Supabase PostgreSQL cloud' },
+            { label: 'Real-time Sync', desc: 'Secure cloud database' },
           ].map(f => (
             <div key={f.label} className="bg-white/5 border border-white/10 rounded-xl p-3">
               <div className="text-emerald-400 text-xs font-bold">{f.label}</div>

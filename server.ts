@@ -2110,7 +2110,7 @@ app.get("/api/db", authGuard, async (req: any, res: any) => {
   res.json(db);
 });
 
-app.get("/api/supabase-status", async (req, res) => {
+app.get("/api/supabase-status", async (req: any, res: any) => {
   // Always do a live probe to get accurate status
   if (SUPABASE_URL && SUPABASE_ANON_KEY) {
     try {
@@ -2124,7 +2124,16 @@ app.get("/api/supabase-status", async (req, res) => {
       supabaseStatus.error = { message: e?.message || String(e) };
     }
   }
-  res.json(supabaseStatus);
+  // Raw error text (which can reveal internal infrastructure details) and the backend
+  // vendor identity are only for a Super Admin diagnosing a real issue - this endpoint
+  // was previously fully unauthenticated and returned that to anyone. Regular users'
+  // UI only needs to know whether it's connected, to show a generic "saved locally"
+  // banner - not why, in vendor-specific terms.
+  const user = await verifyTokenAndGetUser(req);
+  if (user?.role === "Super Admin") {
+    return res.json(supabaseStatus);
+  }
+  res.json({ configured: supabaseStatus.configured, connected: supabaseStatus.connected, error: supabaseStatus.connected ? null : { message: "sync unavailable" } });
 });
 
 // Secure API endpoint to provisions new sub-users with random single-sign-on credentials

@@ -30,7 +30,7 @@ const STEPS = [
 ];
 
 const FAQS = [
-  { q: "Is my data secure?", a: "Yes. Your data lives in an isolated Supabase PostgreSQL database, all traffic is HTTPS-only, passwords are hashed with scrypt (not stored in plain text), and sessions use HMAC-signed tokens." },
+  { q: "Is my data secure?", a: "Yes. Your data lives in an isolated, encrypted database with row-level security, all traffic is HTTPS-only, passwords are hashed with scrypt (not stored in plain text), and sessions use HMAC-signed tokens." },
   { q: "Can I switch from Tally, Zoho, or Vyapar?", a: "Yes — you can add opening balances manually to start fresh, or export your ledger and import your chart of accounts. A dedicated migration wizard isn't built yet; reach out and we'll help you move over." },
   { q: "Is e-Invoicing (IRN) fully live?", a: "It's currently in beta — the workflow is in place, but real IRP portal integration via a licensed GSP is still being finalized. See the compliance badges above for what's fully live today." },
   { q: "What happens if I exceed my plan's seats?", a: "You'll be prompted to upgrade before adding more users past your plan's seat limit — no surprise charges." },

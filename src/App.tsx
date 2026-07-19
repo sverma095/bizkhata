@@ -1429,7 +1429,10 @@ export default function App() {
           {/* Actual content section */}
           <div id="bk-viewport-content" className="p-6 md:p-8 flex-1 max-w-7xl mx-auto w-full">
             
-            {/* Supabase Status Banner - only show if truly offline, not just slow */}
+            {/* Connection status banner - only show if truly offline, not just slow.
+                Never expose the backend vendor name, project URL, or raw internal
+                error messages here - this renders for every regular user, not just
+                admins, and none of that is anyone else's business. */}
             {supabaseStatus && supabaseStatus.configured && !supabaseStatus.connected && (
               <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start justify-between gap-4 font-sans">
                 <div className="flex items-start gap-3">
@@ -1437,20 +1440,13 @@ export default function App() {
                   <div className="space-y-1">
                     <div className="font-bold text-amber-900 text-sm">
                       {supabaseStatus.error?.message?.includes("aborted") || supabaseStatus.error?.message?.includes("timeout")
-                        ? "⏳ Supabase connection timed out — data saved locally"
+                        ? "⏳ Connection timed out — data saved locally"
                         : supabaseStatus.error?.message?.includes("fetch failed")
-                        ? "🔌 Cannot reach Supabase server"
-                        : "⚠️ Supabase sync offline — using local storage"}
+                        ? "🔌 Cannot reach the server right now"
+                        : "⚠️ Sync offline — using local storage"}
                     </div>
                     <div className="text-xs text-amber-700">
-                      {supabaseStatus.error?.message
-                        ? <span>Error: <code className="bg-amber-100 px-1 rounded">{supabaseStatus.error.message}</code></span>
-                        : "Your data is saved locally. Changes will sync when connection is restored."}
-                    </div>
-                    <div className="text-[10px] text-amber-600 mt-1">
-                      Supabase URL: <code className="bg-amber-100 px-1 rounded">{supabaseStatus.supabaseUrl || "not set"}</code>
-                      {" · "}
-                      <button onClick={fetchSupabaseStatus} className="underline hover:text-amber-800 font-semibold">Retry connection</button>
+                      Your data is saved locally. Changes will sync when connection is restored.
                     </div>
                   </div>
                 </div>

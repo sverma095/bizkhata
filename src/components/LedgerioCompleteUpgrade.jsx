@@ -1,19 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
 // Ledgerio — Complete Enterprise Accounting Upgrade
 // 30 Modules | All Missing & Partial Features Built
-// Supabase: nnuwcyqdhgnmrlfqpv.supabase.co
 // Drop this file into your React project and import as default
-
-
-
-const SB_URL = "https://zffkvwhvasavenqgkkcx.supabase.co";
-const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpmZmt2d2h2YXNhdmVucWdra2N4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzNTMxNDMsImV4cCI6MjA5NTkyOTE0M30.Yku2X577pcla2GqpaaNz78sCjIc-uWA9GdLvYyirJTk";
-const sbPost = (t, d) => fetch(`${SB_URL}/rest/v1/${t}`, { method: "POST", headers: { apikey: SB_KEY, Authorization: "Bearer " + SB_KEY, "Content-Type": "application/json", Prefer: "return=minimal" }, body: JSON.stringify(d) }).catch(() => {});
 
 // ── Generic real persistence for Advanced Modules ───────────────
 // Backs onto /api/modules/:key, which stores data per-org in the same real ledger
-// state as everything else in Ledgerio (see server.ts). Replaces ad-hoc local-only
-// useState arrays and the unauthenticated direct-to-Supabase sbPost calls above.
+// state as everything else in Ledgerio (see server.ts). This replaced an older
+// direct-to-Supabase client-side call (hardcoded project URL + anon key shipped in
+// the public JS bundle, unauthenticated, bypassing every backend permission check) -
+// that dead code has been removed entirely rather than left shipping live credentials
+// for no reason.
 function usePersisted(key, token) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
