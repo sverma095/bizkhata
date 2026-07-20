@@ -695,6 +695,11 @@ const verifyTokenAndGetUser = async (req: any): Promise<any | null> => {
     }
   }
   if (!user) return null;
+  // A held/suspended account's existing session must stop working immediately, not
+  // just be blocked from a fresh login - previously only the login endpoint checked
+  // status, so a user placed on Hold mid-session kept full access until their token
+  // naturally expired.
+  if (user.status && user.status !== "Active") return null;
   // Auto-heal: Admin/Staff without organizationId — re-link to correct org
   if (!user.organizationId && user.role !== "Super Admin") {
     // Known canonical mapping
