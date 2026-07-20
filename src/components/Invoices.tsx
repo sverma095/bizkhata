@@ -723,7 +723,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
             setShowEstimateForm(false);
           }} className="text-sm">
             <div className="px-6 py-5 space-y-4">
-              <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
                 <div className="space-y-1">
                   <label className="text-xs text-gray-500 font-medium">Customer Name <span className="text-red-500">*</span></label>
                   <select required value={estCustomerId} onChange={e => setEstCustomerId(e.target.value)}
@@ -873,7 +873,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
             </div>
 
             {/* Customer Notes + T&C + Attach */}
-            <div className="border-t border-gray-200 px-6 py-5 grid grid-cols-2 gap-6">
+            <div className="border-t border-gray-200 px-6 py-5 grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-1.5">
                 <label className="text-xs text-gray-600 font-medium">Customer Notes</label>
                 <textarea rows={3} value={estNotes} onChange={e => setEstNotes(e.target.value)}
@@ -1043,7 +1043,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
             {/* Multi-currency: line items are entered in this currency; totals are
                 stored in INR (base currency) using the rate below, so reports/journals/GL
                 all keep working in a single consistent currency. */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-xs text-gray-600 font-medium">Currency</label>
                 <select value={currency} onChange={(e) => setCurrency(e.target.value)}
