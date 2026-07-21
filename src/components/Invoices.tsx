@@ -1199,11 +1199,11 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                   )}
 
                   {/* TDS / TCS */}
-                  <div className="flex items-center gap-2 pt-1">
-                    <label className="flex items-center gap-1 text-gray-600 cursor-pointer">
+                  <div className="flex items-center gap-2 pt-1 w-full">
+                    <label className="flex items-center gap-1 text-gray-600 cursor-pointer shrink-0">
                       <input type="radio" name="taxadj" checked={!applyTcs} onChange={() => setApplyTcs(false)} className="accent-blue-600" /> TDS
                     </label>
-                    <label className="flex items-center gap-1 text-gray-600 cursor-pointer">
+                    <label className="flex items-center gap-1 text-gray-600 cursor-pointer shrink-0">
                       <input type="radio" name="taxadj" checked={applyTcs} onChange={() => { setApplyTcs(true); setTdsSection(""); setTdsAmount(0); }} className="accent-blue-600" /> TCS
                     </label>
                     {!applyTcs ? (
@@ -1221,7 +1221,7 @@ export default function Invoices({ db, onSaveInvoice, onIssueCreditNote, onAddCu
                           setTdsRate(rate);
                           setTdsAmount(Math.round(liveResults.subtotal * rate / 100 * 100) / 100);
                         }}
-                        className="flex-1 min-w-0 bg-white border border-gray-300 rounded px-2 py-1 text-gray-700 text-xs outline-none"
+                        className="flex-1 min-w-0 max-w-full truncate bg-white border border-gray-300 rounded px-2 py-1 text-gray-700 text-xs outline-none"
                       >
                         <option value="">Select a Tax</option>
                         <optgroup label="Contract (194C → new 393)">
