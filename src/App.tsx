@@ -566,7 +566,7 @@ export default function App() {
         // no send promised) and don't fail the whole save if the email itself fails -
         // the invoice is already safely saved either way.
         if (invoicePayload.status === "Approved" && !invoicePayload.isProforma) {
-          const savedInvoice = result?.db?.invoices?.find((inv: any) => inv.invoiceNumber === invoicePayload.invoiceNumber);
+          const savedInvoice = result?.invoice;
           if (savedInvoice?.id) {
             try {
               const sendRes = await authFetch(`/api/invoices/${savedInvoice.id}/send-email`, { method: "POST" });
@@ -577,6 +577,13 @@ export default function App() {
             } catch {
               alert("Invoice was saved, but the email couldn't be sent (network error). You can retry sending from the invoice list.");
             }
+          } else {
+            // Should never happen now that the backend returns the saved invoice
+            // directly, but fail loudly rather than silently no-op like before —
+            // a silent skip here is exactly what caused invoices to appear "sent"
+            // with no email ever attempted.
+            console.error("handleSaveInvoice: backend didn't return the saved invoice, couldn't auto-send email.", result);
+            alert("Invoice was saved, but couldn't confirm which record to email. Please use 'Send Email' from the invoice list to send it.");
           }
         }
       } else {
@@ -2448,6 +2455,3 @@ export default function App() {
     </div>
   );
 }
-
-
-
