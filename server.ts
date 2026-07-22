@@ -2546,8 +2546,16 @@ app.post("/api/invoices", authGuard, requirePermission("create_invoices"), async
     details: existingIndex >= 0 ? `${invoiceData.invoiceNumber}: ${changeSummary}` : `Generated standard billing number ${invoiceData.invoiceNumber} for client ₹${invoiceData.total}`
   });
 
-  await writeDB(orgId, db);
-  res.json({ success: true, db });
+  const saveOk = await writeDB(orgId, db);
+  if (!saveOk) {
+    return res.status(500).json({ error: "Invoice was prepared but failed to save. Check server logs for the exact error, then try again." });
+  }
+  // Return the saved invoice directly (not just the whole db blob) so callers never
+  // have to guess/re-match it client-side — this was previously done by searching
+  // db.invoices for a matching invoiceNumber, which silently failed whenever the
+  // number was server-auto-generated (i.e. whenever the user didn't manually type
+  // one, which is the default/common case) rather than sent by the client.
+  res.json({ success: true, db, invoice: invoiceData });
 });
 
 // Real invoice email sending — the "Mark as Sent" flow used to only flip status with
@@ -2586,7 +2594,7 @@ app.post("/api/invoices/:id/send-email", authGuard, requirePermission("view_invo
     return res.status(502).json({ error: result.reason || "Email provider not configured. Set RESEND_API_KEY (or another supported provider) in your environment.", emailSent: false });
   }
 
-  invoice.status = invoice.status === "Draft" ? "Sent" : invoice.status;
+  invoice.status = (invoice.status === "Draft" || invoice.status === "Approved") ? "Sent" : invoice.status;
   invoice.emailSentTo = to;
   invoice.emailSentAt = new Date().toISOString();
   db.auditLogs.unshift({ id: uuid(), timestamp: new Date().toISOString(), user: req.body.authorUser || "User", action: "Send Invoice Email", details: `Invoice ${invoice.invoiceNumber} emailed to ${to}` });
