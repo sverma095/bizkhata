@@ -17,6 +17,7 @@ export interface CompanyInfo {
   bankName?: string;
   bankAccount?: string;
   bankIfsc?: string;
+  upiId?: string;
   eInvoicePortal?: {
     username: string;
     password: string;
@@ -632,5 +633,3 @@ export const ALL_PERMISSIONS = [
   { id: 'manage_billing', label: 'Manage Bills', category: 'Finance' },
   { id: 'view_banking', label: 'View Banking', category: 'Banking' },
 ];
-
-
