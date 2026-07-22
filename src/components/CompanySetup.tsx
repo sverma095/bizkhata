@@ -74,6 +74,7 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
   const [bankName, setBankName] = useState(db.company.bankName || "");
   const [bankAccount, setBankAccount] = useState(db.company.bankAccount || "");
   const [bankIfsc, setBankIfsc] = useState(db.company.bankIfsc || "");
+  const [upiId, setUpiId] = useState(db.company.upiId || "");
 
   // Auxiliary UI States
   const [savingCompany, setSavingCompany] = useState(false);
@@ -240,6 +241,7 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
       bankName: bankName || undefined,
       bankAccount: bankAccount || undefined,
       bankIfsc: bankIfsc || undefined,
+      upiId: upiId || undefined,
     });
     setSavingCompany(false);
     triggerToast("Organization profile settings saved successfully!");
@@ -765,6 +767,12 @@ export default function CompanySetup({ db, onUpdateCompany, onUpdateRole, onRese
                         <label className="text-xs text-slate-500 font-bold">IFSC Code</label>
                         <input type="text" value={bankIfsc} onChange={(e) => setBankIfsc(e.target.value.toUpperCase())} placeholder="HDFC0001234"
                           className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2 text-slate-800 text-xs font-mono focus:border-[#006EE5] outline-none" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs text-slate-500 font-bold">UPI ID</label>
+                        <input type="text" value={upiId} onChange={(e) => setUpiId(e.target.value.trim())} placeholder="yourbusiness@okhdfcbank"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2 text-slate-800 text-xs font-mono focus:border-[#006EE5] outline-none" />
+                        <p className="text-[10px] text-slate-400">Adds a scannable payment QR code to your invoices.</p>
                       </div>
                     </div>
                   </div>
@@ -1591,5 +1599,3 @@ function EInvoicePortalSection({ db, onSaveCompany, triggerToast, setActiveSecti
     </div>
   );
 }
-
-
